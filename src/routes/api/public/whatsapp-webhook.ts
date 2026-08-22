@@ -264,6 +264,27 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             console.error("[business-hours]", e?.message);
           }
 
+          // Mídia que não pôde ser interpretada: responde curto em texto e não chama a IA.
+          if (mediaFailureNotice) {
+            try {
+              await evoSendText(instanceName, number, mediaFailureNotice);
+              await supabaseAdmin.from("mensagens").insert({
+                company_id: companyId,
+                user_id: userId,
+                numero: number,
+                contato_nome: pushName ?? null,
+                direcao: "saida",
+                autor: "ia",
+                texto: mediaFailureNotice,
+              });
+            } catch (e: any) {
+              console.error("[media-notice]", e?.message);
+            }
+            await upsertCard(supabaseAdmin, companyId, userId, number, pushName, text, stages);
+            return new Response("media-unreadable", { status: 200 });
+          }
+
+
           const bufferSec = Math.max(0, Math.min(20, Number(cfg?.segundos_buffer ?? 8)));
           if (bufferSec > 0) {
             await new Promise((r) => setTimeout(r, bufferSec * 1000));
