@@ -283,7 +283,7 @@ export const testAiReply = createServerFn({ method: "POST" })
     const { lovableAiChat } = await import("./lovable-ai.server");
     const { buildSystemPrompt, parseAiOutput } = await import("./ai-prompt");
     const [{ data: cfg }, { data: stagesRows }, { data: prodRows }] = await Promise.all([
-      supabase.from("agent_config").select("*").eq("company_id", companyId).maybeSingle(),
+      (await import("./agents")).fetchDefaultAgent(supabase, companyId).then((d: any) => ({ data: d })),
       supabase.from("crm_stage").select("nome, tipo, ordem").eq("company_id", companyId).order("ordem", { ascending: true }),
       supabase.from("produto").select("nome, preco, descricao, ordem").eq("company_id", companyId).eq("ativo", true).order("ordem", { ascending: true }),
     ]);

@@ -66,7 +66,8 @@ function AgentePage() {
 
   async function reload() {
     if (!companyId) return;
-    const { data } = await supabase.from("agent_config").select("*").eq("company_id", companyId).maybeSingle();
+    const { fetchDefaultAgent } = await import("@/lib/agents");
+    const data: any = await fetchDefaultAgent(supabase, companyId);
     if (data && data.nome_agente && data.nome_agente.trim() && data.sobre_empresa) {
       setHasConfig(true);
       setCfg(data);
@@ -144,11 +145,8 @@ function AgentePage() {
       palavra_despausar: palavraDespausar,
       responder_em_partes: responderEmPartes,
     };
-    const { user_id: _u, company_id: _c, updated_at: _ua, ...rest } = payload;
-    const { error } = await supabase.from("agent_config").upsert(
-      { company_id: companyId, user_id: ctx.user.id, ...rest },
-      { onConflict: "company_id" },
-    );
+    const { saveDefaultAgentConfig } = await import("@/lib/agents");
+    const { error } = await saveDefaultAgentConfig(supabase, companyId, ctx.user.id, payload as any);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Configuração salva");
