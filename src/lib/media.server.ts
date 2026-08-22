@@ -117,15 +117,16 @@ async function openAiChat(key: string, model: string, content: any[], system: st
 }
 
 /** Transcreve áudio. Usa OpenAI quando a empresa tem chave; senão cai no gateway multimodal. */
-export async function transcribeAudio(base64: string, mimetype: string, openaiKey?: string): Promise<string> {
-  if (openaiKey?.trim()) {
+export async function transcribeAudio(base64: string, mimetype: string, companyKey?: string): Promise<string> {
+  const openaiKey = resolveOpenAiKey(companyKey);
+  if (openaiKey) {
     const bytes = base64ToBytes(base64);
     const form = new FormData();
     form.append("file", new Blob([bytes], { type: mimetype.split(";")[0] }), `audio.${extFromMime(mimetype)}`);
     form.append("model", OPENAI_AUDIO_MODEL);
     const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${openaiKey.trim()}` },
+      headers: { Authorization: `Bearer ${openaiKey}` },
       body: form,
     });
     if (!res.ok) throw new Error(`OpenAI áudio: ${res.status} ${(await res.text()).slice(0, 200)}`);
@@ -148,8 +149,9 @@ export async function describeImage(
   base64: string,
   mimetype: string,
   caption: string | null,
-  openaiKey?: string,
+  companyKey?: string,
 ): Promise<string> {
+  const openaiKey = resolveOpenAiKey(companyKey);
   const clean = base64.includes("base64,") ? base64.split("base64,").pop()! : base64;
   const dataUrl = `data:${mimetype.split(";")[0]};base64,${clean}`;
   const system =
@@ -160,7 +162,7 @@ export async function describeImage(
     { type: "text", text: caption ? `Legenda enviada pelo cliente: "${caption}". Descreva a imagem.` : "Descreva a imagem." },
     { type: "image_url", image_url: { url: dataUrl } },
   ];
-  if (openaiKey?.trim()) return openAiChat(openaiKey.trim(), OPENAI_VISION_MODEL, content, system);
+  if (openaiKey) return openAiChat(openaiKey, OPENAI_VISION_MODEL, content, system);
   return gatewayChat(content, system);
 }
 
@@ -185,8 +187,9 @@ export async function readDocument(
   mimetype: string,
   fileName: string | null,
   caption: string | null,
-  openaiKey?: string,
+  companyKey?: string,
 ): Promise<string> {
+  const openaiKey = resolveOpenAiKey(companyKey);
   const clean = base64.includes("base64,") ? base64.split("base64,").pop()! : base64;
   const mime = (mimetype || "application/pdf").split(";")[0];
   const system =
@@ -199,7 +202,7 @@ export async function readDocument(
     const content: any[] = [
       { type: "text", text: `Documento "${fileName ?? "arquivo"}"${caption ? ` (legenda: ${caption})` : ""}:\n\n${text}` },
     ];
-    if (openaiKey?.trim()) return openAiChat(openaiKey.trim(), OPENAI_DOC_MODEL, content, system);
+    if (openaiKey) return openAiChat(openaiKey, OPENAI_DOC_MODEL, content, system);
     return gatewayChat(content, system);
   }
 
@@ -210,6 +213,6 @@ export async function readDocument(
     },
     { type: "file", file: { filename: fileName || "documento.pdf", file_data: `data:${mime};base64,${clean}` } },
   ];
-  if (openaiKey?.trim()) return openAiChat(openaiKey.trim(), OPENAI_DOC_MODEL, content, system);
+  if (openaiKey) return openAiChat(openaiKey, OPENAI_DOC_MODEL, content, system);
   return gatewayChat(content, system);
 }
