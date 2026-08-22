@@ -1,0 +1,6 @@
+INSERT INTO public.plan (slug, nome, descricao, preco_cents, intervalo, moeda, trial_days, ordem, destaque, ativo, limite_mensagens, limite_instancias, limite_usuarios, limite_contatos, creditos_mensais, creditos_trial, features)
+VALUES
+ ('starter','Starter','Para começar a atender no automático',9700,'month','BRL',3,1,false,true,3000,1,2,2000,3000,300,'["1 número de WhatsApp","2 usuários","3.000 conversas/mês","CRM Kanban","IA de atendimento","Relatórios básicos","Suporte por e-mail"]'::jsonb),
+ ('pro','Pro','Mais volume, IA avançada e integrações',19700,'month','BRL',3,2,true,true,10000,1,5,10000,10000,500,'["1 número de WhatsApp","5 usuários","10.000 conversas/mês","CRM Kanban","IA GPT/Claude","Google Agenda","Relatórios avançados","Suporte prioritário"]'::jsonb),
+ ('business','Business','Para operações maiores',49700,'month','BRL',3,3,false,true,40000,3,20,50000,40000,1000,'["3 números de WhatsApp","20 usuários","40.000 conversas/mês","CRM Kanban","IA GPT/Claude","Google Agenda","API e Webhooks","Onboarding assistido","SLA de suporte"]'::jsonb)
+ON CONFLICT (slug) DO NOTHING;
