@@ -6,12 +6,21 @@ function deriveInstanceName(companyId: string) {
   return `atendezap_${companyId.replace(/-/g, "").slice(0, 16)}`;
 }
 
+function stableHost(host: string) {
+  // O host de preview (id-preview--<id>.lovable.app) fica atrás do gate de sessão
+  // e responde 302 para chamadas externas — a Evolution nunca entrega o webhook.
+  // Usamos sempre o host estável do projeto.
+  const m = host.match(/^id-preview--([0-9a-fA-F-]{36})\./);
+  if (m) return `project--${m[1]}-dev.lovable.app`;
+  return host;
+}
+
 function buildWebhookUrl(token?: string | null) {
   try {
     const req = getRequest();
     const url = new URL(req.url);
     const tokenQuery = token ? `?t=${encodeURIComponent(token)}` : "";
-    return `${url.protocol}//${url.host}/api/public/whatsapp-webhook${tokenQuery}`;
+    return `${url.protocol}//${stableHost(url.host)}/api/public/whatsapp-webhook${tokenQuery}`;
   } catch {
     return "";
   }
