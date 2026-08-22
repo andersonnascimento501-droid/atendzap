@@ -8,6 +8,11 @@ export const OPENAI_AUDIO_MODEL = "gpt-4o-mini-transcribe";
 export const OPENAI_VISION_MODEL = "gpt-4o-mini";
 export const OPENAI_DOC_MODEL = "gpt-4o-mini";
 
+/** Chave própria da empresa (BYOK) quando existir; senão, chave global da plataforma. */
+function resolveOpenAiKey(companyKey?: string): string {
+  return (companyKey?.trim() || process.env.OPENAI_API_KEY?.trim() || "");
+}
+
 export type MediaKind = "audio" | "image" | "document";
 
 export type IncomingMedia = {
