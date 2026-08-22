@@ -70,6 +70,7 @@ export type Database = {
           agendamento_ativo: boolean
           ai_model: string
           ai_provider: string
+          allowed_tools: Json
           antecedencia_min: string
           anthropic_api_key: string
           apresentacao: string
@@ -139,6 +140,7 @@ export type Database = {
           agendamento_ativo?: boolean
           ai_model?: string
           ai_provider?: string
+          allowed_tools?: Json
           antecedencia_min?: string
           anthropic_api_key?: string
           apresentacao?: string
@@ -208,6 +210,7 @@ export type Database = {
           agendamento_ativo?: boolean
           ai_model?: string
           ai_provider?: string
+          allowed_tools?: Json
           antecedencia_min?: string
           anthropic_api_key?: string
           apresentacao?: string
@@ -274,6 +277,69 @@ export type Database = {
           velocidade_resposta?: string | null
         }
         Relationships: []
+      }
+      agent_custom_fields: {
+        Row: {
+          active: boolean
+          agent_id: string | null
+          company_id: string
+          created_at: string
+          description: string
+          field_type: string
+          id: string
+          key: string
+          label: string
+          options: Json
+          required: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          agent_id?: string | null
+          company_id: string
+          created_at?: string
+          description?: string
+          field_type?: string
+          id?: string
+          key: string
+          label?: string
+          options?: Json
+          required?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          agent_id?: string | null
+          company_id?: string
+          created_at?: string
+          description?: string
+          field_type?: string
+          id?: string
+          key?: string
+          label?: string
+          options?: Json
+          required?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_custom_fields_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_custom_fields_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       api_token: {
         Row: {
@@ -916,6 +982,7 @@ export type Database = {
       crm_cards: {
         Row: {
           company_id: string
+          custom_data: Json
           follow_up: string | null
           id: string
           nome: string | null
@@ -938,6 +1005,7 @@ export type Database = {
         }
         Insert: {
           company_id: string
+          custom_data?: Json
           follow_up?: string | null
           id?: string
           nome?: string | null
@@ -960,6 +1028,7 @@ export type Database = {
         }
         Update: {
           company_id?: string
+          custom_data?: Json
           follow_up?: string | null
           id?: string
           nome?: string | null
@@ -1247,30 +1316,43 @@ export type Database = {
       }
       lead_evento: {
         Row: {
+          agent_id: string | null
           card_id: string
           company_id: string
           created_at: string
           descricao: string | null
           id: string
+          metadata: Json
           tipo: string
         }
         Insert: {
+          agent_id?: string | null
           card_id: string
           company_id: string
           created_at?: string
           descricao?: string | null
           id?: string
+          metadata?: Json
           tipo: string
         }
         Update: {
+          agent_id?: string | null
           card_id?: string
           company_id?: string
           created_at?: string
           descricao?: string | null
           id?: string
+          metadata?: Json
           tipo?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_evento_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_config"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lead_evento_card_id_fkey"
             columns: ["card_id"]
