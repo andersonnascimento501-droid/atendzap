@@ -178,13 +178,14 @@ function Onboarding() {
     try {
       await persistPartial(STEPS.length - 1);
 
-      // Upsert agente (PK = company_id)
-      await supabase.from("agent_config").upsert({
-        company_id: companyId,
-        user_id: ctx.user.id,
-        nome_empresa: nomeFantasia.trim(),
-        ...agente,
-      }, { onConflict: "company_id" });
+      // Salva o agente padrão da empresa (cria o primeiro agente se ainda não existir)
+      {
+        const { saveDefaultAgentConfig } = await import("@/lib/agents");
+        await saveDefaultAgentConfig(supabase, companyId, ctx.user.id, {
+          nome_empresa: nomeFantasia.trim(),
+          ...agente,
+        });
+      }
 
       await supabase.from("company").update({
         onboarding_completed: true,
