@@ -74,10 +74,13 @@ export type Database = {
           anthropic_api_key: string
           apresentacao: string
           assinar_mensagens: boolean | null
+          ativo: boolean
           chamar_por_nome: boolean | null
           como_vender: string
           company_id: string
+          created_at: string
           cupom: string
+          descricao: string
           descricao_negocio: string
           diferenciais: string
           duracao_padrao: string
@@ -90,7 +93,9 @@ export type Database = {
           formas_pagamento: string
           horarios_atendimento: Json
           horarios_disponiveis: string
+          id: string
           idioma: string | null
+          is_default: boolean
           mensagem_fora_horario: string
           nao_pode_fazer: string
           nome_agente: string
@@ -108,6 +113,7 @@ export type Database = {
           pode_fazer: string
           politicas: string
           posvenda_msg: string
+          prioridade: number
           proatividade: number | null
           produtos_servicos: string
           publico_alvo: string
@@ -117,6 +123,7 @@ export type Database = {
           segmento: string
           segundos_buffer: number
           servicos_agendaveis: string
+          slug: string
           sobre_empresa: string
           tamanho_resposta: string
           telefone_transferencia: string
@@ -125,7 +132,7 @@ export type Database = {
           updated_at: string
           usar_emojis: boolean
           usar_girias: boolean | null
-          user_id: string
+          user_id: string | null
           velocidade_resposta: string | null
         }
         Insert: {
@@ -136,10 +143,13 @@ export type Database = {
           anthropic_api_key?: string
           apresentacao?: string
           assinar_mensagens?: boolean | null
+          ativo?: boolean
           chamar_por_nome?: boolean | null
           como_vender?: string
           company_id: string
+          created_at?: string
           cupom?: string
+          descricao?: string
           descricao_negocio?: string
           diferenciais?: string
           duracao_padrao?: string
@@ -152,7 +162,9 @@ export type Database = {
           formas_pagamento?: string
           horarios_atendimento?: Json
           horarios_disponiveis?: string
+          id?: string
           idioma?: string | null
+          is_default?: boolean
           mensagem_fora_horario?: string
           nao_pode_fazer?: string
           nome_agente?: string
@@ -170,6 +182,7 @@ export type Database = {
           pode_fazer?: string
           politicas?: string
           posvenda_msg?: string
+          prioridade?: number
           proatividade?: number | null
           produtos_servicos?: string
           publico_alvo?: string
@@ -179,6 +192,7 @@ export type Database = {
           segmento?: string
           segundos_buffer?: number
           servicos_agendaveis?: string
+          slug: string
           sobre_empresa?: string
           tamanho_resposta?: string
           telefone_transferencia?: string
@@ -187,7 +201,7 @@ export type Database = {
           updated_at?: string
           usar_emojis?: boolean
           usar_girias?: boolean | null
-          user_id: string
+          user_id?: string | null
           velocidade_resposta?: string | null
         }
         Update: {
@@ -198,10 +212,13 @@ export type Database = {
           anthropic_api_key?: string
           apresentacao?: string
           assinar_mensagens?: boolean | null
+          ativo?: boolean
           chamar_por_nome?: boolean | null
           como_vender?: string
           company_id?: string
+          created_at?: string
           cupom?: string
+          descricao?: string
           descricao_negocio?: string
           diferenciais?: string
           duracao_padrao?: string
@@ -214,7 +231,9 @@ export type Database = {
           formas_pagamento?: string
           horarios_atendimento?: Json
           horarios_disponiveis?: string
+          id?: string
           idioma?: string | null
+          is_default?: boolean
           mensagem_fora_horario?: string
           nao_pode_fazer?: string
           nome_agente?: string
@@ -232,6 +251,7 @@ export type Database = {
           pode_fazer?: string
           politicas?: string
           posvenda_msg?: string
+          prioridade?: number
           proatividade?: number | null
           produtos_servicos?: string
           publico_alvo?: string
@@ -241,6 +261,7 @@ export type Database = {
           segmento?: string
           segundos_buffer?: number
           servicos_agendaveis?: string
+          slug?: string
           sobre_empresa?: string
           tamanho_resposta?: string
           telefone_transferencia?: string
@@ -249,7 +270,7 @@ export type Database = {
           updated_at?: string
           usar_emojis?: boolean
           usar_girias?: boolean | null
-          user_id?: string
+          user_id?: string | null
           velocidade_resposta?: string | null
         }
         Relationships: []
@@ -799,6 +820,57 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      conversation_agent_state: {
+        Row: {
+          agent_id: string | null
+          company_id: string
+          confidence: number | null
+          created_at: string
+          id: string
+          intent: string | null
+          numero: string
+          reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          company_id: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          intent?: string | null
+          numero: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          company_id?: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          intent?: string | null
+          numero?: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_agent_state_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_agent_state_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       credit_ledger: {
         Row: {
