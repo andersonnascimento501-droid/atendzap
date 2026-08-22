@@ -302,6 +302,11 @@ function AgentePage() {
           <p className="text-sm text-muted-foreground">
             {cfg?.papel_objetivo || "Atendente virtual da sua empresa."}
           </p>
+          {cfg?.slug ? (
+            <p className="text-xs text-muted-foreground mt-1">
+              Editando o agente padrão da empresa: <span className="font-mono">{cfg.slug}</span>
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => { setHasConfig(false); setDescricao(""); setStep("descrever"); setPerguntas([]); setRespostas({}); setResumoIA(""); setCobertura(0); }}>
