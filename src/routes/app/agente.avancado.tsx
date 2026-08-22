@@ -132,7 +132,7 @@ function AgentePage() {
   async function reload() {
     if (!companyId) return;
     const [{ data: c }, { data: p }, { data: g }] = await Promise.all([
-      supabase.from("agent_config").select("*").eq("company_id", companyId).maybeSingle(),
+      (await import("@/lib/agents")).fetchDefaultAgent(supabase, companyId).then((d: any) => ({ data: d })),
       supabase.from("produto").select("*").eq("company_id", companyId).order("ordem", { ascending: true }),
       supabase.from("google_integration").select("company_id,email,conectado,calendar_id,expiry,updated_at").eq("company_id", companyId).maybeSingle(),
     ]);
@@ -149,9 +149,8 @@ function AgentePage() {
   async function save() {
     if (!companyId) return;
     setSaving(true);
-    const { user_id: _u, company_id: _c, updated_at: _ua, ...payload } = cfg;
-    const { error } = await supabase.from("agent_config").upsert(
-      { company_id: companyId, user_id: ctx.user.id, ...payload }, { onConflict: "company_id" });
+    const { saveDefaultAgentConfig } = await import("@/lib/agents");
+    const { error } = await saveDefaultAgentConfig(supabase, companyId, ctx.user.id, cfg as any);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Configuração salva");

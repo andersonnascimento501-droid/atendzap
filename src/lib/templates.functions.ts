@@ -107,6 +107,8 @@ export const getBusinessHours = createServerFn({ method: "GET" })
       .from("agent_config")
       .select("horarios_atendimento, mensagem_fora_horario")
       .eq("company_id", cid)
+      .order("is_default", { ascending: false })
+      .limit(1)
       .maybeSingle();
     return {
       horarios: data?.horarios_atendimento ?? null,

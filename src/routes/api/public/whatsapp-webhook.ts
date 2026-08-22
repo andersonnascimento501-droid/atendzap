@@ -78,6 +78,8 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
                 .from("agent_config")
                 .select("openai_api_key")
                 .eq("company_id", companyId)
+                .order("is_default", { ascending: false })
+                .limit(1)
                 .maybeSingle();
               const openaiKey = ((keyCfg as any)?.openai_api_key || "").trim();
 
@@ -157,11 +159,22 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           } catch {}
 
 
-          const { data: cfg } = await supabaseAdmin
-            .from("agent_config")
-            .select("*")
-            .eq("company_id", companyId)
-            .maybeSingle();
+          // Agentes ATIVOS desta company (isolamento por company_id).
+          // Enquanto houver 1 agente, o comportamento é idêntico ao anterior.
+          const { fetchActiveAgents, pickDefaultAgent } = await import("@/lib/agents");
+          const activeAgents = await fetchActiveAgents(supabaseAdmin, companyId);
+          const defaultAgent = pickDefaultAgent(activeAgents);
+          let cfg: any = defaultAgent;
+          if (!cfg) {
+            const { data: legacyCfg } = await supabaseAdmin
+              .from("agent_config")
+              .select("*")
+              .eq("company_id", companyId)
+              .order("is_default", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            cfg = legacyCfg;
+          }
 
           const palavraPausar = (cfg?.palavra_pausar || "/pausar").toLowerCase().trim();
           const palavraDespausar = (cfg?.palavra_despausar || "/despausar").toLowerCase().trim();
@@ -340,6 +353,36 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             .select("conectado")
             .eq("company_id", companyId)
             .maybeSingle();
+
+          // ---- Roteamento multiagente (Supervisor só quando há >1 agente ativo)
+          if (activeAgents.length > 1) {
+            try {
+              const { routeToAgent } = await import("@/lib/supervisor.server");
+              const decision = await routeToAgent(supabaseAdmin, {
+                companyId,
+                numero: number,
+                text,
+                agents: activeAgents,
+                historico: historico.map((m: any) => ({ direcao: m.direcao, texto: m.texto })),
+              });
+              if (decision) {
+                cfg = decision.agent;
+                console.info("[router]", companyId, number, decision.agent.slug, decision.intent, decision.confidence, decision.supervised ? "supervisor" : "direto");
+              }
+            } catch (e: any) {
+              console.error("[router]", e?.message);
+            }
+          } else if (activeAgents.length === 1 && cfg?.id) {
+            try {
+              const { persistConversationState } = await import("@/lib/supervisor.server");
+              await persistConversationState(supabaseAdmin, companyId, number, {
+                agentId: cfg.id,
+                intent: null,
+                confidence: 1,
+                reason: "único agente ativo",
+              });
+            } catch {}
+          }
 
           const responderEmPartes = cfg?.responder_em_partes ?? true;
           const system = buildSystemPrompt(cfg ?? {}, {
