@@ -290,7 +290,7 @@ function Header({
             <Zap className="size-5 text-black" strokeWidth={2.6} />
           </span>
           <span className="font-brand text-[1.5rem] md:text-[1.7rem] leading-none">
-            Atende<span className="text-grad">Zap</span>
+            Atend<span className="text-grad">Ai</span>
           </span>
         </a>
         <nav className="hidden md:flex items-center gap-8 text-[15px] font-semibold text-white/70">
