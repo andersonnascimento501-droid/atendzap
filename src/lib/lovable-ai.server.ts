@@ -26,8 +26,9 @@ export async function lovableAiChat(
   const provider = (cfg.provider || "gemini").toLowerCase();
 
   if (provider === "openai") {
-    const key = cfg.openaiKey?.trim();
-    if (!key) throw new Error("Chave OpenAI não configurada na sua empresa.");
+    // Chave própria da empresa (BYOK) quando existir; senão, chave global da plataforma.
+    const key = cfg.openaiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
+    if (!key) throw new Error("Nenhuma chave OpenAI disponível (empresa ou plataforma).");
     const model = cfg.model || "gpt-4o-mini";
     return openAiChat(key, model, messages);
   }
