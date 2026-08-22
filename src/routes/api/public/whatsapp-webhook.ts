@@ -66,6 +66,59 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             if (duplicate) return new Response("duplicate", { status: 200 });
           }
 
+          // ---- Mídia recebida (áudio / imagem / documento) -> vira TEXTO e segue o mesmo pipeline
+          let mediaFailureNotice: string | null = null;
+          if (media) {
+            const label =
+              media.kind === "audio" ? "[Áudio]" : media.kind === "image" ? "[Imagem]" : `[Documento: ${media.fileName || "arquivo"}]`;
+            try {
+              const { evoGetMediaBase64 } = await import("@/lib/evolution.server");
+              const { transcribeAudio, describeImage, readDocument, isSupportedDocument } = await import("@/lib/media.server");
+              const { data: keyCfg } = await (supabaseAdmin as any)
+                .from("agent_config")
+                .select("openai_api_key")
+                .eq("company_id", companyId)
+                .maybeSingle();
+              const openaiKey = ((keyCfg as any)?.openai_api_key || "").trim();
+
+              if (media.kind === "document" && !isSupportedDocument(media.mimetype, media.fileName)) {
+                text = `${label} (formato não suportado: ${media.mimetype})`;
+                mediaFailureNotice =
+                  "Recebi seu arquivo, mas não consigo abrir esse formato por aqui. Pode me enviar em PDF, imagem ou descrever por texto?";
+              } else {
+                const dl = await evoGetMediaBase64(instanceName, { key, message: msg });
+                if (!dl?.base64) throw new Error("mídia sem base64");
+                const mime = dl.mimetype || media.mimetype;
+                if (media.kind === "audio") {
+                  const transcricao = (await transcribeAudio(dl.base64, mime, openaiKey)).trim();
+                  if (!transcricao) throw new Error("transcrição vazia");
+                  text = `${label} ${transcricao}`;
+                } else if (media.kind === "image") {
+                  const descricao = (await describeImage(dl.base64, mime, media.caption, openaiKey)).trim();
+                  if (!descricao) throw new Error("descrição vazia");
+                  text = `${label} ${descricao}${media.caption ? ` (legenda do cliente: ${media.caption})` : ""}`;
+                } else {
+                  const conteudo = (
+                    await readDocument(dl.base64, mime, dl.fileName || media.fileName, media.caption, openaiKey)
+                  ).trim();
+                  if (!conteudo) throw new Error("documento sem conteúdo");
+                  text = `${label} ${conteudo}`;
+                }
+              }
+            } catch (e: any) {
+              console.error("[media]", media.kind, e?.message);
+              text = `${label} (não foi possível interpretar o conteúdo)`;
+              mediaFailureNotice =
+                media.kind === "audio"
+                  ? "Não consegui ouvir seu áudio agora. Pode me mandar por escrito, por favor?"
+                  : media.kind === "image"
+                  ? "Não consegui abrir sua imagem agora. Pode reenviar ou me descrever por texto?"
+                  : "Não consegui ler esse arquivo agora. Pode reenviar em PDF ou me contar o conteúdo por texto?";
+            }
+          }
+          if (!text.trim()) return new Response("no text", { status: 200 });
+
+
           const insertedAt = new Date().toISOString();
           const { data: inserted } = await (supabaseAdmin as any)
             .from("mensagens")
