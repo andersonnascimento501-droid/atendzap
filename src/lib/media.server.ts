@@ -50,10 +50,10 @@ export function detectMedia(msg: any): IncomingMedia | null {
   return null;
 }
 
-function base64ToBytes(base64: string): Uint8Array {
+function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
   const clean = base64.includes("base64,") ? base64.split("base64,").pop()! : base64;
   const bin = atob(clean.replace(/\s/g, ""));
-  const bytes = new Uint8Array(bin.length);
+  const bytes = new Uint8Array(new ArrayBuffer(bin.length));
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
 }
