@@ -153,6 +153,26 @@ export async function evoSendText(instanceName: string, number: string, text: st
   });
 }
 
+// Baixa a mídia de uma mensagem recebida e devolve o base64 (Evolution v2).
+export async function evoGetMediaBase64(
+  instanceName: string,
+  message: { key: any; message?: any },
+): Promise<{ base64: string; mimetype: string | null; fileName: string | null } | null> {
+  const res: any = await evo(`/chat/getBase64FromMediaMessage/${encodeURIComponent(instanceName)}`, {
+    method: "POST",
+    json: { message, convertToMp4: false },
+  });
+  const payload = res?.data ?? res;
+  const base64: string | undefined = payload?.base64 ?? payload?.media ?? payload?.buffer;
+  if (!base64 || typeof base64 !== "string") return null;
+  return {
+    base64,
+    mimetype: payload?.mimetype ?? payload?.mimeType ?? null,
+    fileName: payload?.fileName ?? payload?.filename ?? null,
+  };
+}
+
+
 export async function evoSendPresence(instanceName: string, number: string, presence: "composing" | "paused" | "available", delayMs = 1500) {
   try {
     await evo(`/chat/sendPresence/${encodeURIComponent(instanceName)}`, {
