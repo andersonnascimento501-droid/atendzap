@@ -32,13 +32,16 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           const number = remoteJid.split("@")[0];
           const pushName: string | undefined = data?.pushName;
           const msg = data?.message ?? {};
-          const text: string =
+          const { detectMedia } = await import("@/lib/media.server");
+          const media = detectMedia(msg);
+          let text: string =
             msg.conversation ||
             msg.extendedTextMessage?.text ||
-            msg.imageMessage?.caption ||
+            (media ? "" : msg.imageMessage?.caption || "") ||
             msg.videoMessage?.caption ||
             "";
-          if (!text || !text.trim()) return new Response("no text", { status: 200 });
+          if (!text.trim() && !media) return new Response("no text", { status: 200 });
+
 
           const suppliedToken = new URL(request.url).searchParams.get("t") || request.headers.get("x-webhook-token") || "";
           const { data: inst } = await (supabaseAdmin as any)
