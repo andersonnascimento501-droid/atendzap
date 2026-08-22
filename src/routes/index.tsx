@@ -30,7 +30,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Conecte seu número de WhatsApp em 2 minutos. A IA do AtendeZap responde, qualifica e move cada lead no funil automaticamente. 3 dias grátis para testar.",
+          "Conecte seu número de WhatsApp em 2 minutos. A IA do AtendAI responde, qualifica e move cada lead no funil automaticamente. 3 dias grátis para testar.",
       },
       { property: "og:title", content: `${brand.name} — WhatsApp + IA + CRM no automático` },
       {
@@ -290,7 +290,7 @@ function Header({
             <Zap className="size-5 text-black" strokeWidth={2.6} />
           </span>
           <span className="font-brand text-[1.5rem] md:text-[1.7rem] leading-none">
-            Atend<span className="text-grad">Ai</span>
+            Atend<span className="text-grad">AI</span>
           </span>
         </a>
         <nav className="hidden md:flex items-center gap-8 text-[15px] font-semibold text-white/70">
@@ -407,7 +407,7 @@ function PhoneMock() {
               A
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate">AtendeZap • IA</div>
+              <div className="text-sm font-semibold truncate">AtendAI • IA</div>
               <div className="text-[10px] text-[#25D366] flex items-center gap-1.5">
                 <span className="size-1.5 rounded-full bg-[#25D366]" /> online agora
               </div>
@@ -521,7 +521,7 @@ function Pain() {
         </h2>
         <p className="mt-6 text-lg md:text-xl text-white/65 leading-relaxed">
           A primeira empresa a responder vende. Sempre. Enquanto você está dirigindo, atendendo na loja
-          ou dormindo, os leads do anúncio que você pagou estão sumindo na fila. O AtendeZap responde
+          ou dormindo, os leads do anúncio que você pagou estão sumindo na fila. O AtendAI responde
           em segundos, qualifica e já te entrega o lead pronto pra fechar.
         </p>
       </div>
@@ -840,7 +840,7 @@ function Footer() {
               <span className="grid h-10 w-10 place-items-center rounded-2xl btn-glow" style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}>
                 <Zap className="size-4 text-black" strokeWidth={2.6} />
               </span>
-              <span className="font-brand text-[1.4rem] leading-none">Atende<span className="text-grad">Zap</span></span>
+              <span className="font-brand text-[1.4rem] leading-none">Atend<span className="text-grad">AI</span></span>
             </div>
             <p className="mt-4 text-sm text-white/55 leading-relaxed max-w-xs">
               IA que atende seu WhatsApp 24h, qualifica e organiza o CRM sozinha. Você só fecha.

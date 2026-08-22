@@ -461,7 +461,7 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           return new Response("error", { status: 200 });
         }
       },
-      GET: async () => new Response("AtendeZap webhook online", { status: 200 }),
+      GET: async () => new Response("AtendAI webhook online", { status: 200 }),
     },
   },
 });
