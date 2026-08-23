@@ -572,3 +572,42 @@ export async function executeTool(
   }
   return { ok: false, tool, error: "Ação não implementada." };
 }
+
+/** Bloco de prompt (extra) explicando as Tools e os campos a coletar. */
+export function buildToolsPromptBlock(ctx: ToolContext, dadosAtuais: Record<string, any> | null): string {
+  if (!ctx.allowedTools.length && !ctx.fields.length) return "";
+  const linhas: string[] = ["AÇÕES INTERNAS (tools) — use as funções disponíveis, nunca escreva o nome delas na conversa."];
+  if (ctx.allowedTools.includes("atualizar_lead"))
+    linhas.push("• atualizar_lead: sempre que o cliente informar um dado novo, salve-o (envie apenas os campos novos).");
+  if (ctx.allowedTools.includes("qualificar_lead"))
+    linhas.push("• qualificar_lead: quando o cliente atender aos critérios de interesse/perfil.");
+  if (ctx.allowedTools.includes("mover_pipeline"))
+    linhas.push("• mover_pipeline: quando a conversa avançar para outra etapa existente do pipeline.");
+  if (ctx.allowedTools.includes("transferir_humano"))
+    linhas.push(
+      "• transferir_humano: quando o cliente pedir uma pessoa ou o caso exigir análise humana. Depois do sucesso, avise o cliente com naturalidade. NUNCA invente telefone, nome de atendente ou prazo de retorno, e nunca repita o número do próprio cliente.",
+    );
+  if (ctx.allowedTools.includes("finalizar_lead"))
+    linhas.push("• finalizar_lead: quando o atendimento chegar a um desfecho (ganho, perda ou finalizado).");
+
+  if (ctx.fields.length) {
+    linhas.push(
+      "",
+      "CAMPOS A COLETAR (salve com as tools; um dado por vez, de forma natural):",
+      ...ctx.fields.map(
+        (f) =>
+          `• ${f.key} (${f.field_type}${f.required ? ", obrigatório" : ""}): ${[f.label, f.description].filter(Boolean).join(" — ")}`,
+      ),
+    );
+    const atuais = dadosAtuais && typeof dadosAtuais === "object" ? dadosAtuais : {};
+    const conhecidos = ctx.fields
+      .filter((f) => Object.prototype.hasOwnProperty.call(atuais, f.key) && atuais[f.key] !== null)
+      .map((f) => `${f.key}=${JSON.stringify(atuais[f.key])}`);
+    linhas.push(
+      conhecidos.length
+        ? `JÁ COLETADO (não pergunte de novo): ${conhecidos.join(", ")}`
+        : "JÁ COLETADO: nada ainda.",
+    );
+  }
+  return linhas.join("\n");
+}
