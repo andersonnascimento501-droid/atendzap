@@ -341,7 +341,7 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
 
           const { data: cardRow } = await supabaseAdmin
             .from("crm_cards")
-            .select("status, nome, stage_id")
+            .select("status, nome, stage_id, custom_data")
             .eq("company_id", companyId)
             .eq("numero", number)
             .maybeSingle();
@@ -394,8 +394,32 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             googleConectado: !!googleIntegration?.conectado,
           });
 
+          // ---- Tools do agente atual (BLOCO 2)
+          const {
+            normalizeToolList,
+            loadCustomFields,
+            buildToolsPromptBlock,
+            DEFAULT_ALLOWED_TOOLS,
+          } = await import("@/lib/agent-tools.server");
+          const allowedTools = cfg?.id
+            ? normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS)
+            : [];
+          const customFields = cfg?.id ? await loadCustomFields(supabaseAdmin, companyId, cfg.id) : [];
+          const toolCtx = {
+            companyId,
+            userId,
+            agentId: (cfg?.id as string) ?? null,
+            agentNome: cfg?.nome_agente,
+            numero: number,
+            contatoNome: pushName ?? null,
+            allowedTools,
+            fields: customFields,
+          };
+          const toolsPrompt = buildToolsPromptBlock(toolCtx, (cardRow as any)?.custom_data ?? null);
+
           const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
             { role: "system", content: system },
+            ...(toolsPrompt ? [{ role: "system" as const, content: toolsPrompt }] : []),
             ...historico.map((m) => ({
               role: (m.direcao === "entrada" ? "user" : "assistant") as "user" | "assistant",
               content: m.texto,
@@ -433,15 +457,35 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           }
 
           let rawReply = "";
+          const aiConfig = {
+            provider: providerChoice,
+            model: modelChoice,
+            openaiKey: (cfg as any)?.openai_api_key || "",
+            anthropicKey: (cfg as any)?.anthropic_api_key || "",
+          };
           try {
-            rawReply = await lovableAiChat(messages, {
-              provider: providerChoice,
-              model: modelChoice,
-              openaiKey: (cfg as any)?.openai_api_key || "",
-              anthropicKey: (cfg as any)?.anthropic_api_key || "",
-            });
+            if (allowedTools.length) {
+              // Loop com tools: modelo → dispatcher → resultado → modelo (mesmo crédito já consumido).
+              const { runAgentTurn } = await import("@/lib/agent-runtime.server");
+              const turn = await runAgentTurn(supabaseAdmin, {
+                messages,
+                aiConfig,
+                ctx: toolCtx as any,
+                stageNames: stages.map((s) => s.nome),
+              });
+              rawReply = turn.text;
+            } else {
+              rawReply = await lovableAiChat(messages, aiConfig);
+            }
           } catch (e: any) {
             console.error("[ai]", e?.message);
+            if (!rawReply) {
+              try {
+                rawReply = await lovableAiChat(messages, aiConfig);
+              } catch (e2: any) {
+                console.error("[ai.fallback]", e2?.message);
+              }
+            }
           }
 
           const { parts, stage, agendar } = parseAiOutput(rawReply, stages.map((s) => ({ nome: s.nome, tipo: s.tipo })));

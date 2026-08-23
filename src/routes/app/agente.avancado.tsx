@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { AgentToolsPanel } from "@/components/agent-tools-panel";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Bot, Loader2, Save, Send, Sparkles, Plus, Trash2, Calendar, CheckCircle2, AlertCircle, LinkIcon } from "lucide-react";
@@ -219,7 +220,7 @@ function AgentePage() {
             <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0 mb-4">
               {[["modelo","Modelo IA"],["negocio","Negócio"],["produtos","Produtos"],["ofertas","Ofertas"],["vendas","Vendas"],
                 ["suporte","Suporte"],["posvenda","Pós-venda"],["personalidade","Personalidade"],
-                ["agendamento","Agendamento"],["regras","Regras"]].map(([k,l]) => (
+                ["agendamento","Agendamento"],["tools","Tools e Campos"],["regras","Regras"]].map(([k,l]) => (
                 <TabsTrigger key={k} value={k} className="text-sm">{l}</TabsTrigger>
               ))}
             </TabsList>
@@ -534,6 +535,17 @@ function AgentePage() {
                   <Field label="Antecedência mínima" value={cfg.antecedencia_min} onChange={(v) => up("antecedencia_min", v)} />
                 </div>
                 <Area label="Horários disponíveis" value={cfg.horarios_disponiveis} onChange={(v) => up("horarios_disponiveis", v)} rows={2} />
+              </Section>
+            </TabsContent>
+
+            <TabsContent value="tools" className="space-y-3">
+              <Section title="Ações da IA e dados coletados" icon={<Sparkles className="size-3.5" />}>
+                <AgentToolsPanel
+                  companyId={companyId}
+                  agentId={cfg.id}
+                  allowedTools={Array.isArray(cfg.allowed_tools) ? cfg.allowed_tools : []}
+                  onChangeTools={(v) => up("allowed_tools", v)}
+                />
               </Section>
             </TabsContent>
 
