@@ -91,6 +91,8 @@ function CheckoutPage() {
   const createCompany = useServerFn(createCheckoutCompany);
 
   const [plans, setPlans] = useState<Plano[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [plansError, setPlansError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(search.plano ?? null);
   const [creating, setCreating] = useState(false);
   const [waiting, setWaiting] = useState(false);
@@ -109,20 +111,36 @@ function CheckoutPage() {
     }
   }, [ctx.company, navigate, trialActive]);
 
-  useEffect(() => {
-    supabase.from("plan").select("*").eq("ativo", true).order("ordem").then(({ data }) => {
-      if (data?.length) {
-        const list = data as Plano[];
-        setPlans(list);
-        const initial =
-          search.plano ||
-          ctx.company?.selected_plan_slug ||
-          list.find((p) => p.destaque)?.slug ||
-          list[0].slug;
-        if (!selected || !list.find((p) => p.slug === selected)) setSelected(initial);
+  async function loadPlans() {
+    setLoadingPlans(true);
+    setPlansError(null);
+    try {
+      const { data, error } = await supabase.from("plan").select("*").eq("ativo", true).order("ordem");
+      if (error) throw error;
+      const list = (data ?? []) as Plano[];
+      setPlans(list);
+      if (list.length === 0) {
+        setPlansError("Nenhum plano disponível no momento.");
+        return;
       }
-    });
+      const initial =
+        search.plano ||
+        ctx.company?.selected_plan_slug ||
+        list.find((p) => p.destaque)?.slug ||
+        list[0].slug;
+      setSelected((cur) => (cur && list.find((p) => p.slug === cur) ? cur : initial));
+    } catch (e: any) {
+      setPlansError(e?.message || "Não foi possível carregar os planos.");
+    } finally {
+      setLoadingPlans(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadPlans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   // Polling em modo paywall: assim que webhook ativar, libera
   useEffect(() => {
@@ -209,9 +227,15 @@ function CheckoutPage() {
           )}
         </div>
 
-        {plans.length === 0 ? (
+        {loadingPlans ? (
           <div className="grid place-items-center py-20"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
+        ) : plansError || plans.length === 0 ? (
+          <Card className="max-w-md mx-auto p-8 text-center space-y-4">
+            <p className="text-sm text-muted-foreground">{plansError ?? "Nenhum plano disponível no momento."}</p>
+            <Button onClick={() => void loadPlans()} variant="outline">Tentar novamente</Button>
+          </Card>
         ) : (
+
           <>
             <div className="grid md:grid-cols-3 gap-4 lg:gap-6 items-stretch mb-10 md:mb-14">
               {plans.map((p) => {
