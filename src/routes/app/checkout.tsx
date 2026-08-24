@@ -227,9 +227,15 @@ function CheckoutPage() {
           )}
         </div>
 
-        {plans.length === 0 ? (
+        {loadingPlans ? (
           <div className="grid place-items-center py-20"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>
+        ) : plansError || plans.length === 0 ? (
+          <Card className="max-w-md mx-auto p-8 text-center space-y-4">
+            <p className="text-sm text-muted-foreground">{plansError ?? "Nenhum plano disponível no momento."}</p>
+            <Button onClick={() => void loadPlans()} variant="outline">Tentar novamente</Button>
+          </Card>
         ) : (
+
           <>
             <div className="grid md:grid-cols-3 gap-4 lg:gap-6 items-stretch mb-10 md:mb-14">
               {plans.map((p) => {
