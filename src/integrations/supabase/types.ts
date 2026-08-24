@@ -1273,6 +1273,241 @@ export type Database = {
           },
         ]
       }
+      followup_sequence: {
+        Row: {
+          agent_id: string | null
+          allowed_end_time: string
+          allowed_start_time: string
+          ativo: boolean
+          company_id: string
+          created_at: string
+          eligible_stage_ids: string[]
+          final_action: string
+          final_stage_id: string | null
+          id: string
+          nome: string
+          restart_on_reply: boolean
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          allowed_end_time?: string
+          allowed_start_time?: string
+          ativo?: boolean
+          company_id: string
+          created_at?: string
+          eligible_stage_ids?: string[]
+          final_action?: string
+          final_stage_id?: string | null
+          id?: string
+          nome?: string
+          restart_on_reply?: boolean
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          allowed_end_time?: string
+          allowed_start_time?: string
+          ativo?: boolean
+          company_id?: string
+          created_at?: string
+          eligible_stage_ids?: string[]
+          final_action?: string
+          final_stage_id?: string | null
+          id?: string
+          nome?: string
+          restart_on_reply?: boolean
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_sequence_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_sequence_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_sequence_final_stage_id_fkey"
+            columns: ["final_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crm_stage"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      followup_state: {
+        Row: {
+          agent_id: string | null
+          anchor_at: string
+          attempts: number
+          cancelled_at: string | null
+          card_id: string | null
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          current_step: number
+          id: string
+          last_error: string | null
+          last_sent_at: string | null
+          locked_at: string | null
+          next_run_at: string | null
+          numero: string
+          sequence_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          anchor_at?: string
+          attempts?: number
+          cancelled_at?: string | null
+          card_id?: string | null
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number
+          id?: string
+          last_error?: string | null
+          last_sent_at?: string | null
+          locked_at?: string | null
+          next_run_at?: string | null
+          numero: string
+          sequence_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          anchor_at?: string
+          attempts?: number
+          cancelled_at?: string | null
+          card_id?: string | null
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number
+          id?: string
+          last_error?: string | null
+          last_sent_at?: string | null
+          locked_at?: string | null
+          next_run_at?: string | null
+          numero?: string
+          sequence_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_state_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_state_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "crm_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_state_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_state_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "followup_sequence"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      followup_step: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          delay_unit: string
+          delay_value: number
+          finalize: boolean
+          id: string
+          message_mode: string
+          message_template: string
+          move_stage_id: string | null
+          ordem: number
+          sequence_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          delay_unit?: string
+          delay_value?: number
+          finalize?: boolean
+          id?: string
+          message_mode?: string
+          message_template?: string
+          move_stage_id?: string | null
+          ordem?: number
+          sequence_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          delay_unit?: string
+          delay_value?: number
+          finalize?: boolean
+          id?: string
+          message_mode?: string
+          message_template?: string
+          move_stage_id?: string | null
+          ordem?: number
+          sequence_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_step_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_step_move_stage_id_fkey"
+            columns: ["move_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crm_stage"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_step_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "followup_sequence"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_integration: {
         Row: {
           access_token: string | null
@@ -1902,6 +2137,35 @@ export type Database = {
       fin_enable_for_company: {
         Args: { _company_id: string; _enable: boolean }
         Returns: undefined
+      }
+      followup_claim_due: {
+        Args: { _limit?: number }
+        Returns: {
+          agent_id: string | null
+          anchor_at: string
+          attempts: number
+          cancelled_at: string | null
+          card_id: string | null
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          current_step: number
+          id: string
+          last_error: string | null
+          last_sent_at: string | null
+          locked_at: string | null
+          next_run_at: string | null
+          numero: string
+          sequence_id: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "followup_state"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       grant_credits: {
         Args: { _company_id: string; _motivo?: string; _qtd: number }
