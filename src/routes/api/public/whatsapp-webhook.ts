@@ -139,6 +139,14 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             .maybeSingle();
           const myCreatedAt = inserted?.created_at || insertedAt;
 
+          // BLOCO 3 — cliente respondeu: cancela imediatamente qualquer follow-up pendente.
+          try {
+            const { cancelFollowups } = await import("@/lib/followup.server");
+            await cancelFollowups(supabaseAdmin, companyId, number, "cliente respondeu");
+          } catch (e: any) {
+            console.error("[followup.reset]", e?.message);
+          }
+
           // Dispara webhooks externos (best-effort, não bloqueia)
           try {
             const { emitWebhook } = await import("@/lib/webhooks.server");
@@ -541,6 +549,18 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             stages,
             stage,
           );
+
+          // BLOCO 3 — agenda a cadência de follow-up a partir desta interação.
+          try {
+            const { scheduleFollowup } = await import("@/lib/followup.server");
+            await scheduleFollowup(supabaseAdmin, {
+              companyId,
+              numero: number,
+              agentId: (cfg?.id as string) ?? null,
+            });
+          } catch (e: any) {
+            console.error("[followup.schedule]", e?.message);
+          }
 
           return new Response("ok", { status: 200 });
         } catch (e: any) {

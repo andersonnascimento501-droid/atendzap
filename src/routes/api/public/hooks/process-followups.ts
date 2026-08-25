@@ -1,0 +1,30 @@
+import { createFileRoute } from "@tanstack/react-router";
+
+/**
+ * Worker de follow-up chamado por pg_cron.
+ * Claim atômico via followup_claim_due (SKIP LOCKED) → sem envio duplicado.
+ */
+export const Route = createFileRoute("/api/public/hooks/process-followups")({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        const apikey = request.headers.get("apikey") || "";
+        const anon = process.env["SUPABASE_ANON_KEY"] || process.env["SUPABASE_PUBLISHABLE_KEY"] || "";
+        if (!anon || apikey !== anon) {
+          const { authenticateCronRequest } = await import("@/integrations/supabase/cron-auth");
+          const denied = await authenticateCronRequest(request);
+          if (denied) return denied;
+        }
+        try {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { processDueFollowups } = await import("@/lib/followup.server");
+          const out = await processDueFollowups(supabaseAdmin, 25);
+          return Response.json({ ok: true, ...out });
+        } catch (e: any) {
+          console.error("[process-followups]", e?.message);
+          return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
+        }
+      },
+    },
+  },
+});

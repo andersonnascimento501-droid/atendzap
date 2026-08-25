@@ -59,6 +59,7 @@ import { Route as AppAgenteAvancadoRouteImport } from './routes/app/agente.avanc
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
 import { Route as ApiPublicGoogleCallbackRouteImport } from './routes/api/public/google-callback'
 import { Route as ApiPublicV1SplatRouteImport } from './routes/api/public/v1/$'
+import { Route as ApiPublicHooksProcessFollowupsRouteImport } from './routes/api/public/hooks/process-followups'
 import { Route as ApiPublicHooksProcessCampaignsRouteImport } from './routes/api/public/hooks/process-campaigns'
 import { Route as ApiPublicBillingWebhookRouteImport } from './routes/api/public/billing/webhook'
 
@@ -313,6 +314,12 @@ const ApiPublicV1SplatRoute = ApiPublicV1SplatRouteImport.update({
   path: '/api/public/v1/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksProcessFollowupsRoute =
+  ApiPublicHooksProcessFollowupsRouteImport.update({
+    id: '/api/public/hooks/process-followups',
+    path: '/api/public/hooks/process-followups',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksProcessCampaignsRoute =
   ApiPublicHooksProcessCampaignsRouteImport.update({
     id: '/api/public/hooks/process-campaigns',
@@ -377,6 +384,7 @@ export interface FileRoutesByFullPath {
   '/app/agente/avancado': typeof AppAgenteAvancadoRoute
   '/api/public/billing/webhook': typeof ApiPublicBillingWebhookRoute
   '/api/public/hooks/process-campaigns': typeof ApiPublicHooksProcessCampaignsRoute
+  '/api/public/hooks/process-followups': typeof ApiPublicHooksProcessFollowupsRoute
   '/api/public/v1/$': typeof ApiPublicV1SplatRoute
 }
 export interface FileRoutesByTo {
@@ -429,6 +437,7 @@ export interface FileRoutesByTo {
   '/app/agente/avancado': typeof AppAgenteAvancadoRoute
   '/api/public/billing/webhook': typeof ApiPublicBillingWebhookRoute
   '/api/public/hooks/process-campaigns': typeof ApiPublicHooksProcessCampaignsRoute
+  '/api/public/hooks/process-followups': typeof ApiPublicHooksProcessFollowupsRoute
   '/api/public/v1/$': typeof ApiPublicV1SplatRoute
 }
 export interface FileRoutesById {
@@ -484,6 +493,7 @@ export interface FileRoutesById {
   '/app/agente/avancado': typeof AppAgenteAvancadoRoute
   '/api/public/billing/webhook': typeof ApiPublicBillingWebhookRoute
   '/api/public/hooks/process-campaigns': typeof ApiPublicHooksProcessCampaignsRoute
+  '/api/public/hooks/process-followups': typeof ApiPublicHooksProcessFollowupsRoute
   '/api/public/v1/$': typeof ApiPublicV1SplatRoute
 }
 export interface FileRouteTypes {
@@ -540,6 +550,7 @@ export interface FileRouteTypes {
     | '/app/agente/avancado'
     | '/api/public/billing/webhook'
     | '/api/public/hooks/process-campaigns'
+    | '/api/public/hooks/process-followups'
     | '/api/public/v1/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -592,6 +603,7 @@ export interface FileRouteTypes {
     | '/app/agente/avancado'
     | '/api/public/billing/webhook'
     | '/api/public/hooks/process-campaigns'
+    | '/api/public/hooks/process-followups'
     | '/api/public/v1/$'
   id:
     | '__root__'
@@ -646,6 +658,7 @@ export interface FileRouteTypes {
     | '/app/agente/avancado'
     | '/api/public/billing/webhook'
     | '/api/public/hooks/process-campaigns'
+    | '/api/public/hooks/process-followups'
     | '/api/public/v1/$'
   fileRoutesById: FileRoutesById
 }
@@ -666,6 +679,7 @@ export interface RootRouteChildren {
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
   ApiPublicBillingWebhookRoute: typeof ApiPublicBillingWebhookRoute
   ApiPublicHooksProcessCampaignsRoute: typeof ApiPublicHooksProcessCampaignsRoute
+  ApiPublicHooksProcessFollowupsRoute: typeof ApiPublicHooksProcessFollowupsRoute
   ApiPublicV1SplatRoute: typeof ApiPublicV1SplatRoute
 }
 
@@ -1021,6 +1035,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicV1SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/process-followups': {
+      id: '/api/public/hooks/process-followups'
+      path: '/api/public/hooks/process-followups'
+      fullPath: '/api/public/hooks/process-followups'
+      preLoaderRoute: typeof ApiPublicHooksProcessFollowupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/process-campaigns': {
       id: '/api/public/hooks/process-campaigns'
       path: '/api/public/hooks/process-campaigns'
@@ -1160,6 +1181,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
   ApiPublicBillingWebhookRoute: ApiPublicBillingWebhookRoute,
   ApiPublicHooksProcessCampaignsRoute: ApiPublicHooksProcessCampaignsRoute,
+  ApiPublicHooksProcessFollowupsRoute: ApiPublicHooksProcessFollowupsRoute,
   ApiPublicV1SplatRoute: ApiPublicV1SplatRoute,
 }
 export const routeTree = rootRouteImport
