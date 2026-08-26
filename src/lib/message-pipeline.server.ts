@@ -120,7 +120,7 @@ async function sendPartOnce(
     userId: string;
     numero: string;
     contatoNome: string | null;
-    instanceName: string;
+    target: any;
     jobId: string;
     index: number;
     texto: string;
@@ -136,12 +136,13 @@ async function sendPartOnce(
     .maybeSingle();
   if (already) return; // retry: essa parte já foi enviada
 
-  const { evoSendText } = await import("@/lib/evolution.server");
-  await evoSendText(args.instanceName, args.numero, args.texto);
+  const { sendChannelText } = await import("@/lib/channels.server");
+  await sendChannelText(args.target, args.texto);
   await admin.from("mensagens").insert({
     company_id: args.companyId,
     user_id: args.userId,
     numero: args.numero,
+    channel: args.target.channel,
     contato_nome: args.contatoNome,
     direcao: "saida",
     autor: args.autor ?? "ia",
@@ -155,14 +156,14 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   const companyId = job.company_id;
   const number = job.numero;
 
-  const { data: inst } = await admin
-    .from("whatsapp_instances")
-    .select("company_id, user_id, instance_name")
-    .eq("company_id", companyId)
-    .maybeSingle();
-  const instanceName = (job.instance_name || (inst as any)?.instance_name) as string;
-  const userId = (inst as any)?.user_id as string;
-  if (!instanceName || !userId) return { status: "skipped", reason: "instance-missing" };
+  const { resolveChannelTarget } = await import("@/lib/channels.server");
+  const target = await resolveChannelTarget(admin, companyId, number, { instanceName: job.instance_name });
+  const userId = target.userId as string;
+  if (!target.ready || !userId) {
+    return { status: "skipped", reason: target.reason ?? "channel-not-ready" };
+  }
+  const channel = target.channel;
+
 
   const pending = await loadPending(admin, companyId, number);
   if (!pending.length) return { status: "skipped", reason: "nothing-pending" };
