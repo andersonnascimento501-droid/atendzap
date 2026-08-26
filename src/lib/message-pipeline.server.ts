@@ -263,7 +263,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   if (mediaFailureNotice) {
     await sendPartOnce(admin, {
       companyId, userId, numero: number, contatoNome: pushName ?? null,
-      instanceName, jobId: job.id, index: 0, texto: mediaFailureNotice,
+      target, jobId: job.id, index: 0, texto: mediaFailureNotice,
     });
     await markProcessed(admin, ids);
     await upsertCard(admin, companyId, userId, number, pushName, lastText, stages);
