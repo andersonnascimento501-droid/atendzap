@@ -47,7 +47,7 @@ async function markProcessed(admin: any, ids: string[]) {
 async function resolveMedia(
   admin: any,
   companyId: string,
-  instanceName: string,
+  target: any,
   pend: PendingMsg[],
 ): Promise<{ notice: string | null }> {
   let notice: string | null = null;
@@ -63,7 +63,7 @@ async function resolveMedia(
     .maybeSingle();
   const openaiKey = ((keyCfg as any)?.openai_api_key || "").trim();
 
-  const { evoGetMediaBase64 } = await import("@/lib/evolution.server");
+  const { downloadChannelMedia } = await import("@/lib/channels.server");
   const { transcribeAudio, describeImage, readDocument, isSupportedDocument } = await import("@/lib/media.server");
 
   for (const m of withMedia) {
@@ -76,7 +76,7 @@ async function resolveMedia(
         texto = `${label} (formato não suportado: ${media.mimetype})`;
         notice = "Recebi seu arquivo, mas não consigo abrir esse formato por aqui. Pode me enviar em PDF, imagem ou descrever por texto?";
       } else {
-        const dl = await evoGetMediaBase64(instanceName, { key: media.key, message: media.message });
+        const dl = await downloadChannelMedia(target, media);
         if (!dl?.base64) throw new Error("mídia sem base64");
         const mime = dl.mimetype || media.mimetype;
         if (media.kind === "audio") {
@@ -110,6 +110,7 @@ async function resolveMedia(
   }
   return { notice };
 }
+
 
 /** Envio idempotente: response_key = job + índice da parte. Só grava depois do envio confirmado. */
 async function sendPartOnce(
