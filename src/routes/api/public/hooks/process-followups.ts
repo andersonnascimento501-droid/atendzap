@@ -8,9 +8,11 @@ export const Route = createFileRoute("/api/public/hooks/process-followups")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey") || "";
-        const anon = process.env["SUPABASE_ANON_KEY"] || process.env["SUPABASE_PUBLISHABLE_KEY"] || "";
-        if (!anon || apikey !== anon) {
+        const apikey = (request.headers.get("apikey") || "").trim();
+        const accepted = [process.env["SUPABASE_ANON_KEY"], process.env["SUPABASE_PUBLISHABLE_KEY"]].filter(
+          (k): k is string => !!k && k.length > 20,
+        );
+        if (!apikey || !accepted.includes(apikey)) {
           const { authenticateCronRequest } = await import("@/integrations/supabase/cron-auth");
           const denied = await authenticateCronRequest(request);
           if (denied) return denied;
