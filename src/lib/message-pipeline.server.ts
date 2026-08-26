@@ -555,12 +555,16 @@ export async function upsertCard(
     user_id: userId,
     numero,
     nome: existing?.nome || nome || null,
-    ultima_mensagem: (ultimaMensagem || "").slice(0, 500),
+    ultima_mensagem: (ultimaMensagem || "").slice(0, 240),
     ultima_em: new Date().toISOString(),
   };
   if (finalStage) {
     payload.stage_id = finalStage.id;
     payload.status = finalStage.nome;
+  } else if (existing?.status) {
+    payload.status = existing.status;
+  } else {
+    payload.status = "Conversas";
   }
   await admin.from("crm_cards").upsert(payload, { onConflict: "company_id,numero" });
 }
