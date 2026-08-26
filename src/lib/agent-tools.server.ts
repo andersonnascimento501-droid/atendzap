@@ -495,6 +495,15 @@ export async function executeTool(
             { onConflict: "company_id,numero" },
           );
 
+        // BLOCO 3) atendimento humano: cancela follow-ups pendentes deste contato
+        try {
+          const { cancelFollowups } = await import("./followup.server");
+          await cancelFollowups(admin, ctx.companyId, ctx.numero, "transferido para humano", { logCardId: card.id, agentId: ctx.agentId });
+        } catch (e: any) {
+          console.error("[followup.cancel]", e?.message);
+        }
+
+
         // 9) evento de transferência
         await logEvent(admin, ctx, card.id, "transferencia_humano", `Transferido para humano${args.motivo ? ` — ${args.motivo}` : ""}`, {
           resumo: resumo || null,
