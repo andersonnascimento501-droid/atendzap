@@ -572,6 +572,13 @@ export async function executeTool(
         });
         card.stage_id = stage.id;
         card.status = stage.nome;
+        // BLOCO 3) lead finalizado: nenhuma nova mensagem automática
+        try {
+          const { cancelFollowups } = await import("./followup.server");
+          await cancelFollowups(admin, ctx.companyId, ctx.numero, "lead finalizado", { logCardId: card.id, agentId: ctx.agentId });
+        } catch (e: any) {
+          console.error("[followup.cancel]", e?.message);
+        }
         return { ok: true, tool, etapa: stage.nome, campos_salvos: Object.keys(r.accepted), campos_rejeitados: r.rejected };
       }
     }
