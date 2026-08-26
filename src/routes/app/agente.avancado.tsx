@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AgentToolsPanel } from "@/components/agent-tools-panel";
+import { AgentFollowupPanel } from "@/components/agent-followup-panel";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Bot, Loader2, Save, Send, Sparkles, Plus, Trash2, Calendar, CheckCircle2, AlertCircle, LinkIcon } from "lucide-react";
@@ -548,6 +549,13 @@ function AgentePage() {
                 />
               </Section>
             </TabsContent>
+
+            <TabsContent value="followup" className="space-y-3">
+              <Section title="Follow-up automático" icon={<Sparkles className="size-3.5" />}>
+                <AgentFollowupPanel companyId={companyId} agentId={cfg.id} />
+              </Section>
+            </TabsContent>
+
 
             <TabsContent value="regras" className="space-y-3">
               <Section>
