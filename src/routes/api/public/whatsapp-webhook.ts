@@ -1,15 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+/**
+ * BLOCO 4 — WEBHOOK RÁPIDO (somente RECEBIMENTO).
+ * Valida → normaliza → grava mensagem → cancela follow-up → enfileira job → 200.
+ * Todo o processamento pesado (mídia, Supervisor, IA, tools, envio) roda no worker
+ * /api/public/hooks/process-message-queue via src/lib/message-pipeline.server.ts.
+ */
 export const Route = createFileRoute("/api/public/whatsapp-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const t0 = Date.now();
         try {
           const payload: any = await request.json().catch(() => ({}));
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { evoSendText, evoSendPresence } = await import("@/lib/evolution.server");
-          const { lovableAiChat } = await import("@/lib/lovable-ai.server");
-          const { buildSystemPrompt, parseAiOutput } = await import("@/lib/ai-prompt");
 
           const event: string | undefined = payload?.event;
           const instanceName: string | undefined =
@@ -29,12 +33,12 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           if (remoteJid.endsWith("@g.us")) return new Response("group", { status: 200 });
           if (fromMe) return new Response("fromMe", { status: 200 });
 
-          const number = remoteJid.split("@")[0];
+          const number = remoteJid.split("@")[0]!;
           const pushName: string | undefined = data?.pushName;
           const msg = data?.message ?? {};
           const { detectMedia } = await import("@/lib/media.server");
           const media = detectMedia(msg);
-          let text: string =
+          const text: string =
             msg.conversation ||
             msg.extendedTextMessage?.text ||
             (media ? "" : msg.imageMessage?.caption || "") ||
@@ -42,8 +46,8 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             "";
           if (!text.trim() && !media) return new Response("no text", { status: 200 });
 
-
-          const suppliedToken = new URL(request.url).searchParams.get("t") || request.headers.get("x-webhook-token") || "";
+          const suppliedToken =
+            new URL(request.url).searchParams.get("t") || request.headers.get("x-webhook-token") || "";
           const { data: inst } = await (supabaseAdmin as any)
             .from("whatsapp_instances")
             .select("company_id, user_id, instance_name, webhook_token")
@@ -56,73 +60,18 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           const companyId = (inst as any).company_id as string;
           const userId = (inst as any).user_id as string;
 
-          if (whatsappMessageId) {
-            const { data: duplicate } = await (supabaseAdmin as any)
-              .from("mensagens")
-              .select("id")
-              .eq("company_id", companyId)
-              .eq("whatsapp_message_id", whatsappMessageId)
-              .maybeSingle();
-            if (duplicate) return new Response("duplicate", { status: 200 });
-          }
+          // Idempotência de entrada (índice único company_id + whatsapp_message_id)
+          const label =
+            media?.kind === "audio"
+              ? "[Áudio]"
+              : media?.kind === "image"
+              ? "[Imagem]"
+              : media
+              ? `[Documento: ${media.fileName || "arquivo"}]`
+              : "";
+          const storedText = text.trim() || `${label} (processando...)`;
 
-          // ---- Mídia recebida (áudio / imagem / documento) -> vira TEXTO e segue o mesmo pipeline
-          let mediaFailureNotice: string | null = null;
-          if (media) {
-            const label =
-              media.kind === "audio" ? "[Áudio]" : media.kind === "image" ? "[Imagem]" : `[Documento: ${media.fileName || "arquivo"}]`;
-            try {
-              const { evoGetMediaBase64 } = await import("@/lib/evolution.server");
-              const { transcribeAudio, describeImage, readDocument, isSupportedDocument } = await import("@/lib/media.server");
-              const { data: keyCfg } = await (supabaseAdmin as any)
-                .from("agent_config")
-                .select("openai_api_key")
-                .eq("company_id", companyId)
-                .order("is_default", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              const openaiKey = ((keyCfg as any)?.openai_api_key || "").trim();
-
-              if (media.kind === "document" && !isSupportedDocument(media.mimetype, media.fileName)) {
-                text = `${label} (formato não suportado: ${media.mimetype})`;
-                mediaFailureNotice =
-                  "Recebi seu arquivo, mas não consigo abrir esse formato por aqui. Pode me enviar em PDF, imagem ou descrever por texto?";
-              } else {
-                const dl = await evoGetMediaBase64(instanceName, { key, message: msg });
-                if (!dl?.base64) throw new Error("mídia sem base64");
-                const mime = dl.mimetype || media.mimetype;
-                if (media.kind === "audio") {
-                  const transcricao = (await transcribeAudio(dl.base64, mime, openaiKey)).trim();
-                  if (!transcricao) throw new Error("transcrição vazia");
-                  text = `${label} ${transcricao}`;
-                } else if (media.kind === "image") {
-                  const descricao = (await describeImage(dl.base64, mime, media.caption, openaiKey)).trim();
-                  if (!descricao) throw new Error("descrição vazia");
-                  text = `${label} ${descricao}${media.caption ? ` (legenda do cliente: ${media.caption})` : ""}`;
-                } else {
-                  const conteudo = (
-                    await readDocument(dl.base64, mime, dl.fileName || media.fileName, media.caption, openaiKey)
-                  ).trim();
-                  if (!conteudo) throw new Error("documento sem conteúdo");
-                  text = `${label} ${conteudo}`;
-                }
-              }
-            } catch (e: any) {
-              console.error("[media]", media.kind, e?.message);
-              text = `${label} (não foi possível interpretar o conteúdo)`;
-              mediaFailureNotice =
-                media.kind === "audio"
-                  ? "Não consegui ouvir seu áudio agora. Pode me mandar por escrito, por favor?"
-                  : media.kind === "image"
-                  ? "Não consegui abrir sua imagem agora. Pode reenviar ou me descrever por texto?"
-                  : "Não consegui ler esse arquivo agora. Pode reenviar em PDF ou me contar o conteúdo por texto?";
-            }
-          }
-          if (!text.trim()) return new Response("no text", { status: 200 });
-
-
-          const insertedAt = new Date().toISOString();
-          const { data: inserted } = await (supabaseAdmin as any)
+          const { data: inserted, error: insertErr } = await (supabaseAdmin as any)
             .from("mensagens")
             .insert({
               company_id: companyId,
@@ -131,15 +80,32 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
               contato_nome: pushName ?? null,
               direcao: "entrada",
               autor: "contato",
-              texto: text,
+              texto: storedText,
               whatsapp_message_id: whatsappMessageId,
-              created_at: insertedAt,
+              media_ref: media ? { ...media, key, message: msg } : null,
             })
-            .select("id, created_at")
+            .select("id")
             .maybeSingle();
-          const myCreatedAt = inserted?.created_at || insertedAt;
+          if (insertErr) {
+            // 23505 = unique violation => evento reenviado pela Evolution
+            if ((insertErr as any).code === "23505") return new Response("duplicate", { status: 200 });
+            throw insertErr;
+          }
 
-          // BLOCO 3 — cliente respondeu: cancela imediatamente qualquer follow-up pendente.
+          const lower = storedText.toLowerCase().trim();
+
+          // Comandos instantâneos (sem IA, sem fila)
+          const { data: cmdCfg } = await (supabaseAdmin as any)
+            .from("agent_config")
+            .select("palavra_pausar, palavra_despausar, segundos_buffer")
+            .eq("company_id", companyId)
+            .order("is_default", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const palavraPausar = ((cmdCfg as any)?.palavra_pausar || "/pausar").toLowerCase().trim();
+          const palavraDespausar = ((cmdCfg as any)?.palavra_despausar || "/despausar").toLowerCase().trim();
+
+          // Cliente respondeu: cancela follow-up pendente imediatamente (Bloco 3)
           try {
             const { cancelFollowups } = await import("@/lib/followup.server");
             await cancelFollowups(supabaseAdmin, companyId, number, "cliente respondeu");
@@ -147,422 +113,81 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             console.error("[followup.reset]", e?.message);
           }
 
-          // Dispara webhooks externos (best-effort, não bloqueia)
           try {
             const { emitWebhook } = await import("@/lib/webhooks.server");
             void emitWebhook(companyId, "message.received", {
-              numero: number, contato_nome: pushName ?? null, texto: text, message_id: inserted?.id,
+              numero: number,
+              contato_nome: pushName ?? null,
+              texto: storedText,
+              message_id: inserted?.id,
             });
           } catch {}
 
-          // Captura UTM da primeira mensagem do contato (padrão [utm:source/medium/campaign])
           try {
-            const utmMatch = text.match(/\[utm:([^/\]]*)\/([^/\]]*)\/([^\]]*)\]/i);
+            const utmMatch = storedText.match(/\[utm:([^/\]]*)\/([^/\]]*)\/([^\]]*)\]/i);
             if (utmMatch) {
               const [, s, m, c] = utmMatch;
-              await (supabaseAdmin as any).from("crm_cards").update({
-                utm_source: s || null, utm_medium: m || null, utm_campaign: c || null,
-              }).eq("company_id", companyId).eq("numero", number).is("utm_source", null);
+              await (supabaseAdmin as any)
+                .from("crm_cards")
+                .update({ utm_source: s || null, utm_medium: m || null, utm_campaign: c || null })
+                .eq("company_id", companyId)
+                .eq("numero", number)
+                .is("utm_source", null);
             }
           } catch {}
 
-
-          // Agentes ATIVOS desta company (isolamento por company_id).
-          // Enquanto houver 1 agente, o comportamento é idêntico ao anterior.
-          const { fetchActiveAgents, pickDefaultAgent } = await import("@/lib/agents");
-          const activeAgents = await fetchActiveAgents(supabaseAdmin, companyId);
-          const defaultAgent = pickDefaultAgent(activeAgents);
-          let cfg: any = defaultAgent;
-          if (!cfg) {
-            const { data: legacyCfg } = await supabaseAdmin
-              .from("agent_config")
-              .select("*")
-              .eq("company_id", companyId)
-              .order("is_default", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            cfg = legacyCfg;
-          }
-
-          const palavraPausar = (cfg?.palavra_pausar || "/pausar").toLowerCase().trim();
-          const palavraDespausar = (cfg?.palavra_despausar || "/despausar").toLowerCase().trim();
-          const lower = text.toLowerCase().trim();
-
-          // Carrega etapas e produtos da company (uma vez)
-          const [{ data: stagesRows }, { data: produtosRows }] = await Promise.all([
-            supabaseAdmin
-              .from("crm_stage")
-              .select("id, nome, tipo, ordem")
-              .eq("company_id", companyId)
-              .order("ordem", { ascending: true }),
-            supabaseAdmin
-              .from("produto")
-              .select("nome, preco, descricao, ativo, ordem")
-              .eq("company_id", companyId)
-              .eq("ativo", true)
-              .order("ordem", { ascending: true }),
-          ]);
-          const stages = (stagesRows ?? []) as Array<{ id: string; nome: string; tipo: "normal" | "ganho" | "perda" }>;
-          const produtos = (produtosRows ?? []).map((p: any) => ({
-            nome: p.nome,
-            preco: p.preco,
-            descricao: p.descricao,
-          }));
-
-          if (isOptOutMessage(lower)) {
-            await supabaseAdmin
+          if (isOptOutMessage(lower) || lower === palavraPausar) {
+            await (supabaseAdmin as any)
               .from("contact_pause")
-              .upsert({ company_id: companyId, user_id: userId, numero: number, pausado: true }, { onConflict: "company_id,numero" });
-            await upsertCard(supabaseAdmin, companyId, userId, number, pushName, text, stages);
-            return new Response("opt-out", { status: 200 });
-          }
-
-          if (lower === palavraPausar) {
-            await supabaseAdmin
-              .from("contact_pause")
-              .upsert({ company_id: companyId, user_id: userId, numero: number, pausado: true }, { onConflict: "company_id,numero" });
+              .upsert(
+                { company_id: companyId, user_id: userId, numero: number, pausado: true },
+                { onConflict: "company_id,numero" },
+              );
+            await (supabaseAdmin as any).from("mensagens").update({ ai_processed_at: new Date().toISOString() }).eq("id", inserted?.id);
             return new Response("paused", { status: 200 });
           }
           if (lower === palavraDespausar) {
-            await supabaseAdmin
+            await (supabaseAdmin as any)
               .from("contact_pause")
-              .upsert({ company_id: companyId, user_id: userId, numero: number, pausado: false }, { onConflict: "company_id,numero" });
+              .upsert(
+                { company_id: companyId, user_id: userId, numero: number, pausado: false },
+                { onConflict: "company_id,numero" },
+              );
+            await (supabaseAdmin as any).from("mensagens").update({ ai_processed_at: new Date().toISOString() }).eq("id", inserted?.id);
             return new Response("resumed", { status: 200 });
           }
-          const { data: pauseRow } = await supabaseAdmin
-            .from("contact_pause")
-            .select("pausado")
+
+          // ---- Fila: 1 job por conversa. Nova mensagem só empurra a janela de debounce.
+          const bufferSec = Math.max(0, Math.min(20, Number((cmdCfg as any)?.segundos_buffer ?? 8)));
+          const availableAt = new Date(Date.now() + bufferSec * 1000).toISOString();
+          const { data: job } = await (supabaseAdmin as any)
+            .from("message_processing_queue")
+            .select("id, status")
             .eq("company_id", companyId)
             .eq("numero", number)
-            .maybeSingle();
-          if (pauseRow?.pausado) {
-            await upsertCard(supabaseAdmin, companyId, userId, number, pushName, text, stages);
-            return new Response("paused-contact", { status: 200 });
-          }
-
-          // Horário de atendimento: se ativo e fora do horário, manda mensagem padrão e não chama IA.
-          try {
-            const { isWithinBusinessHours } = await import("@/lib/business-hours");
-            const horarios = (cfg as any)?.horarios_atendimento;
-            if (horarios?.enabled && !isWithinBusinessHours(horarios)) {
-              const msgFora =
-                ((cfg as any)?.mensagem_fora_horario as string) ||
-                "No momento estamos fora do horário de atendimento. Retornamos em breve.";
-              // evita responder a mesma coisa em rajada: só responde se a última saída IA não foi a msg fora
-              const { data: ultimaSaida } = await supabaseAdmin
-                .from("mensagens")
-                .select("texto, created_at")
-                .eq("company_id", companyId)
-                .eq("numero", number)
-                .eq("direcao", "saida")
-                .order("created_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              const ultimaFoiFora =
-                ultimaSaida &&
-                ultimaSaida.texto === msgFora &&
-                Date.now() - new Date(ultimaSaida.created_at).getTime() < 6 * 60 * 60_000;
-              if (!ultimaFoiFora) {
-                try {
-                  await evoSendText(instanceName, number, msgFora);
-                  await supabaseAdmin.from("mensagens").insert({
-                    company_id: companyId,
-                    user_id: userId,
-                    numero: number,
-                    contato_nome: pushName ?? null,
-                    direcao: "saida",
-                    autor: "ia",
-                    texto: msgFora,
-                  });
-                } catch (e: any) {
-                  console.error("[off-hours send]", e?.message);
-                }
-              }
-              await upsertCard(supabaseAdmin, companyId, userId, number, pushName, text, stages);
-              return new Response("off-hours", { status: 200 });
-            }
-          } catch (e: any) {
-            console.error("[business-hours]", e?.message);
-          }
-
-          // Mídia que não pôde ser interpretada: responde curto em texto e não chama a IA.
-          if (mediaFailureNotice) {
-            try {
-              await evoSendText(instanceName, number, mediaFailureNotice);
-              await supabaseAdmin.from("mensagens").insert({
-                company_id: companyId,
-                user_id: userId,
-                numero: number,
-                contato_nome: pushName ?? null,
-                direcao: "saida",
-                autor: "ia",
-                texto: mediaFailureNotice,
-              });
-            } catch (e: any) {
-              console.error("[media-notice]", e?.message);
-            }
-            await upsertCard(supabaseAdmin, companyId, userId, number, pushName, text, stages);
-            return new Response("media-unreadable", { status: 200 });
-          }
-
-
-          const bufferSec = Math.max(0, Math.min(20, Number(cfg?.segundos_buffer ?? 8)));
-          if (bufferSec > 0) {
-            await new Promise((r) => setTimeout(r, bufferSec * 1000));
-          }
-
-          const { data: newer } = await supabaseAdmin
-            .from("mensagens")
-            .select("id, created_at")
-            .eq("company_id", companyId)
-            .eq("numero", number)
-            .eq("direcao", "entrada")
-            .gt("created_at", myCreatedAt)
-            .limit(1);
-          if (newer && newer.length > 0) {
-            await upsertCard(supabaseAdmin, companyId, userId, number, pushName, text, stages);
-            return new Response("superseded", { status: 200 });
-          }
-
-          const { data: humanRecent } = await supabaseAdmin
-            .from("mensagens")
-            .select("id, created_at, autor")
-            .eq("company_id", companyId)
-            .eq("numero", number)
-            .eq("direcao", "saida")
-            .eq("autor", "humano")
-            .gte("created_at", new Date(Date.now() - 90_000).toISOString())
-            .limit(1);
-          if (humanRecent && humanRecent.length > 0) {
-            await upsertCard(supabaseAdmin, companyId, userId, number, pushName, text, stages);
-            return new Response("human-active", { status: 200 });
-          }
-
-          const { data: histDesc } = await supabaseAdmin
-            .from("mensagens")
-            .select("autor,direcao,texto,created_at")
-            .eq("company_id", companyId)
-            .eq("numero", number)
-            .order("created_at", { ascending: false })
-            .limit(25);
-          const historico = (histDesc ?? []).slice().reverse();
-
-          const { data: cardRow } = await supabaseAdmin
-            .from("crm_cards")
-            .select("status, nome, stage_id, custom_data")
-            .eq("company_id", companyId)
-            .eq("numero", number)
-            .maybeSingle();
-          const estagioAtual = cardRow?.status || stages[0]?.nome || "Conversas";
-          const resumoContato = `${cardRow?.nome || pushName || "Contato"} (${number}), ${historico.length} mensagens trocadas`;
-
-          const { data: googleIntegration } = await supabaseAdmin
-            .from("google_integration")
-            .select("conectado")
-            .eq("company_id", companyId)
+            .in("status", ["pending", "processing"])
             .maybeSingle();
 
-          // ---- Roteamento multiagente (Supervisor só quando há >1 agente ativo)
-          if (activeAgents.length > 1) {
-            try {
-              const { routeToAgent } = await import("@/lib/supervisor.server");
-              const decision = await routeToAgent(supabaseAdmin, {
-                companyId,
-                numero: number,
-                text,
-                agents: activeAgents,
-                historico: historico.map((m: any) => ({ direcao: m.direcao, texto: m.texto })),
-              });
-              if (decision) {
-                cfg = decision.agent;
-                console.info("[router]", companyId, number, decision.agent.slug, decision.intent, decision.confidence, decision.supervised ? "supervisor" : "direto");
-              }
-            } catch (e: any) {
-              console.error("[router]", e?.message);
-            }
-          } else if (activeAgents.length === 1 && cfg?.id) {
-            try {
-              const { persistConversationState } = await import("@/lib/supervisor.server");
-              await persistConversationState(supabaseAdmin, companyId, number, {
-                agentId: cfg.id,
-                intent: null,
-                confidence: 1,
-                reason: "único agente ativo",
-              });
-            } catch {}
-          }
-
-          const responderEmPartes = cfg?.responder_em_partes ?? true;
-          const system = buildSystemPrompt(cfg ?? {}, {
-            responderEmPartes,
-            estagioAtual,
-            resumoContato,
-            produtos,
-            stages: stages.map((s) => ({ nome: s.nome, tipo: s.tipo })),
-            googleConectado: !!googleIntegration?.conectado,
-          });
-
-          // ---- Tools do agente atual (BLOCO 2)
-          const {
-            normalizeToolList,
-            loadCustomFields,
-            buildToolsPromptBlock,
-            DEFAULT_ALLOWED_TOOLS,
-          } = await import("@/lib/agent-tools.server");
-          const allowedTools = cfg?.id
-            ? normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS)
-            : [];
-          const customFields = cfg?.id ? await loadCustomFields(supabaseAdmin, companyId, cfg.id) : [];
-          const toolCtx = {
-            companyId,
-            userId,
-            agentId: (cfg?.id as string) ?? null,
-            agentNome: cfg?.nome_agente,
-            numero: number,
-            contatoNome: pushName ?? null,
-            allowedTools,
-            fields: customFields,
-          };
-          const toolsPrompt = buildToolsPromptBlock(toolCtx, (cardRow as any)?.custom_data ?? null);
-
-          const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-            { role: "system", content: system },
-            ...(toolsPrompt ? [{ role: "system" as const, content: toolsPrompt }] : []),
-            ...historico.map((m) => ({
-              role: (m.direcao === "entrada" ? "user" : "assistant") as "user" | "assistant",
-              content: m.texto,
-            })),
-          ];
-          if (!messages.length || messages[messages.length - 1].role !== "user") {
-            messages.push({ role: "user", content: text });
-          }
-
-          // Enforcement de créditos: cada resposta da IA consome 1 crédito.
-          // Se zerou, a IA não responde — exige assinatura/recarga.
-          const { getCompanyPlan } = await import("@/lib/plan-limits.server");
-          const { allowsProvider } = await import("@/lib/plan-features");
-          const { data: hasCredit } = await supabaseAdmin.rpc("consume_ai_credit", {
-            _company_id: companyId,
-            _ref: number,
-          });
-          if (!hasCredit) {
-            await upsertCard(supabaseAdmin, companyId, userId, number, pushName, text, stages);
-            console.warn("[credits] créditos esgotados — IA não respondeu", companyId);
-            return new Response("no_credits", { status: 200 });
-          }
-          const throttleReason = await getAiThrottleReason(supabaseAdmin, companyId, number);
-          if (throttleReason) {
-            await upsertCard(supabaseAdmin, companyId, userId, number, pushName, text, stages);
-            console.warn("[whatsapp.safety] resposta pausada", throttleReason, companyId, number);
-            return new Response(throttleReason, { status: 200 });
-          }
-          const plan = await getCompanyPlan(companyId);
-          let providerChoice = ((cfg as any)?.ai_provider || "gemini") as string;
-          let modelChoice = ((cfg as any)?.ai_model || "google/gemini-2.5-flash") as string;
-          if (!allowsProvider(plan.slug, providerChoice)) {
-            providerChoice = "gemini";
-            modelChoice = "google/gemini-2.5-flash";
-          }
-
-          let rawReply = "";
-          const aiConfig = {
-            provider: providerChoice,
-            model: modelChoice,
-            openaiKey: (cfg as any)?.openai_api_key || "",
-            anthropicKey: (cfg as any)?.anthropic_api_key || "",
-          };
-          try {
-            if (allowedTools.length) {
-              // Loop com tools: modelo → dispatcher → resultado → modelo (mesmo crédito já consumido).
-              const { runAgentTurn } = await import("@/lib/agent-runtime.server");
-              const turn = await runAgentTurn(supabaseAdmin, {
-                messages,
-                aiConfig,
-                ctx: toolCtx as any,
-                stageNames: stages.map((s) => s.nome),
-              });
-              rawReply = turn.text;
-            } else {
-              rawReply = await lovableAiChat(messages, aiConfig);
-            }
-          } catch (e: any) {
-            console.error("[ai]", e?.message);
-            if (!rawReply) {
-              try {
-                rawReply = await lovableAiChat(messages, aiConfig);
-              } catch (e2: any) {
-                console.error("[ai.fallback]", e2?.message);
-              }
-            }
-          }
-
-          const { parts, stage, agendar } = parseAiOutput(rawReply, stages.map((s) => ({ nome: s.nome, tipo: s.tipo })));
-          const finalParts = sanitizeAiParts(responderEmPartes ? parts : [parts.join(" ")]);
-
-          // Cria evento no Google Agenda se a IA marcou [AGENDAR: ...]
-          if (agendar && googleIntegration?.conectado) {
-            try {
-              const { createCalendarEventForCompany } = await import("@/lib/google.server");
-              await createCalendarEventForCompany(supabaseAdmin, companyId, {
-                titulo: agendar.titulo,
-                inicio: agendar.inicio,
-                fim: agendar.fim,
-                descricao: `Agendado via WhatsApp — ${pushName || number}`,
-              });
-            } catch (e: any) {
-              console.error("[agendar]", e?.message);
-            }
-          }
-
-          for (let i = 0; i < finalParts.length; i++) {
-            const part = finalParts[i];
-            if (!part) continue;
-            try {
-              const typingMs = Math.min(3000, 1200 + Math.floor(part.length * 35));
-              await evoSendPresence(instanceName, number, "composing", typingMs);
-              await new Promise((r) => setTimeout(r, typingMs));
-              await evoSendText(instanceName, number, part);
-              await supabaseAdmin.from("mensagens").insert({
-                company_id: companyId,
-                user_id: userId,
-                numero: number,
-                contato_nome: pushName ?? null,
-                direcao: "saida",
-                autor: "ia",
-                texto: part,
-              });
-              if (i < finalParts.length - 1) {
-                await new Promise((r) => setTimeout(r, 700 + Math.floor(Math.random() * 800)));
-              }
-            } catch (e: any) {
-              console.error("[send]", e?.message);
-            }
-          }
-
-          await upsertCard(
-            supabaseAdmin,
-            companyId,
-            userId,
-            number,
-            pushName,
-            finalParts[finalParts.length - 1] || text,
-            stages,
-            stage,
-          );
-
-          // BLOCO 3 — agenda a cadência de follow-up a partir desta interação.
-          try {
-            const { scheduleFollowup } = await import("@/lib/followup.server");
-            await scheduleFollowup(supabaseAdmin, {
-              companyId,
+          if (job?.status === "pending") {
+            await (supabaseAdmin as any)
+              .from("message_processing_queue")
+              .update({ available_at: availableAt })
+              .eq("id", job.id);
+          } else if (!job) {
+            const { error: qErr } = await (supabaseAdmin as any).from("message_processing_queue").insert({
+              company_id: companyId,
               numero: number,
-              agentId: (cfg?.id as string) ?? null,
+              instance_name: instanceName,
+              status: "pending",
+              available_at: availableAt,
             });
-          } catch (e: any) {
-            console.error("[followup.schedule]", e?.message);
+            // corrida entre dois webhooks simultâneos: índice único resolve, nada a fazer
+            if (qErr && (qErr as any).code !== "23505") console.error("[queue.enqueue]", (qErr as any).message);
           }
+          // job em "processing": a mensagem fica pendente e entra no próximo job/ciclo.
 
-          return new Response("ok", { status: 200 });
+          console.info("[webhook] recebido em", Date.now() - t0, "ms", companyId, number);
+          return new Response("queued", { status: 200 });
         } catch (e: any) {
           console.error("[webhook]", e?.message, e?.stack);
           return new Response("error", { status: 200 });
@@ -578,89 +203,4 @@ const OPT_OUT_WORDS = ["parar", "pare", "cancelar", "sair", "remover", "descadas
 function isOptOutMessage(text: string) {
   const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
   return OPT_OUT_WORDS.some((word) => normalized === word || normalized.includes(` ${word} `));
-}
-
-function sanitizeAiParts(parts: string[]) {
-  return parts
-    .map((part) => part.replace(/\s+/g, " ").trim())
-    .filter(Boolean)
-    .map((part) => (part.length > 700 ? `${part.slice(0, 697).trim()}...` : part))
-    .slice(0, 2);
-}
-
-async function getAiThrottleReason(admin: any, companyId: string, numero: string): Promise<string | null> {
-  const now = Date.now();
-  const [contactRecent, companyRecent] = await Promise.all([
-    admin
-      .from("mensagens")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", companyId)
-      .eq("numero", numero)
-      .eq("direcao", "saida")
-      .eq("autor", "ia")
-      .gte("created_at", new Date(now - 10 * 60_000).toISOString()),
-    admin
-      .from("mensagens")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", companyId)
-      .eq("direcao", "saida")
-      .eq("autor", "ia")
-      .gte("created_at", new Date(now - 60_000).toISOString()),
-  ]);
-
-  if ((contactRecent.count ?? 0) >= 6) return "contact-rate-limit";
-  if ((companyRecent.count ?? 0) >= 20) return "company-rate-limit";
-  return null;
-}
-
-async function upsertCard(
-  admin: any,
-  companyId: string,
-  userId: string,
-  numero: string,
-  nome: string | undefined,
-  ultimaMensagem: string,
-  stages: Array<{ id: string; nome: string; tipo: "normal" | "ganho" | "perda" }>,
-  proposedStageName?: string | null,
-) {
-  const { data: existing } = await admin
-    .from("crm_cards")
-    .select("status, nome, stage_id")
-    .eq("company_id", companyId)
-    .eq("numero", numero)
-    .maybeSingle();
-
-  const stageByName = new Map(stages.map((s) => [s.nome.toLowerCase(), s]));
-  const stageById = new Map(stages.map((s) => [s.id, s]));
-
-  const currentStage = existing?.stage_id ? stageById.get(existing.stage_id) : undefined;
-  const currentTipo = currentStage?.tipo ?? (existing?.status ? stageByName.get(String(existing.status).toLowerCase())?.tipo : undefined);
-  const isLocked = currentTipo === "ganho" || currentTipo === "perda";
-
-  const proposed = proposedStageName ? stageByName.get(proposedStageName.toLowerCase()) : undefined;
-
-  let finalStage = currentStage;
-  if (proposed && !isLocked) finalStage = proposed;
-  if (!finalStage) finalStage = stages[0]; // fallback
-
-  const payload: any = {
-    company_id: companyId,
-    user_id: userId,
-    numero,
-    nome: existing?.nome || nome || null,
-    ultima_mensagem: ultimaMensagem.slice(0, 240),
-    ultima_em: new Date().toISOString(),
-  };
-  if (finalStage) {
-    payload.stage_id = finalStage.id;
-    payload.status = finalStage.nome;
-  } else if (existing?.status) {
-    payload.status = existing.status;
-  } else {
-    payload.status = "Conversas";
-  }
-
-  await admin
-    .from("crm_cards")
-    .upsert(payload, { onConflict: "company_id,numero" });
 }
