@@ -1648,42 +1648,119 @@ export type Database = {
       }
       mensagens: {
         Row: {
+          ai_processed_at: string | null
           autor: string
           company_id: string
           contato_nome: string | null
           created_at: string
           direcao: string
           id: string
+          media_ref: Json | null
           numero: string
+          response_key: string | null
           texto: string
           user_id: string
           whatsapp_message_id: string | null
         }
         Insert: {
+          ai_processed_at?: string | null
           autor: string
           company_id: string
           contato_nome?: string | null
           created_at?: string
           direcao: string
           id?: string
+          media_ref?: Json | null
           numero: string
+          response_key?: string | null
           texto: string
           user_id: string
           whatsapp_message_id?: string | null
         }
         Update: {
+          ai_processed_at?: string | null
           autor?: string
           company_id?: string
           contato_nome?: string | null
           created_at?: string
           direcao?: string
           id?: string
+          media_ref?: Json | null
           numero?: string
+          response_key?: string | null
           texto?: string
           user_id?: string
           whatsapp_message_id?: string | null
         }
         Relationships: []
+      }
+      message_processing_queue: {
+        Row: {
+          attempts: number
+          available_at: string
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          credit_consumed: boolean
+          id: string
+          instance_name: string | null
+          last_error: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          numero: string
+          routed_agent_id: string | null
+          run_seq: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          credit_consumed?: boolean
+          id?: string
+          instance_name?: string | null
+          last_error?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          numero: string
+          routed_agent_id?: string | null
+          run_seq?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          credit_consumed?: boolean
+          id?: string
+          instance_name?: string | null
+          last_error?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          numero?: string
+          routed_agent_id?: string | null
+          run_seq?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_processing_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       message_template: {
         Row: {
@@ -2177,6 +2254,35 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: never; Returns: boolean }
+      mq_claim_due: {
+        Args: { _limit?: number; _worker?: string }
+        Returns: {
+          attempts: number
+          available_at: string
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          credit_consumed: boolean
+          id: string
+          instance_name: string | null
+          last_error: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          numero: string
+          routed_agent_id: string | null
+          run_seq: number
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "message_processing_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      mq_cleanup: { Args: never; Returns: number }
       seed_fin_categorias: { Args: { _company_id: string }; Returns: undefined }
       topup_plan_credits: {
         Args: { _company_id: string; _plan_slug: string }
