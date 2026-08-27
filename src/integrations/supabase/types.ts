@@ -2403,6 +2403,7 @@ export type Database = {
         Returns: boolean
       }
       current_company_id: { Args: never; Returns: string }
+      ensure_super_admin_bootstrap: { Args: never; Returns: boolean }
       fin_enable_for_company: {
         Args: { _company_id: string; _enable: boolean }
         Returns: undefined
