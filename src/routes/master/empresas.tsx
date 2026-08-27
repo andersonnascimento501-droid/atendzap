@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { LogIn, Pause, Play, CalendarClock, Loader2, KeyRound, Eye, Sparkles } from "lucide-react";
 import { brand } from "@/config/brand";
-import { listCompanies, suspendCompany, extendTrial, resetCompanyOwnerPassword, getCompanyDetails } from "@/lib/master.functions";
+import { listCompanies, suspendCompany, extendTrial, resetCompanyOwnerPassword, getCompanyDetails, listPlansBasic, changeCompanyPlan } from "@/lib/master.functions";
 import { adminGrantCredits } from "@/lib/credits.functions";
 
 export const Route = createFileRoute("/master/empresas")({
@@ -25,14 +26,20 @@ function EmpresasPage() {
   const resetPwd = useServerFn(resetCompanyOwnerPassword);
   const details = useServerFn(getCompanyDetails);
   const grantCredits = useServerFn(adminGrantCredits);
+  const loadPlans = useServerFn(listPlansBasic);
+  const changePlan = useServerFn(changeCompanyPlan);
   const [detail, setDetail] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [newPlanId, setNewPlanId] = useState<string>("");
+  const [savingPlan, setSavingPlan] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+
 
   async function reload() {
     setLoading(true);
