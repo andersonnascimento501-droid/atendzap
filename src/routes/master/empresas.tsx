@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { LogIn, Pause, Play, CalendarClock, Loader2, KeyRound, Eye, Sparkles } from "lucide-react";
 import { brand } from "@/config/brand";
-import { listCompanies, suspendCompany, extendTrial, resetCompanyOwnerPassword, getCompanyDetails } from "@/lib/master.functions";
+import { listCompanies, suspendCompany, extendTrial, resetCompanyOwnerPassword, getCompanyDetails, listPlansBasic, changeCompanyPlan } from "@/lib/master.functions";
 import { adminGrantCredits } from "@/lib/credits.functions";
 
 export const Route = createFileRoute("/master/empresas")({
@@ -25,14 +26,20 @@ function EmpresasPage() {
   const resetPwd = useServerFn(resetCompanyOwnerPassword);
   const details = useServerFn(getCompanyDetails);
   const grantCredits = useServerFn(adminGrantCredits);
+  const loadPlans = useServerFn(listPlansBasic);
+  const changePlan = useServerFn(changeCompanyPlan);
   const [detail, setDetail] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [newPlanId, setNewPlanId] = useState<string>("");
+  const [savingPlan, setSavingPlan] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+
 
   async function reload() {
     setLoading(true);
@@ -93,13 +100,19 @@ function EmpresasPage() {
   }
 
   async function doGrantCredits(c: any) {
-    const raw = prompt(`Créditos de IA para "${c.nome}".\n\nDigite quantidade (positivo adiciona, negativo remove):`, "100");
+    const saldoAtual = c.creditos_saldo ?? 0;
+    const raw = prompt(
+      `Créditos de IA para "${c.nome}".\n\nSaldo atual: ${saldoAtual} créditos.\n\nDigite quantidade (positivo adiciona, negativo remove):`,
+      "100",
+    );
     if (raw === null) return;
     const qtd = Number(raw);
     if (!qtd || isNaN(qtd)) return toast.error("Quantidade inválida");
     try {
       const r: any = await grantCredits({ data: { companyId: c.id, qtd, motivo: "ajuste_admin" } });
-      toast.success(`Saldo agora: ${r.saldo} créditos`);
+      toast.success(`Saldo: ${saldoAtual} → ${r.saldo} créditos`);
+      setRows((prev) => prev.map((x) => (x.id === c.id ? { ...x, creditos_saldo: r.saldo } : x)));
+      if (detail?.company?.id === c.id) await openDetails(c.id);
     } catch (e: any) {
       toast.error(e?.message || "Falha ao ajustar créditos");
     }
@@ -111,6 +124,13 @@ function EmpresasPage() {
     try {
       const r = await details({ data: { companyId } });
       setDetail(r);
+      setNewPlanId((r as any)?.subscription?.plan_id ?? "");
+      if (!plans.length) {
+        try {
+          const p: any = await loadPlans();
+          setPlans(p.plans ?? []);
+        } catch {}
+      }
     } catch (e: any) {
       toast.error(e?.message || "Falha ao carregar detalhes");
       setDetail(null);
@@ -118,6 +138,22 @@ function EmpresasPage() {
       setDetailLoading(false);
     }
   }
+
+  async function savePlan() {
+    if (!detail?.company?.id || !newPlanId) return;
+    setSavingPlan(true);
+    try {
+      const r: any = await changePlan({ data: { companyId: detail.company.id, planId: newPlanId } });
+      toast.success(`Plano alterado para ${r.planNome}`);
+      await openDetails(detail.company.id);
+      reload();
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao alterar plano");
+    } finally {
+      setSavingPlan(false);
+    }
+  }
+
 
   const pages = Math.ceil(total / pageSize);
 
@@ -137,11 +173,12 @@ function EmpresasPage() {
       <Card className="overflow-hidden">
         <div className="grid grid-cols-12 text-xs font-medium text-muted-foreground bg-muted/50 px-4 py-2">
           <div className="col-span-3">Nome</div>
-          <div className="col-span-2">Status</div>
-          <div className="col-span-2">Trial até</div>
-          <div className="col-span-2">Criada</div>
-          <div className="col-span-1">Atividade</div>
-          <div className="col-span-2 text-right">Ações</div>
+          <div className="col-span-1">Status</div>
+          <div className="col-span-1">Créditos</div>
+          <div className="col-span-2">Conexões</div>
+          <div className="col-span-1">Trial até</div>
+          <div className="col-span-1">Criada</div>
+          <div className="col-span-3 text-right">Ações</div>
         </div>
         {loading ? (
           <div className="p-8 grid place-items-center"><Loader2 className="animate-spin text-muted-foreground" /></div>
@@ -155,19 +192,25 @@ function EmpresasPage() {
                   <div className="font-medium truncate">{c.nome}</div>
                   <div className="text-xs text-muted-foreground truncate">{c.slug}</div>
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <StatusBadge s={c.status_cobranca} />
                 </div>
-                <div className="col-span-2 text-xs text-muted-foreground">
-                  {c.trial_ate ? new Date(c.trial_ate).toLocaleDateString("pt-BR") : "—"}
-                </div>
-                <div className="col-span-2 text-xs text-muted-foreground">
-                  {new Date(c.created_at).toLocaleDateString("pt-BR")}
+                <div className="col-span-1 text-xs font-medium">{c.creditos_saldo ?? 0}</div>
+                <div className="col-span-2 flex flex-wrap gap-1">
+                  <ConnBadge label="WA" s={c.whatsapp_status} />
+                  <ConnBadge label="IG" s={c.instagram_status} />
                 </div>
                 <div className="col-span-1 text-xs text-muted-foreground">
-                  {c.ultima_atividade ? new Date(c.ultima_atividade).toLocaleDateString("pt-BR") : "—"}
+                  {c.trial_ate ? new Date(c.trial_ate).toLocaleDateString("pt-BR") : "—"}
                 </div>
-                <div className="col-span-2 flex justify-end gap-1">
+                <div className="col-span-1 text-xs text-muted-foreground">
+                  {new Date(c.created_at).toLocaleDateString("pt-BR")}
+                  <div className="text-[10px]">
+                    {c.ultima_atividade ? `ativ. ${new Date(c.ultima_atividade).toLocaleDateString("pt-BR")}` : "sem ativ."}
+                  </div>
+                </div>
+
+                <div className="col-span-3 flex justify-end gap-1">
                   <Button size="sm" variant="outline" onClick={() => openDetails(c.id)} title="Ver detalhes">
                     <Eye className="size-3.5" />
                   </Button>
@@ -219,12 +262,73 @@ function EmpresasPage() {
                 <Field k="Status" v={detail.company.status_cobranca} />
                 <Field k="Email corporativo" v={detail.company.email_corporativo} />
                 <Field k="Telefone" v={detail.company.telefone} />
-                <Field k="CNPJ" v={detail.company.cnpj} />
-                <Field k="Endereço" v={detail.company.endereco} />
-                <Field k="Cidade/UF" v={[detail.company.cidade, detail.company.uf].filter(Boolean).join(" / ")} />
+                <Field k={detail.company.tipo_pessoa === "pf" ? "CPF" : "CNPJ"} v={detail.company.cnpj_cpf} />
+                <Field k="Razão social" v={detail.company.razao_social} />
+                <Field
+                  k="Endereço"
+                  v={[
+                    [detail.company.rua, detail.company.numero].filter(Boolean).join(", "),
+                    detail.company.complemento,
+                    detail.company.bairro,
+                    detail.company.cep,
+                  ].filter(Boolean).join(" · ")}
+                />
+                <Field k="Cidade/UF" v={[detail.company.cidade, detail.company.estado].filter(Boolean).join(" / ")} />
                 <Field k="Segmento" v={detail.company.segmento} />
                 <Field k="Trial até" v={detail.company.trial_ate ? new Date(detail.company.trial_ate).toLocaleString("pt-BR") : "—"} />
                 <Field k="Criada" v={new Date(detail.company.created_at).toLocaleString("pt-BR")} />
+              </Section>
+
+              <Section title="Créditos de IA">
+                <Field k="Saldo atual" v={String(detail.credits?.saldo ?? 0)} />
+                <Field k="Origem" v={detail.credits?.origem} />
+                <Field k="Consumo (últ. movimentações)" v={String(detail.credits?.consumo_recente ?? 0)} />
+                <Field k="Resetam em" v={detail.credits?.resetam_em ? new Date(detail.credits.resetam_em).toLocaleString("pt-BR") : "—"} />
+                <div className="col-span-2 space-y-1 mt-1">
+                  {detail.credits?.ledger?.length ? detail.credits.ledger.map((l: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between border rounded-md px-3 py-1.5 text-xs">
+                      <span className="truncate">
+                        {new Date(l.created_at).toLocaleString("pt-BR")} · {l.motivo}{l.ref ? ` (${l.ref})` : ""}
+                      </span>
+                      <span className={l.delta < 0 ? "text-destructive font-medium" : "text-primary font-medium"}>
+                        {l.delta > 0 ? `+${l.delta}` : l.delta} → {l.saldo_apos}
+                      </span>
+                    </div>
+                  )) : <div className="text-muted-foreground text-xs">Sem movimentações.</div>}
+                </div>
+                <div className="col-span-2">
+                  <Button size="sm" variant="outline" onClick={() => doGrantCredits({ ...detail.company, creditos_saldo: detail.credits?.saldo ?? 0 })}>
+                    <Sparkles className="size-3.5 mr-1" /> Ajustar créditos
+                  </Button>
+                </div>
+              </Section>
+
+              <Section title="Conexões">
+                <div className="col-span-2 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-medium">WhatsApp:</span>
+                    {detail.whatsapp?.length ? detail.whatsapp.map((w: any) => (
+                      <span key={w.instance_name} className="flex items-center gap-1">
+                        <ConnBadge label="WA" s={String(w.status ?? "").toLowerCase() === "connected" || String(w.status ?? "").toLowerCase() === "open" ? "connected" : "disconnected"} />
+                        <span className="text-muted-foreground">
+                          {w.numero || w.instance_name} · atualizado {w.updated_at ? new Date(w.updated_at).toLocaleString("pt-BR") : "—"}
+                        </span>
+                      </span>
+                    )) : <ConnBadge label="WA" s="unset" />}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-medium">Instagram:</span>
+                    {detail.instagram ? (
+                      <span className="flex items-center gap-1">
+                        <ConnBadge label="IG" s={detail.instagram.status} />
+                        <span className="text-muted-foreground">
+                          {detail.instagram.username ? `@${detail.instagram.username}` : "—"} · atualizado{" "}
+                          {detail.instagram.updated_at ? new Date(detail.instagram.updated_at).toLocaleString("pt-BR") : "—"}
+                        </span>
+                      </span>
+                    ) : <ConnBadge label="IG" s="unset" />}
+                  </div>
+                </div>
               </Section>
 
               <Section title="Assinatura">
@@ -240,6 +344,30 @@ function EmpresasPage() {
                 ) : (
                   <div className="text-muted-foreground col-span-2">Sem assinatura.</div>
                 )}
+              </Section>
+
+              <Section title="Alterar plano">
+                <div className="col-span-2 space-y-2">
+                  <div className="text-xs text-muted-foreground">
+                    Plano atual: <strong>{detail.subscription?.plan?.nome ?? "—"}</strong>
+                    {detail.subscription?.provider && detail.subscription.provider !== "manual" && (
+                      <> · assinatura gerenciada por <strong>{detail.subscription.provider}</strong>: a alteração é apenas administrativa (sem sincronizar com o gateway).</>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={newPlanId} onValueChange={setNewPlanId}>
+                      <SelectTrigger className="w-64"><SelectValue placeholder="Novo plano" /></SelectTrigger>
+                      <SelectContent>
+                        {plans.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" onClick={savePlan} disabled={!newPlanId || savingPlan}>
+                      {savingPlan ? <Loader2 className="size-3.5 animate-spin" /> : "Salvar"}
+                    </Button>
+                  </div>
+                </div>
               </Section>
 
               <Section title="Usuários">
@@ -262,6 +390,7 @@ function EmpresasPage() {
                 <Field k="Mensagens" v={String(detail.stats.mensagens)} />
                 <Field k="Cards CRM" v={String(detail.stats.cards)} />
               </Section>
+
             </div>
           ) : null}
         </DialogContent>
@@ -292,4 +421,10 @@ function StatusBadge({ s }: { s: string }) {
   if (s === "ativo") return <Badge className="bg-primary">Ativa</Badge>;
   if (s === "trial") return <Badge variant="secondary">Trial</Badge>;
   return <Badge variant="destructive">Suspensa</Badge>;
+}
+
+function ConnBadge({ label, s }: { label: string; s?: string }) {
+  if (s === "connected") return <Badge className="bg-primary text-[10px]">{label} conectado</Badge>;
+  if (s === "disconnected") return <Badge variant="destructive" className="text-[10px]">{label} desconectado</Badge>;
+  return <Badge variant="outline" className="text-[10px]">{label} não configurado</Badge>;
 }

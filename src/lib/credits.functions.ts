@@ -27,11 +27,23 @@ export const getMyCredits = createServerFn({ method: "GET" })
     };
   });
 
-// Admin: adiciona/remove créditos numa empresa
+async function assertSuper(supabase: any, userId: string) {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "super_admin")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Acesso negado");
+}
+
+// Admin: adiciona/remove créditos numa empresa (defesa em profundidade: assertSuper + RPC)
 export const adminGrantCredits = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { companyId: string; qtd: number; motivo?: string }) => d)
   .handler(async ({ data, context }) => {
+    await assertSuper(context.supabase, context.userId);
     const { data: novo, error } = await context.supabase.rpc("grant_credits", {
       _company_id: data.companyId,
       _qtd: data.qtd,
@@ -40,3 +52,4 @@ export const adminGrantCredits = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { saldo: novo as number };
   });
+
