@@ -13,12 +13,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Sparkles, Pencil, Trash2, Palette } from "lucide-react";
+import { Plus, MoreVertical, Sparkles, Pencil, Trash2, Palette, Search, LayoutGrid, List, Instagram, Phone, Target, ArrowRightLeft } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { channelOf, contactDisplayId, channelLabel } from "@/lib/channels";
 import { brand } from "@/config/brand";
 import { LeadDrawer, type LeadCard, type Stage, type Member } from "@/components/crm/lead-drawer";
 
 export const Route = createFileRoute("/app/crm")({
-  head: () => ({ meta: [{ title: `${brand.name} — CRM Kanban` }] }),
+  head: () => ({ meta: [{ title: `${brand.name} — Clientes` }] }),
   component: KanbanPage,
 });
 
@@ -36,6 +38,10 @@ function KanbanPage() {
   const [newStageOpen, setNewStageOpen] = useState(false);
   const [editingStage, setEditingStage] = useState<Stage | null>(null);
   const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<"kanban" | "lista">("kanban");
+  const [search, setSearch] = useState("");
+  const [mobileStage, setMobileStage] = useState<string>("todos");
+  const isMobile = useIsMobile();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   async function loadAll(cid: string) {
@@ -61,15 +67,21 @@ function KanbanPage() {
     return () => { supabase.removeChannel(ch); };
   }, [companyId]);
 
+  const visibleCards = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return cards;
+    return cards.filter((c) => (c.nome ?? "").toLowerCase().includes(q) || c.numero.toLowerCase().includes(q));
+  }, [cards, search]);
+
   const byStage = useMemo(() => {
     const m: Record<string, LeadCard[]> = {};
     stages.forEach((s) => (m[s.id] = []));
-    cards.forEach((c) => {
+    visibleCards.forEach((c) => {
       const sid = c.stage_id && m[c.stage_id] ? c.stage_id : stages[0]?.id;
       if (sid) (m[sid] ||= []).push(c);
     });
     return m;
-  }, [cards, stages]);
+  }, [visibleCards, stages]);
 
   async function moveCard(id: string, stageId: string) {
     const stage = stages.find((s) => s.id === stageId);
@@ -136,14 +148,32 @@ function KanbanPage() {
     <div className="space-y-6">
       <header className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="flex items-center gap-2">CRM Kanban <HelpTip text="Funil visual de vendas. Arraste cards entre etapas (Novo lead → Qualificado → Proposta → Fechado) para acompanhar a evolução de cada contato." /></h1>
-          <p className="text-sm text-muted-foreground">Arraste cards entre etapas. A IA também move automaticamente.</p>
+          <h1 className="flex items-center gap-2">Clientes <HelpTip text="Funil de vendas dos seus clientes. Arraste os cards entre etapas (Novo → Qualificado → Proposta → Fechado) para acompanhar cada oportunidade. O atendente IA também move automaticamente." /></h1>
+          <p className="text-sm text-muted-foreground">CRM e oportunidades</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setNewStageOpen(true)}><Plus className="size-4 mr-1.5" />Nova etapa</Button>
-          <Button onClick={() => setAdding(true)}><Plus className="size-4 mr-1.5" />Adicionar do WhatsApp</Button>
+          <Button onClick={() => setAdding(true)}><Plus className="size-4 mr-1.5" />Adicionar conversa</Button>
         </div>
       </header>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input placeholder="Buscar cliente…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <div className="hidden md:inline-flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-1">
+          <button onClick={() => setView("kanban")}
+            className={`px-3 py-1.5 text-[13px] font-semibold rounded-md inline-flex items-center gap-1.5 transition-colors ${view === "kanban" ? "bg-[var(--brand)]/15 text-[var(--brand-text)]" : "text-muted-foreground hover:text-foreground"}`}>
+            <LayoutGrid className="size-3.5" /> Kanban
+          </button>
+          <button onClick={() => setView("lista")}
+            className={`px-3 py-1.5 text-[13px] font-semibold rounded-md inline-flex items-center gap-1.5 transition-colors ${view === "lista" ? "bg-[var(--brand)]/15 text-[var(--brand-text)]" : "text-muted-foreground hover:text-foreground"}`}>
+            <List className="size-3.5" /> Lista
+          </button>
+        </div>
+        <div className="text-sm text-muted-foreground ml-auto">{visibleCards.length} cliente(s)</div>
+      </div>
 
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${Math.max(stages.length,1)}, minmax(280px,1fr))`, overflowX: "auto" }}>
