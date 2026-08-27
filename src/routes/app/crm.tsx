@@ -13,12 +13,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Sparkles, Pencil, Trash2, Palette } from "lucide-react";
+import { Plus, MoreVertical, Sparkles, Pencil, Trash2, Palette, Search, LayoutGrid, List, Instagram, Phone, Target, ArrowRightLeft } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { channelOf, contactDisplayId, channelLabel } from "@/lib/channels";
 import { brand } from "@/config/brand";
 import { LeadDrawer, type LeadCard, type Stage, type Member } from "@/components/crm/lead-drawer";
 
 export const Route = createFileRoute("/app/crm")({
-  head: () => ({ meta: [{ title: `${brand.name} — CRM Kanban` }] }),
+  head: () => ({ meta: [{ title: `${brand.name} — Clientes` }] }),
   component: KanbanPage,
 });
 
@@ -36,6 +38,10 @@ function KanbanPage() {
   const [newStageOpen, setNewStageOpen] = useState(false);
   const [editingStage, setEditingStage] = useState<Stage | null>(null);
   const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<"kanban" | "lista">("kanban");
+  const [search, setSearch] = useState("");
+  const [mobileStage, setMobileStage] = useState<string>("todos");
+  const isMobile = useIsMobile();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   async function loadAll(cid: string) {
@@ -61,15 +67,21 @@ function KanbanPage() {
     return () => { supabase.removeChannel(ch); };
   }, [companyId]);
 
+  const visibleCards = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return cards;
+    return cards.filter((c) => (c.nome ?? "").toLowerCase().includes(q) || c.numero.toLowerCase().includes(q));
+  }, [cards, search]);
+
   const byStage = useMemo(() => {
     const m: Record<string, LeadCard[]> = {};
     stages.forEach((s) => (m[s.id] = []));
-    cards.forEach((c) => {
+    visibleCards.forEach((c) => {
       const sid = c.stage_id && m[c.stage_id] ? c.stage_id : stages[0]?.id;
       if (sid) (m[sid] ||= []).push(c);
     });
     return m;
-  }, [cards, stages]);
+  }, [visibleCards, stages]);
 
   async function moveCard(id: string, stageId: string) {
     const stage = stages.find((s) => s.id === stageId);
@@ -136,33 +148,71 @@ function KanbanPage() {
     <div className="space-y-6">
       <header className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="flex items-center gap-2">CRM Kanban <HelpTip text="Funil visual de vendas. Arraste cards entre etapas (Novo lead → Qualificado → Proposta → Fechado) para acompanhar a evolução de cada contato." /></h1>
-          <p className="text-sm text-muted-foreground">Arraste cards entre etapas. A IA também move automaticamente.</p>
+          <h1 className="flex items-center gap-2">Clientes <HelpTip text="Funil de vendas dos seus clientes. Arraste os cards entre etapas (Novo → Qualificado → Proposta → Fechado) para acompanhar cada oportunidade. O atendente IA também move automaticamente." /></h1>
+          <p className="text-sm text-muted-foreground">CRM e oportunidades</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setNewStageOpen(true)}><Plus className="size-4 mr-1.5" />Nova etapa</Button>
-          <Button onClick={() => setAdding(true)}><Plus className="size-4 mr-1.5" />Adicionar do WhatsApp</Button>
+          <Button onClick={() => setAdding(true)}><Plus className="size-4 mr-1.5" />Adicionar conversa</Button>
         </div>
       </header>
 
-      <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-        <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${Math.max(stages.length,1)}, minmax(280px,1fr))`, overflowX: "auto" }}>
-          {stages.map((col) => (
-            <Column key={col.id} stage={col} count={(byStage[col.id] ?? []).length}
-              onEdit={() => setEditingStage(col)} onDelete={() => deleteStage(col.id)}>
-              {(byStage[col.id] ?? []).map((c) => (
-                <KCard key={c.id} card={c} onClick={() => setSelected(c)} />
-              ))}
-              {(byStage[col.id] ?? []).length === 0 && (
-                <div className="text-xs text-muted-foreground text-center py-8 border border-dashed border-[var(--border)] rounded-xl">
-                  vazio
-                </div>
-              )}
-            </Column>
-          ))}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input placeholder="Buscar cliente…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <DragOverlay>{activeCard ? <CardBody card={activeCard} dragging /> : null}</DragOverlay>
-      </DndContext>
+        <div className="hidden md:inline-flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-1">
+          <button onClick={() => setView("kanban")}
+            className={`px-3 py-1.5 text-[13px] font-semibold rounded-md inline-flex items-center gap-1.5 transition-colors ${view === "kanban" ? "bg-[var(--brand)]/15 text-[var(--brand-text)]" : "text-muted-foreground hover:text-foreground"}`}>
+            <LayoutGrid className="size-3.5" /> Kanban
+          </button>
+          <button onClick={() => setView("lista")}
+            className={`px-3 py-1.5 text-[13px] font-semibold rounded-md inline-flex items-center gap-1.5 transition-colors ${view === "lista" ? "bg-[var(--brand)]/15 text-[var(--brand-text)]" : "text-muted-foreground hover:text-foreground"}`}>
+            <List className="size-3.5" /> Lista
+          </button>
+        </div>
+        <div className="text-sm text-muted-foreground ml-auto">{visibleCards.length} cliente(s)</div>
+      </div>
+
+      {cards.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[var(--border)] p-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            Seus clientes aparecerão aqui conforme o {brand.name} iniciar os atendimentos.
+          </p>
+          <Button className="mt-4" variant="outline" onClick={() => setAdding(true)}>
+            <Plus className="size-4 mr-1.5" /> Adicionar conversa
+          </Button>
+        </div>
+      ) : isMobile ? (
+        <MobileStages
+          stages={stages} byStage={byStage} cards={visibleCards}
+          value={mobileStage} onChange={setMobileStage}
+          onOpen={(c) => setSelected(c)} onMove={(id, sid) => void moveCard(id, sid)}
+        />
+      ) : view === "lista" ? (
+        <ClientList cards={visibleCards} stages={stages} onOpen={(c) => setSelected(c)}
+          onMove={(id, sid) => void moveCard(id, sid)} />
+      ) : (
+        <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+          <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${Math.max(stages.length,1)}, minmax(280px,1fr))`, overflowX: "auto" }}>
+            {stages.map((col) => (
+              <Column key={col.id} stage={col} count={(byStage[col.id] ?? []).length}
+                onEdit={() => setEditingStage(col)} onDelete={() => deleteStage(col.id)}>
+                {(byStage[col.id] ?? []).map((c) => (
+                  <KCard key={c.id} card={c} onClick={() => setSelected(c)} />
+                ))}
+                {(byStage[col.id] ?? []).length === 0 && (
+                  <div className="text-xs text-muted-foreground text-center py-8 border border-dashed border-[var(--border)] rounded-xl">
+                    Nenhum cliente nesta etapa
+                  </div>
+                )}
+              </Column>
+            ))}
+          </div>
+          <DragOverlay>{activeCard ? <CardBody card={activeCard} dragging /> : null}</DragOverlay>
+        </DndContext>
+      )}
 
       <StageDialog open={newStageOpen} onClose={() => setNewStageOpen(false)}
         onSave={(n, c) => { createStage(n, c); setNewStageOpen(false); }} />
@@ -233,16 +283,25 @@ function CardBody({ card, dragging }: { card: LeadCard; dragging?: boolean }) {
       <div className="flex items-start gap-3">
         <InitialsAvatar name={card.nome || card.numero} size={36} />
         <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold truncate">{card.nome || card.numero}</div>
-          <div className="text-[11px] text-muted-foreground font-mono truncate">{card.numero}</div>
+          <div className="text-[14px] font-semibold truncate">{card.nome || contactDisplayId(card.numero, card.nome)}</div>
+          <div className="text-[11px] text-muted-foreground truncate inline-flex items-center gap-1.5">
+            {channelOf(card.numero) === "instagram"
+              ? <><Instagram className="size-3 text-[#C13584]" /> Instagram</>
+              : <><Phone className="size-3 text-emerald-600" /> <span className="font-mono">{card.numero}</span></>}
+          </div>
         </div>
       </div>
       {card.ultima_mensagem && (
         <p className="text-muted-foreground text-[13px] mt-2.5 line-clamp-2 leading-snug">{card.ultima_mensagem}</p>
       )}
+      {card.proxima_acao && (
+        <div className="text-[12px] text-muted-foreground mt-2 inline-flex items-center gap-1.5">
+          <Target className="size-3" /> <span className="truncate">{card.proxima_acao}</span>
+        </div>
+      )}
       {card.tags?.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {card.tags.map((t) => (
+          {card.tags.slice(0, 3).map((t) => (
             <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--brand)]/15 text-[var(--brand-text)]">{t}</span>
           ))}
         </div>
@@ -351,5 +410,143 @@ function AddFromWhatsappDialog({ open, onClose, companyId, userId, firstStageId,
           )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ETAPA 6 — Mobile: etapas como filtro + lista em coluna única (sem kanban horizontal).
+function MobileStages({ stages, byStage, cards, value, onChange, onOpen, onMove }: {
+  stages: Stage[]; byStage: Record<string, LeadCard[]>; cards: LeadCard[];
+  value: string; onChange: (v: string) => void;
+  onOpen: (c: LeadCard) => void; onMove: (id: string, stageId: string) => void;
+}) {
+  const list = value === "todos" ? cards : (byStage[value] ?? []);
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        <StageChip label="Todos" count={cards.length} on={value === "todos"} onClick={() => onChange("todos")} />
+        {stages.map((s) => (
+          <StageChip key={s.id} label={s.nome} cor={s.cor} count={(byStage[s.id] ?? []).length}
+            on={value === s.id} onClick={() => onChange(s.id)} />
+        ))}
+      </div>
+      {list.length === 0 ? (
+        <div className="text-sm text-muted-foreground text-center py-10 border border-dashed border-[var(--border)] rounded-xl">
+          Nenhum cliente nesta etapa
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {list.map((c) => (
+            <li key={c.id} className="relative">
+              <div onClick={() => onOpen(c)}><CardBody card={c} /></div>
+              <div className="absolute top-3 right-3">
+                <MoveMenu stages={stages} current={c.stage_id} onMove={(sid) => onMove(c.id, sid)} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function StageChip({ label, count, on, cor, onClick }: { label: string; count: number; on: boolean; cor?: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-semibold border transition-colors ${
+        on ? "bg-[var(--brand)]/15 text-[var(--brand-text)] border-[var(--brand)]/40" : "bg-[var(--panel)] text-muted-foreground border-[var(--border)]"
+      }`}>
+      {cor && <span className="size-2 rounded-full" style={{ background: cor }} />}
+      {label}
+      <span className="text-[11px] opacity-70">{count}</span>
+    </button>
+  );
+}
+
+function MoveMenu({ stages, current, onMove }: { stages: Stage[]; current: string | null; onMove: (sid: string) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button onClick={(e) => e.stopPropagation()} aria-label="Mover para outra etapa"
+          className="p-1.5 rounded-lg bg-[var(--panel)] border border-[var(--border)] text-muted-foreground">
+          <ArrowRightLeft className="size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {stages.map((s) => (
+          <DropdownMenuItem key={s.id} disabled={s.id === current}
+            onClick={(e) => { e.stopPropagation(); onMove(s.id); }}>
+            <span className="size-2 rounded-full mr-2" style={{ background: s.cor }} />{s.nome}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// ETAPA 6 — Visualização em lista (desktop).
+function ClientList({ cards, stages, onOpen, onMove }: {
+  cards: LeadCard[]; stages: Stage[]; onOpen: (c: LeadCard) => void; onMove: (id: string, stageId: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] overflow-hidden">
+      <div className="grid grid-cols-12 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-[var(--panel-2)] px-5 py-3 border-b border-[var(--border)]">
+        <div className="col-span-4">Cliente</div>
+        <div className="col-span-2">Canal</div>
+        <div className="col-span-2">Etapa</div>
+        <div className="col-span-2">Valor</div>
+        <div className="col-span-2">Última interação</div>
+      </div>
+      {cards.length === 0 ? (
+        <div className="p-10 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
+      ) : (
+        <ul className="divide-y divide-[var(--border)]">
+          {cards.map((c) => {
+            const st = stages.find((s) => s.id === c.stage_id) ?? null;
+            const ch = channelOf(c.numero);
+            return (
+              <li key={c.id} className="relative">
+                <button onClick={() => onOpen(c)}
+                  className="w-full grid grid-cols-12 items-center px-5 py-3.5 text-left text-[14px] hover:bg-[var(--panel-2)] transition-colors">
+                  <div className="col-span-4 flex items-center gap-3 min-w-0">
+                    <InitialsAvatar name={c.nome || c.numero} size={36} />
+                    <div className="min-w-0">
+                      <div className="font-semibold truncate">{c.nome || contactDisplayId(c.numero, c.nome)}</div>
+                      {c.proxima_acao && (
+                        <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                          <Target className="size-3" /> {c.proxima_acao}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="col-span-2 text-[12.5px] text-muted-foreground inline-flex items-center gap-1.5">
+                    {ch === "instagram" ? <Instagram className="size-3.5 text-[#C13584]" /> : <Phone className="size-3.5 text-emerald-600" />}
+                    {channelLabel(ch)}
+                  </div>
+                  <div className="col-span-2">
+                    {st ? (
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-full ring-1"
+                        style={{ background: `color-mix(in oklab, ${st.cor} 18%, transparent)`, color: st.cor, borderColor: `color-mix(in oklab, ${st.cor} 35%, transparent)` } as any}>
+                        <span className="size-1.5 rounded-full" style={{ background: st.cor }} />{st.nome}
+                      </span>
+                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                  </div>
+                  <div className="col-span-2 font-semibold">
+                    {(c.valor ?? 0) > 0
+                      ? `R$ ${Number(c.valor).toLocaleString("pt-BR")}`
+                      : <span className="text-muted-foreground font-normal">—</span>}
+                  </div>
+                  <div className="col-span-2 text-muted-foreground text-[12.5px] truncate pr-10">
+                    {new Date(c.ultima_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </button>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <MoveMenu stages={stages} current={c.stage_id} onMove={(sid) => onMove(c.id, sid)} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }

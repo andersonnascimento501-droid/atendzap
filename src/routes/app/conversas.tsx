@@ -4,10 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/config/brand";
-import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone } from "lucide-react";
+import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign } from "lucide-react";
 import { sendCsat } from "@/lib/csat.functions";
 import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -58,6 +57,7 @@ function ConversasPage() {
   const [pauses, setPauses] = useState<Record<string, boolean>>({}); // numero → pausado?
   const [stages, setStages] = useState<StageWithTipo[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>(() => {
@@ -142,6 +142,10 @@ function ConversasPage() {
     setMembers(((cu ?? []) as any[]).map((r) => ({
       user_id: r.user_id, nome: r.profiles?.nome ?? null, email: r.profiles?.email ?? null,
     })));
+    const { data: cf } = await supabase.from("agent_custom_fields").select("key,label").eq("company_id", cid);
+    const fl: Record<string, string> = {};
+    (cf ?? []).forEach((r: any) => { fl[r.key] = r.label || r.key; });
+    setFieldLabels(fl);
     await loadPauses(cid);
   }
 
@@ -182,6 +186,9 @@ function ConversasPage() {
   const activeCard = active ? cards[active] : undefined;
   const activeStage = activeCard?.stage_id ? stages.find((s) => s.id === activeCard.stage_id) : null;
   const iaAtivaAqui = active ? !(pauses[active] ?? false) : true;
+  const activeOwner = activeCard?.owner_id ? members.find((m) => m.user_id === activeCard.owner_id) : null;
+  const activeColetadas = Object.entries((activeCard?.custom_data ?? {}) as Record<string, any>)
+    .filter(([, v]) => v !== null && v !== undefined && v !== "");
 
   // Keyboard shortcuts (after conversations is declared)
   useEffect(() => {
@@ -229,7 +236,13 @@ function ConversasPage() {
   async function assumir() {
     if (!active) return;
     await toggleIa(false);
-    toast.success("Você assumiu este atendimento. IA pausada.");
+    toast.success("Você assumiu o atendimento. O atendente IA foi pausado.");
+  }
+
+  async function devolverParaIa() {
+    if (!active) return;
+    await toggleIa(true);
+    toast.success("Conversa devolvida para o atendente IA.");
   }
 
   async function sendMsg(text?: string) {
@@ -261,9 +274,9 @@ function ConversasPage() {
         </div>
       </header>
 
-      <div className="grid md:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_300px] border border-[color:var(--hairline)] rounded-2xl overflow-hidden h-[calc(100vh-200px)] min-h-[500px] bg-[color:var(--panel)]">
+      <div className="grid md:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_320px] border border-[color:var(--hairline)] rounded-2xl overflow-hidden h-[calc(100dvh-210px)] min-h-[480px] bg-[color:var(--panel)]">
         {/* LISTA */}
-        <aside className="border-r border-[color:var(--hairline)] flex flex-col min-h-0 bg-[color:var(--panel)]">
+        <aside className={`border-r border-[color:var(--hairline)] flex-col min-h-0 bg-[color:var(--panel)] ${active ? "hidden md:flex" : "flex"}`}>
           <div className="p-3 border-b border-[color:var(--hairline)]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -272,7 +285,11 @@ function ConversasPage() {
           </div>
           <ul className="flex-1 overflow-auto">
             {conversations.length === 0 && (
-              <li className="p-8 text-sm text-muted-foreground text-center">Nenhuma conversa neste filtro.</li>
+              <li className="p-8 text-sm text-muted-foreground text-center">
+                {filter === "todas" && channelFilter === "todos" && !search.trim()
+                  ? <>Nenhuma conversa ainda.<br />Quando alguém chamar sua empresa, aparecerá aqui.</>
+                  : "Nenhuma conversa neste filtro."}
+              </li>
             )}
             {conversations.map((c) => {
               const on = c.numero === active;
@@ -298,8 +315,10 @@ function ConversasPage() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-[12.5px] text-muted-foreground truncate flex-1">{c.last.texto}</p>
-                        {iaAtiva && (
-                          <span title="IA ativa" className="text-[color:var(--brand-text)]"><Bot className="size-3" /></span>
+                        {iaAtiva ? (
+                          <span title="Atendente IA ativo" className="text-[color:var(--brand-text)]"><Bot className="size-3.5" /></span>
+                        ) : (
+                          <span title="Atendimento humano" className="text-amber-600"><Hand className="size-3.5" /></span>
                         )}
                         {u > 0 && (
                           <span className="bg-[color:var(--brand)] text-primary-foreground text-[10px] font-bold min-w-[18px] h-[18px] rounded-full grid place-items-center px-1">
@@ -316,40 +335,52 @@ function ConversasPage() {
         </aside>
 
         {/* THREAD */}
-        <section className="flex flex-col min-h-0 bg-[color:var(--panel-2)]">
+        <section className={`flex-col min-h-0 bg-[color:var(--panel-2)] ${active ? "flex" : "hidden md:flex"}`}>
           {!active ? (
             <div className="flex-1 grid place-items-center text-muted-foreground text-sm">
               <div className="text-center"><MessageSquareText className="mx-auto mb-2 size-6" />Selecione uma conversa</div>
             </div>
           ) : (
             <>
-              <header className="flex items-center gap-3 px-4 py-3 border-b border-[color:var(--hairline)] bg-[color:var(--panel)]">
+              <header className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-[color:var(--hairline)] bg-[color:var(--panel)]">
+                <button onClick={() => setActive(null)} aria-label="Voltar para a lista"
+                  className="md:hidden -ml-1 p-1.5 rounded-lg text-muted-foreground hover:bg-[color:var(--panel-2)]">
+                  <ArrowLeft className="size-4" />
+                </button>
                 <InitialsAvatar name={activeConv?.nome || active} size={38} />
                 <div className="min-w-0">
                   <div className="font-semibold text-sm truncate flex items-center gap-1.5">
                     <ChannelIcon channel={channelOf(active)} />
                     {activeConv?.nome || contactDisplayId(active, activeConv?.nome)}
                   </div>
-                  <div className="text-[11.5px] text-muted-foreground truncate font-mono">
-                    {channelOf(active) === "instagram" ? "Instagram Direct" : active}
+                  <div className="mt-0.5">
+                    <StatusPill iaAtiva={iaAtivaAqui} />
                   </div>
                 </div>
-                <div className="ml-auto flex items-center gap-3 flex-wrap">
-                  <label className="flex items-center gap-2 text-[12.5px] text-muted-foreground font-medium">
-                    <Bot className="size-3.5" /> IA ativa
-                    <Switch checked={iaAtivaAqui} onCheckedChange={(v) => void toggleIa(v)} />
-                  </label>
-                  <Button size="sm" variant="outline" onClick={() => void assumir()}>
-                    <Hand className="size-3.5 mr-1" /> Assumir
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={async () => {
+                <div className="ml-auto flex items-center gap-2">
+                  {iaAtivaAqui ? (
+                    <Button size="sm" onClick={() => void assumir()}>
+                      <Hand className="size-3.5 mr-1.5" /> <span className="hidden sm:inline">Assumir conversa</span><span className="sm:hidden">Assumir</span>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => void devolverParaIa()}>
+                      <Undo2 className="size-3.5 mr-1.5" /> <span className="hidden sm:inline">Devolver para IA</span><span className="sm:hidden">Devolver</span>
+                    </Button>
+                  )}
+                  {activeCard && (
+                    <Button size="sm" variant="ghost" className="xl:hidden" aria-label="Detalhes do cliente"
+                      onClick={() => setDrawerCard(activeCard)}>
+                      <Info className="size-4" />
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" className="hidden sm:inline-flex" onClick={async () => {
                     if (!active) return;
                     try {
                       await sendCsatFn({ data: { numero: active, contatoNome: activeConv?.nome ?? null } });
                       toast.success("Pesquisa de satisfação enviada");
                     } catch (e: any) { toast.error(e?.message ?? "Erro ao enviar"); }
                   }}>
-                    <Star className="size-3.5 mr-1" /> CSAT
+                    <Star className="size-3.5 sm:mr-1" /> <span className="hidden lg:inline">Satisfação</span>
                   </Button>
                 </div>
               </header>
@@ -438,8 +469,9 @@ function ConversasPage() {
                   </div>
                 </div>
               </div>
+              <div><StatusPill iaAtiva={iaAtivaAqui} /></div>
               <div>
-                <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Etapa CRM</div>
+                <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Etapa do funil</div>
                 {activeStage ? (
                   <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-full ring-1"
                     style={{ background: `color-mix(in oklab, ${activeStage.cor} 18%, transparent)`, color: activeStage.cor, borderColor: `color-mix(in oklab, ${activeStage.cor} 35%, transparent)` } as any}>
@@ -447,6 +479,16 @@ function ConversasPage() {
                   </span>
                 ) : <span className="text-xs text-muted-foreground">Sem etapa</span>}
               </div>
+              {activeOwner && (
+                <InfoRow icon={<User2 className="size-3.5" />} label="Responsável" value={activeOwner.nome || activeOwner.email || "—"} />
+              )}
+              {(activeCard?.valor ?? 0) > 0 && (
+                <InfoRow icon={<DollarSign className="size-3.5" />} label="Oportunidade"
+                  value={`R$ ${Number(activeCard?.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+              )}
+              {activeCard?.proxima_acao && (
+                <InfoRow icon={<Target className="size-3.5" />} label="Próxima ação" value={activeCard.proxima_acao} />
+              )}
               {(activeCard?.tags ?? []).length > 0 && (
                 <div>
                   <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Tags</div>
@@ -457,6 +499,19 @@ function ConversasPage() {
                   </div>
                 </div>
               )}
+              {activeColetadas.length > 0 && (
+                <div>
+                  <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Informações coletadas</div>
+                  <ul className="rounded-xl border border-[color:var(--hairline)] bg-[color:var(--panel-2)] divide-y divide-[color:var(--hairline)]">
+                    {activeColetadas.map(([k, v]) => (
+                      <li key={k} className="px-3 py-2 text-[12.5px] flex gap-2">
+                        <span className="text-muted-foreground min-w-[45%]">{fieldLabels[k] || k}</span>
+                        <span className="font-medium break-words">{Array.isArray(v) ? v.join(", ") : String(v)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {activeCard?.observacao && (
                 <div>
                   <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Observações</div>
@@ -465,7 +520,7 @@ function ConversasPage() {
               )}
               {activeCard && (
                 <Button variant="outline" size="sm" onClick={() => setDrawerCard(activeCard)}>
-                  <ExternalLink className="size-3.5 mr-1.5" /> Abrir ficha do lead
+                  <ExternalLink className="size-3.5 mr-1.5" /> Ver cliente
                 </Button>
               )}
               <div className="mt-auto pt-3 border-t border-[color:var(--hairline)] text-[11.5px] text-muted-foreground flex items-center gap-1.5">
@@ -484,6 +539,28 @@ function ConversasPage() {
         />
       )}
     </div>
+  );
+}
+
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2 text-[12.5px]">
+      <span className="text-muted-foreground mt-0.5">{icon}</span>
+      <span className="text-muted-foreground min-w-[42%]">{label}</span>
+      <span className="font-medium break-words flex-1">{value}</span>
+    </div>
+  );
+}
+
+function StatusPill({ iaAtiva }: { iaAtiva: boolean }) {
+  return iaAtiva ? (
+    <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2 py-0.5 rounded-full bg-[color:var(--brand-soft)] text-[color:var(--brand-text)]">
+      <Bot className="size-3" /> Atendente IA ativo
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+      <Hand className="size-3" /> Atendimento humano
+    </span>
   );
 }
 
