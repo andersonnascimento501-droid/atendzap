@@ -1,12 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { HelpTip } from "@/components/help-tip";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, Power, QrCode, Instagram, Copy, Check } from "lucide-react";
+import { Loader2, RefreshCw, Power, QrCode, Instagram, Copy, Check, MessageCircle, Settings2, Webhook } from "lucide-react";
 import { brand } from "@/config/brand";
 import { connectWhatsapp, checkWhatsappStatus, disconnectWhatsapp } from "@/lib/evolution.functions";
 import { connectInstagram, disconnectInstagram, getInstagramStatus } from "@/lib/instagram.functions";
@@ -16,24 +16,84 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { PlanUsageBadge } from "@/components/plan-usage-badge";
 
 export const Route = createFileRoute("/app/conexao")({
-  head: () => ({ meta: [{ title: `${brand.name} — Conexão` }] }),
+  head: () => ({ meta: [{ title: `${brand.name} — Canais` }] }),
   component: ConexaoPage,
 });
 
+type Tone = "ok" | "neutro" | "atencao";
+
+function StatusPill({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+  const cls =
+    tone === "ok"
+      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+      : tone === "atencao"
+      ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+      : "bg-[color:var(--panel-2)] text-muted-foreground border-[color:var(--hairline)]";
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold ${cls}`}>
+      <span className={`size-1.5 rounded-full ${tone === "ok" ? "bg-emerald-500" : tone === "atencao" ? "bg-amber-500" : "bg-muted-foreground/50"}`} />
+      {children}
+    </span>
+  );
+}
+
 function ConexaoPage() {
+  const plan = usePlanFeatures();
+
+  return (
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          Canais <HelpTip text="Conecte o WhatsApp e o Instagram Direct. O mesmo atendente de IA responde os dois canais." />
+        </h1>
+        <p className="text-sm text-muted-foreground">Conecte os canais onde seus clientes falam com você.</p>
+      </header>
+
+      {!plan.loading && (
+        <div>
+          <PlanUsageBadge label="WhatsApps" used={plan.usage.instancias} limit={plan.limites.instancias} />
+        </div>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2 items-start">
+        <WhatsappCard />
+        <InstagramCard />
+      </div>
+
+      <Accordion type="single" collapsible className="rounded-2xl border border-[color:var(--hairline)] bg-[color:var(--panel)] px-4">
+        <AccordionItem value="avancado" className="border-0">
+          <AccordionTrigger className="text-sm font-semibold">
+            <span className="flex items-center gap-2"><Settings2 className="size-4" /> Avançado</span>
+          </AccordionTrigger>
+          <AccordionContent>
+            <p className="text-sm text-muted-foreground mb-3">
+              Recursos técnicos: webhooks de saída, API pública e links de rastreio (UTM).
+            </p>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/app/integracoes"><Webhook className="size-4 mr-1.5" /> Abrir integrações técnicas</Link>
+            </Button>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </div>
+  );
+}
+
+function WhatsappCard() {
   const connect = useServerFn(connectWhatsapp);
   const check = useServerFn(checkWhatsappStatus);
   const disconnect = useServerFn(disconnectWhatsapp);
-  const plan = usePlanFeatures();
 
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("disconnected");
   const [numero, setNumero] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    void doCheck();
+    void doCheck(true);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
@@ -47,8 +107,10 @@ function ConexaoPage() {
   }
 
   async function doCheck(silent = false) {
+    setChecking(true);
     try {
       const r: any = await check();
+      setErro(null);
       setStatus(r.status);
       setNumero(r.numero ?? null);
       if (r.qrBase64 && r.status !== "connected") {
@@ -56,7 +118,10 @@ function ConexaoPage() {
         if (!pollRef.current) startPolling();
       }
       if (r.status === "connected") { setQr(null); stopPolling(); if (!silent) toast.success("WhatsApp conectado!"); }
-    } catch (e: any) { if (!silent) toast.error(e?.message || "Erro ao consultar status"); }
+    } catch (e: any) {
+      setErro("Não foi possível carregar esta informação.");
+      if (!silent) toast.error(e?.message || "Erro ao consultar status");
+    } finally { setChecking(false); }
   }
 
   async function doConnect() {
@@ -67,7 +132,7 @@ function ConexaoPage() {
       setStatus(r.state === "open" ? "connected" : "connecting");
       if (r.state === "open") toast.success("Já está conectado!");
       else if (r.qrBase64) { toast.message("QR Code gerado. Escaneie no WhatsApp."); startPolling(); }
-      else { toast.message("Instância criada. Buscando QR…"); startPolling(); }
+      else { toast.message("Preparando conexão. Buscando QR…"); startPolling(); }
     } catch (e: any) { toast.error(e?.message || "Falha ao conectar"); }
     finally { setLoading(false); }
   }
@@ -77,80 +142,85 @@ function ConexaoPage() {
     try {
       await disconnect();
       setStatus("disconnected"); setNumero(null); setQr(null); stopPolling();
-      toast.success("Desconectado");
+      toast.success("WhatsApp desconectado");
     } catch (e: any) { toast.error(e?.message || "Falha ao desconectar"); }
     finally { setLoading(false); }
   }
 
-  const statusBadge =
-    status === "connected" ? <Badge className="bg-primary">Conectado</Badge>
-    : status === "connecting" ? <Badge variant="secondary" className="bg-amber-500/15 text-amber-700">Conectando…</Badge>
-    : <Badge variant="outline">Desconectado</Badge>;
+  const conectado = status === "connected";
+  const conectando = status === "connecting" || !!qr;
+  const tone: Tone = conectado ? "ok" : conectando ? "atencao" : "neutro";
+  const statusLabel = conectado ? "Conectado" : conectando ? "Conectando" : "Não conectado";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">Canais de atendimento <HelpTip text="Conecte o WhatsApp (QR Code) e o Instagram Direct. O mesmo agente de IA atende os dois canais, com CRM, tools e follow-up compartilhados." /></h1>
-          <p className="text-sm text-muted-foreground">WhatsApp e Instagram na mesma caixa de entrada.</p>
+    <Card className="p-5 sm:p-6 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="size-11 rounded-xl bg-emerald-500/15 grid place-items-center shrink-0">
+          <MessageCircle className="size-5 text-emerald-600 dark:text-emerald-400" />
         </div>
-        {!plan.loading && (
-          <PlanUsageBadge label="números" used={plan.usage.instancias} limit={plan.limites.instancias} />
-        )}
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold text-base">WhatsApp</h2>
+          <p className="text-sm text-muted-foreground">Receba e responda clientes pelo WhatsApp.</p>
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            <StatusPill tone={tone}>{statusLabel}</StatusPill>
+            {conectado && numero && <span className="text-sm text-muted-foreground font-mono">{numero}</span>}
+          </div>
+        </div>
       </div>
 
-
-      <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div>
-            <div className="text-sm text-muted-foreground">Status</div>
-            <div className="flex items-center gap-3 mt-1">
-              {statusBadge}
-              {numero && <span className="text-sm text-muted-foreground">· {numero}</span>}
-            </div>
+      {erro ? (
+        <div className="rounded-xl border border-[color:var(--hairline)] p-4 text-sm space-y-3">
+          <p className="text-muted-foreground">{erro}</p>
+          <Button size="sm" variant="outline" onClick={() => void doCheck()}>
+            <RefreshCw className="size-4 mr-1.5" /> Tentar novamente
+          </Button>
+        </div>
+      ) : qr ? (
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-xl border border-border w-fit mx-auto">
+            <img src={qr} alt="QR Code do WhatsApp" className="size-60 sm:size-64 object-contain" />
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => doCheck()} disabled={loading}>
-              <RefreshCw className="size-4 mr-1.5" /> Atualizar
-            </Button>
-            {status === "connected" ? (
-              <Button variant="destructive" size="sm" onClick={doDisconnect} disabled={loading}>
-                <Power className="size-4 mr-1.5" /> Desconectar
-              </Button>
-            ) : (
-              <Button size="sm" onClick={doConnect} disabled={loading}>
-                {loading ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <QrCode className="size-4 mr-1.5" />}
-                {qr ? "Gerar novo QR" : "Conectar WhatsApp"}
-              </Button>
-            )}
+          <div className="text-sm space-y-2">
+            <h3 className="font-semibold">Como conectar</h3>
+            <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
+              <li>Abra o WhatsApp no celular.</li>
+              <li>Toque em <b>Aparelhos conectados</b>.</li>
+              <li>Toque em <b>Conectar um aparelho</b>.</li>
+              <li>Aponte a câmera para esta tela.</li>
+            </ol>
           </div>
         </div>
+      ) : conectado ? (
+        <p className="text-sm text-muted-foreground">Tudo certo! As mensagens já são respondidas automaticamente.</p>
+      ) : checking ? (
+        <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> Verificando…</p>
+      ) : (
+        <p className="text-sm text-muted-foreground">Seu WhatsApp ainda não está conectado.</p>
+      )}
 
-        {qr ? (
-          <div className="grid md:grid-cols-2 gap-6 items-center">
-            <div className="bg-white p-4 rounded-xl border border-border w-fit mx-auto">
-              <img src={qr} alt="QR Code WhatsApp" className="size-72 object-contain" />
-            </div>
-            <div className="space-y-3 text-sm">
-              <h3 className="font-semibold text-base">Como escanear</h3>
-              <ol className="list-decimal pl-5 space-y-1.5 text-muted-foreground">
-                <li>Abra o WhatsApp no celular.</li>
-                <li>Toque em <b>Aparelhos conectados</b>.</li>
-                <li>Toque em <b>Conectar um aparelho</b>.</li>
-                <li>Aponte para esta tela.</li>
-              </ol>
-              <p className="text-xs text-muted-foreground">Verificando a cada 5 s.</p>
-            </div>
-          </div>
-        ) : status === "connected" ? (
-          <div className="text-sm text-muted-foreground">Tudo certo! As mensagens serão respondidas automaticamente.</div>
+      <div className="flex flex-wrap gap-2 pt-1">
+        {conectado ? (
+          <>
+            <Button variant="outline" onClick={() => void doCheck()} disabled={loading} className="flex-1 sm:flex-none">
+              <RefreshCw className="size-4 mr-1.5" /> Gerenciar
+            </Button>
+            <Button variant="destructive" onClick={() => void doDisconnect()} disabled={loading} className="flex-1 sm:flex-none">
+              <Power className="size-4 mr-1.5" /> Desconectar
+            </Button>
+          </>
         ) : (
-          <div className="text-sm text-muted-foreground">Clique em <b>Conectar WhatsApp</b> para gerar o QR Code.</div>
+          <>
+            <Button onClick={() => void doConnect()} disabled={loading} className="flex-1 sm:flex-none">
+              {loading ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <QrCode className="size-4 mr-1.5" />}
+              {qr ? "Gerar novo QR Code" : conectando ? "Reconectar" : "Conectar WhatsApp"}
+            </Button>
+            <Button variant="outline" onClick={() => void doCheck()} disabled={loading} className="flex-1 sm:flex-none">
+              <RefreshCw className="size-4 mr-1.5" /> Atualizar
+            </Button>
+          </>
         )}
-      </Card>
-
-      <InstagramCard />
-    </div>
+      </div>
+    </Card>
   );
 }
 
@@ -160,14 +230,20 @@ function InstagramCard() {
   const disconnectFn = useServerFn(disconnectInstagram);
 
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
   const [token, setToken] = useState("");
   const [info, setInfo] = useState<any>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [abrirConfig, setAbrirConfig] = useState(false);
 
   useEffect(() => { void refresh(); }, []);
 
   async function refresh() {
-    try { setInfo(await statusFn()); } catch { /* ignora */ }
+    setChecking(true);
+    try { setInfo(await statusFn()); setErro(null); }
+    catch { setErro("Não foi possível carregar esta informação."); }
+    finally { setChecking(false); }
   }
 
   async function doConnect() {
@@ -175,6 +251,7 @@ function InstagramCard() {
     try {
       await connectFn({ data: { token: token.trim() } });
       setToken("");
+      setAbrirConfig(false);
       toast.success("Instagram conectado!");
       await refresh();
     } catch (e: any) { toast.error(e?.message || "Falha ao conectar o Instagram"); }
@@ -194,57 +271,86 @@ function InstagramCard() {
     setTimeout(() => setCopied(null), 1500);
   }
 
+  const conectado = !!info?.conectado;
+  const precisaReconectar = !conectado && !!info?.ultimoErro;
+  const tone: Tone = conectado ? "ok" : precisaReconectar ? "atencao" : "neutro";
+  const statusLabel = conectado ? "Conectado" : precisaReconectar ? "Precisa reconectar" : "Não conectado";
+
   return (
-    <Card className="p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div>
-          <h2 className="font-semibold flex items-center gap-2">
-            <Instagram className="size-4 text-[#C13584]" /> Instagram Direct
-            <HelpTip text="Conecte a conta profissional do Instagram para que o agente responda também as mensagens do Direct." />
-          </h2>
-          <div className="flex items-center gap-3 mt-1.5">
-            {info?.conectado
-              ? <Badge className="bg-primary">Conectado</Badge>
-              : <Badge variant="outline">Desconectado</Badge>}
-            {info?.username && <span className="text-sm text-muted-foreground">· @{info.username}</span>}
-            {info?.pageName && <span className="text-sm text-muted-foreground">· {info.pageName}</span>}
-          </div>
+    <Card className="p-5 sm:p-6 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="size-11 rounded-xl bg-[#C13584]/15 grid place-items-center shrink-0">
+          <Instagram className="size-5 text-[#C13584]" />
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
-            <RefreshCw className="size-4 mr-1.5" /> Atualizar
-          </Button>
-          {info?.conectado && (
-            <Button variant="destructive" size="sm" onClick={() => void doDisconnect()} disabled={loading}>
-              <Power className="size-4 mr-1.5" /> Desconectar
-            </Button>
-          )}
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold text-base">Instagram</h2>
+          <p className="text-sm text-muted-foreground">Receba mensagens do Instagram Direct no mesmo atendimento.</p>
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            <StatusPill tone={tone}>{statusLabel}</StatusPill>
+            {conectado && info?.username && <span className="text-sm text-muted-foreground">@{info.username}</span>}
+          </div>
         </div>
       </div>
 
-      {info?.conectado ? (
+      {erro ? (
+        <div className="rounded-xl border border-[color:var(--hairline)] p-4 text-sm space-y-3">
+          <p className="text-muted-foreground">{erro}</p>
+          <Button size="sm" variant="outline" onClick={() => void refresh()}>
+            <RefreshCw className="size-4 mr-1.5" /> Tentar novamente
+          </Button>
+        </div>
+      ) : conectado ? (
         <p className="text-sm text-muted-foreground">
-          Tudo certo! As mensagens do Direct entram na mesma caixa de entrada e são respondidas pelo agente.
+          Tudo certo! Os Directs entram na mesma caixa de entrada e são respondidos pelo atendente.
         </p>
+      ) : checking ? (
+        <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> Verificando…</p>
       ) : (
-        <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">Conecte seu Instagram profissional para receber Directs aqui.</p>
+      )}
+
+      <div className="flex flex-wrap gap-2 pt-1">
+        {conectado ? (
+          <>
+            <Button variant="outline" onClick={() => setAbrirConfig((v) => !v)} disabled={loading} className="flex-1 sm:flex-none">
+              <Settings2 className="size-4 mr-1.5" /> Gerenciar
+            </Button>
+            <Button variant="destructive" onClick={() => void doDisconnect()} disabled={loading} className="flex-1 sm:flex-none">
+              <Power className="size-4 mr-1.5" /> Desconectar
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={() => setAbrirConfig(true)} disabled={loading} className="flex-1 sm:flex-none">
+              <Instagram className="size-4 mr-1.5" />
+              {precisaReconectar ? "Reconectar" : "Conectar Instagram"}
+            </Button>
+            <Button variant="outline" onClick={() => void refresh()} disabled={loading} className="flex-1 sm:flex-none">
+              <RefreshCw className="size-4 mr-1.5" /> Atualizar
+            </Button>
+          </>
+        )}
+      </div>
+
+      {abrirConfig && (
+        <div className="rounded-xl border border-[color:var(--hairline)] p-4 space-y-4 text-sm">
           <div className="space-y-1.5">
-            <Label>Token de acesso do Meta</Label>
-            <div className="flex gap-2">
-              <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="EAAG..." type="password" />
-              <Button onClick={() => void doConnect()} disabled={loading || token.trim().length < 40}>
+            <Label>Código de acesso do Instagram profissional</Label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Cole aqui o código" type="password" />
+              <Button onClick={() => void doConnect()} disabled={loading || token.trim().length < 40} className="sm:w-auto">
                 {loading ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Instagram className="size-4 mr-1.5" />}
-                Conectar
+                Salvar e conectar
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Use um token da Página do Facebook vinculada à conta profissional do Instagram, com as permissões de mensagens do Instagram.
+              Use o código gerado na Página do Facebook ligada à sua conta profissional do Instagram, com permissão de mensagens.
             </p>
           </div>
 
           {(info?.webhookUrl || info?.verifyToken) && (
-            <div className="rounded-xl border border-border p-4 space-y-3 text-sm">
-              <h3 className="font-semibold">Webhook para configurar no Meta</h3>
+            <div className="rounded-lg bg-[color:var(--panel-2)] p-3 space-y-2">
+              <h3 className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">Dados técnicos para o Meta</h3>
               {info?.webhookUrl && (
                 <div className="flex items-center gap-2">
                   <code className="text-xs break-all flex-1">{info.webhookUrl}</code>
@@ -255,8 +361,8 @@ function InstagramCard() {
               )}
               {info?.verifyToken && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Verify token:</span>
-                  <code className="text-xs break-all flex-1">{info.verifyToken}</code>
+                  <span className="text-xs text-muted-foreground">Código de verificação:</span>
+                  <code className="text-xs flex-1">••••••••</code>
                   <Button size="sm" variant="ghost" onClick={() => copy("token", info.verifyToken)}>
                     {copied === "token" ? <Check className="size-4" /> : <Copy className="size-4" />}
                   </Button>
