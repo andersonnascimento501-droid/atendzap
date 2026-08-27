@@ -37,12 +37,12 @@ const mainNav: NavItem[] = [
     children: [{ to: "/app/contatos", label: "Lista de contatos", icon: Contact }],
   },
   {
-    to: "/app/agente",
+    to: "/app/agentes",
     label: "Atendente IA",
     icon: Bot,
     adminOnly: true,
     children: [
-      { to: "/app/agentes", label: "Modelos prontos", icon: Sparkles },
+      { to: "/app/agente", label: "Criar com a IA", icon: Sparkles },
       { to: "/app/agente/avancado", label: "Avançado", icon: Settings },
     ],
   },
@@ -110,7 +110,7 @@ export function AppShell({
     { to: "/app/conversas", label: "Conversas", icon: Inbox },
     { to: "/app/crm", label: "Clientes", icon: Users },
     isAdmin
-      ? { to: "/app/agente", label: "IA", icon: Bot }
+      ? { to: "/app/agentes", label: "IA", icon: Bot }
       : { to: "/app/conexao", label: "Canais", icon: Smartphone },
     { label: "Mais", icon: Menu, onClick: () => setMoreOpen(true) },
   ];

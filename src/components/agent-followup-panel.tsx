@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Plus, Trash2, Loader2, ArrowUp, ArrowDown, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 type Seq = {
@@ -149,9 +150,9 @@ export function AgentFollowupPanel({ companyId, agentId }: { companyId?: string;
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Nenhuma cadência de follow-up configurada. Crie uma para retomar automaticamente conversas que ficaram sem resposta.
+          Se o cliente parar de responder, o {"AtendZap"} pode entrar em contato novamente automaticamente.
         </p>
-        <Button onClick={createSeq}><Plus className="size-4 mr-1.5" /> Criar cadência de follow-up</Button>
+        <Button onClick={createSeq} className="w-full sm:w-auto"><Plus className="size-4 mr-1.5" /> Ativar lembretes automáticos</Button>
       </div>
     );
   }
@@ -159,28 +160,26 @@ export function AgentFollowupPanel({ companyId, agentId }: { companyId?: string;
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2">
-        <div>
-          <p className="text-sm font-medium">Follow-up automático</p>
-          <p className="text-xs text-muted-foreground">Envia lembretes quando o cliente para de responder.</p>
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Lembretes automáticos</p>
+          <p className="text-xs text-muted-foreground">
+            Se o cliente parar de responder, o atendente entra em contato novamente.
+          </p>
         </div>
-        <Switch checked={seq.ativo} onCheckedChange={(v) => updSeq({ ativo: v })} />
+        <Switch className="shrink-0" checked={seq.ativo} onCheckedChange={(v) => updSeq({ ativo: v })} />
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Etapas</h4>
-          <Button size="sm" variant="outline" onClick={addStep}><Plus className="size-3.5 mr-1.5" /> Adicionar etapa</Button>
-        </div>
         <p className="text-xs text-muted-foreground">
-          O tempo de cada etapa é contado a partir da etapa anterior (a 1ª, a partir da última interação do cliente).
+          O tempo de cada lembrete conta a partir do anterior (o 1º conta da última mensagem do cliente).
         </p>
         {steps.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma etapa. Adicione a primeira.</p>
+          <p className="text-sm text-muted-foreground">Nenhum lembrete ainda. Adicione o primeiro.</p>
         ) : (
           steps.map((s, i) => (
             <div key={s.id} className="rounded-xl border border-[var(--border)] p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Etapa {i + 1}</span>
+                <span className="text-sm font-medium">{i + 1}º lembrete</span>
                 <div className="flex items-center gap-1">
                   <Button size="icon" variant="ghost" disabled={i === 0} onClick={() => moveStep(i, -1)}><ArrowUp className="size-3.5" /></Button>
                   <Button size="icon" variant="ghost" disabled={i === steps.length - 1} onClick={() => moveStep(i, 1)}><ArrowDown className="size-3.5" /></Button>
@@ -189,7 +188,7 @@ export function AgentFollowupPanel({ companyId, agentId }: { companyId?: string;
               </div>
               <div className="grid sm:grid-cols-3 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-xs">Esperar</Label>
+                  <Label className="text-xs">Depois de</Label>
                   <Input
                     type="number"
                     min={1}
@@ -198,14 +197,14 @@ export function AgentFollowupPanel({ companyId, agentId }: { companyId?: string;
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Unidade</Label>
+                  <Label className="text-xs">Tempo</Label>
                   <Select value={s.delay_unit} onValueChange={(v) => updStep(s.id, { delay_unit: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{UNITS.map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Modo</Label>
+                  <Label className="text-xs">Mensagem</Label>
                   <Select value={s.message_mode} onValueChange={(v) => updStep(s.id, { message_mode: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{MODES.map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
@@ -215,7 +214,7 @@ export function AgentFollowupPanel({ companyId, agentId }: { companyId?: string;
               {s.message_mode !== "none" && (
                 <div className="space-y-1">
                   <Label className="text-xs">
-                    {s.message_mode === "template" ? "Mensagem enviada" : "Instrução para a IA"}
+                    {s.message_mode === "template" ? "Mensagem enviada" : "Como o atendente deve retomar a conversa"}
                   </Label>
                   <Textarea
                     rows={2}
@@ -227,7 +226,7 @@ export function AgentFollowupPanel({ companyId, agentId }: { companyId?: string;
               )}
               <div className="grid sm:grid-cols-2 gap-2 items-end">
                 <div className="space-y-1">
-                  <Label className="text-xs">Mover para etapa (opcional)</Label>
+                  <Label className="text-xs">Mover cliente para (opcional)</Label>
                   <Select value={s.move_stage_id ?? "none"} onValueChange={(v) => updStep(s.id, { move_stage_id: v === "none" ? null : v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -238,74 +237,88 @@ export function AgentFollowupPanel({ companyId, agentId }: { companyId?: string;
                 </div>
                 <div className="flex items-center gap-5 flex-wrap">
                   <label className="flex items-center gap-2 text-sm">
-                    <Switch checked={s.finalize} onCheckedChange={(v) => updStep(s.id, { finalize: v })} /> Encerrar após esta etapa
+                    <Switch checked={s.finalize} onCheckedChange={(v) => updStep(s.id, { finalize: v })} /> Encerrar depois deste
                   </label>
                   <label className="flex items-center gap-2 text-sm">
-                    <Switch checked={s.active} onCheckedChange={(v) => updStep(s.id, { active: v })} /> Ativa
+                    <Switch checked={s.active} onCheckedChange={(v) => updStep(s.id, { active: v })} /> Ativo
                   </label>
                 </div>
               </div>
             </div>
           ))
         )}
+        <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={addStep}>
+          <Plus className="size-3.5 mr-1.5" /> Adicionar lembrete
+        </Button>
       </div>
 
-      <div className="space-y-2">
-        <h4 className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Etapas elegíveis do CRM</h4>
-        <p className="text-xs text-muted-foreground">Nenhuma marcada = todas as etapas participam.</p>
-        <div className="grid sm:grid-cols-2 gap-2">
-          {stages.map((st) => (
-            <label key={st.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2">
-              <span className="text-sm">{st.nome}</span>
-              <Switch checked={(seq.eligible_stage_ids ?? []).includes(st.id)} onCheckedChange={(v) => toggleStage(st.id, v)} />
-            </label>
-          ))}
-        </div>
-      </div>
+      <Collapsible>
+        <div className="rounded-xl border border-[var(--border)] overflow-hidden">
+          <CollapsibleTrigger className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+            Opções avançadas
+            <ChevronDown className="size-4 text-muted-foreground" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="border-t border-[var(--border)] p-3 space-y-5">
+            <div className="grid sm:grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Enviar a partir de</Label>
+                <Input type="time" value={(seq.allowed_start_time ?? "08:00").slice(0, 5)} onChange={(e) => updSeq({ allowed_start_time: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Enviar até</Label>
+                <Input type="time" value={(seq.allowed_end_time ?? "20:00").slice(0, 5)} onChange={(e) => updSeq({ allowed_end_time: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Fuso horário</Label>
+                <Select value={seq.timezone} onValueChange={(v) => updSeq({ timezone: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{TIMEZONES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
 
-      <div className="grid sm:grid-cols-3 gap-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Enviar a partir de</Label>
-          <Input type="time" value={(seq.allowed_start_time ?? "08:00").slice(0, 5)} onChange={(e) => updSeq({ allowed_start_time: e.target.value })} />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Enviar até</Label>
-          <Input type="time" value={(seq.allowed_end_time ?? "20:00").slice(0, 5)} onChange={(e) => updSeq({ allowed_end_time: e.target.value })} />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Fuso horário</Label>
-          <Select value={seq.timezone} onValueChange={(v) => updSeq({ timezone: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{TIMEZONES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-      </div>
+            <div className="space-y-2">
+              <h4 className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">Etapas do funil que recebem lembrete</h4>
+              <p className="text-xs text-muted-foreground">Nenhuma marcada = todas participam.</p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {stages.map((st) => (
+                  <label key={st.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2">
+                    <span className="text-sm truncate">{st.nome}</span>
+                    <Switch className="shrink-0" checked={(seq.eligible_stage_ids ?? []).includes(st.id)} onCheckedChange={(v) => toggleStage(st.id, v)} />
+                  </label>
+                ))}
+              </div>
+            </div>
 
-      <div className="grid sm:grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Após a última etapa</Label>
-          <Select value={seq.final_action} onValueChange={(v) => updSeq({ final_action: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{FINAL_ACTIONS.map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
-          </Select>
+            <div className="grid sm:grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Depois do último lembrete</Label>
+                <Select value={seq.final_action} onValueChange={(v) => updSeq({ final_action: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{FINAL_ACTIONS.map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              {seq.final_action === "move_stage" && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Etapa final</Label>
+                  <Select value={seq.final_stage_id ?? "none"} onValueChange={(v) => updSeq({ final_stage_id: v === "none" ? null : v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Selecionar…</SelectItem>
+                      {stages.map((st) => <SelectItem key={st.id} value={st.id}>{st.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
         </div>
-        {seq.final_action === "move_stage" && (
-          <div className="space-y-1">
-            <Label className="text-xs">Etapa final</Label>
-            <Select value={seq.final_stage_id ?? "none"} onValueChange={(v) => updSeq({ final_stage_id: v === "none" ? null : v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Selecionar…</SelectItem>
-                {stages.map((st) => <SelectItem key={st.id} value={st.id}>{st.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </div>
+      </Collapsible>
 
       <p className="text-xs text-muted-foreground">
-        O follow-up é cancelado automaticamente quando o cliente responde, quando o atendimento vai para um humano ou quando o lead é finalizado.
+        Os lembretes param automaticamente quando o cliente responde, quando alguém da equipe assume a conversa ou quando o atendimento é finalizado.
       </p>
     </div>
   );
 }
+
