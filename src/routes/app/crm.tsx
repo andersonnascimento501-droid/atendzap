@@ -283,16 +283,25 @@ function CardBody({ card, dragging }: { card: LeadCard; dragging?: boolean }) {
       <div className="flex items-start gap-3">
         <InitialsAvatar name={card.nome || card.numero} size={36} />
         <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold truncate">{card.nome || card.numero}</div>
-          <div className="text-[11px] text-muted-foreground font-mono truncate">{card.numero}</div>
+          <div className="text-[14px] font-semibold truncate">{card.nome || contactDisplayId(card.numero, card.nome)}</div>
+          <div className="text-[11px] text-muted-foreground truncate inline-flex items-center gap-1.5">
+            {channelOf(card.numero) === "instagram"
+              ? <><Instagram className="size-3 text-[#C13584]" /> Instagram</>
+              : <><Phone className="size-3 text-emerald-600" /> <span className="font-mono">{card.numero}</span></>}
+          </div>
         </div>
       </div>
       {card.ultima_mensagem && (
         <p className="text-muted-foreground text-[13px] mt-2.5 line-clamp-2 leading-snug">{card.ultima_mensagem}</p>
       )}
+      {card.proxima_acao && (
+        <div className="text-[12px] text-muted-foreground mt-2 inline-flex items-center gap-1.5">
+          <Target className="size-3" /> <span className="truncate">{card.proxima_acao}</span>
+        </div>
+      )}
       {card.tags?.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {card.tags.map((t) => (
+          {card.tags.slice(0, 3).map((t) => (
             <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--brand)]/15 text-[var(--brand-text)]">{t}</span>
           ))}
         </div>
