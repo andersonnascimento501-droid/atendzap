@@ -1,8 +1,8 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
-  LayoutDashboard, Bot, KanbanSquare, LogOut, Smartphone, Shield,
-  Inbox, Users, BarChart3, Settings, Contact, Zap, MessageCircle, Megaphone, Webhook, Wallet, Sparkles,
+  Home, Bot, LogOut, Smartphone, Shield,
+  Inbox, Users, BarChart3, Settings, Contact, Zap, MessageCircle, Megaphone, Webhook, Wallet, Sparkles, Menu,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { brand, supportWhatsappUrl, supportWhatsappDisplay } from "@/config/brand";
@@ -10,6 +10,7 @@ import { TrialBanner } from "@/components/trial-banner";
 import { CreditsBadge } from "@/components/credits-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileBottomNav, type MobileNavItem } from "@/components/mobile-bottom-nav";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import type { CompanyRow, Membership } from "@/lib/tenant";
 import { useWhatsappStatus } from "@/hooks/use-whatsapp-status";
@@ -21,33 +22,56 @@ type NavItem = {
   adminOnly?: boolean;
   tag?: string;
   badge?: boolean;
+  children?: NavItem[];
 };
 
-const sections: { label: string; items: NavItem[] }[] = [
+// Navegação simples: 7 itens principais. Nada foi removido — telas secundárias
+// aparecem como subitens do item principal a que pertencem.
+const mainNav: NavItem[] = [
+  { to: "/app/dashboard", label: "Início", icon: Home },
+  { to: "/app/conversas", label: "Conversas", icon: Inbox, badge: true },
   {
-    label: "Atendimento",
-    items: [
-      { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/app/conversas", label: "Conversas", icon: Inbox, badge: true },
-      { to: "/app/crm", label: "CRM Kanban", icon: KanbanSquare },
-      { to: "/app/campanhas", label: "Campanhas", icon: Megaphone, adminOnly: true },
-      { to: "/app/agentes", label: "Agentes", icon: Sparkles, tag: "NOVO", adminOnly: true },
-      { to: "/app/agente", label: "Agente IA", icon: Bot, tag: "IA", adminOnly: true },
-    ],
+    to: "/app/crm",
+    label: "Clientes",
+    icon: Users,
+    children: [{ to: "/app/contatos", label: "Lista de contatos", icon: Contact }],
   },
   {
-    label: "Gestão",
-    items: [
-      { to: "/app/contatos", label: "Contatos", icon: Contact },
-      { to: "/app/financeiro", label: "Financeiro", icon: Wallet, adminOnly: true, tag: "PRO" },
-      { to: "/app/relatorios", label: "Relatórios", icon: BarChart3, adminOnly: true },
-      { to: "/app/conexao", label: "Conexão", icon: Smartphone },
-      { to: "/app/equipe", label: "Equipe", icon: Users, adminOnly: true },
-      { to: "/app/integracoes", label: "Integrações", icon: Webhook, adminOnly: true },
-      { to: "/app/configuracoes", label: "Configurações", icon: Settings, adminOnly: true },
+    to: "/app/agente",
+    label: "Atendente IA",
+    icon: Bot,
+    adminOnly: true,
+    children: [
+      { to: "/app/agentes", label: "Modelos prontos", icon: Sparkles },
+      { to: "/app/agente/avancado", label: "Avançado", icon: Settings },
     ],
+  },
+  { to: "/app/campanhas", label: "Disparos", icon: Megaphone, adminOnly: true },
+  {
+    to: "/app/conexao",
+    label: "Canais",
+    icon: Smartphone,
+    children: [{ to: "/app/integracoes", label: "Integrações", icon: Webhook, adminOnly: true }],
+  },
+  {
+    to: "/app/relatorios",
+    label: "Resultados",
+    icon: BarChart3,
+    adminOnly: true,
+    children: [{ to: "/app/financeiro", label: "Financeiro", icon: Wallet }],
   },
 ];
+
+const footerNav: NavItem[] = [
+  {
+    to: "/app/configuracoes",
+    label: "Configurações",
+    icon: Settings,
+    adminOnly: true,
+    children: [{ to: "/app/equipe", label: "Equipe", icon: Users }],
+  },
+];
+
 
 export function AppShell({
   children,
@@ -64,6 +88,7 @@ export function AppShell({
 }) {
   const loc = useLocation();
   const navigate = useNavigate();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -81,14 +106,19 @@ export function AppShell({
   const userName = (email || "Você").split("@")[0];
 
   const mobileItems: MobileNavItem[] = [
-    { to: "/app/dashboard", label: "Início", icon: LayoutDashboard },
+    { to: "/app/dashboard", label: "Início", icon: Home },
     { to: "/app/conversas", label: "Conversas", icon: Inbox },
-    { to: "/app/crm", label: "CRM", icon: KanbanSquare },
-    { to: "/app/contatos", label: "Contatos", icon: Contact },
+    { to: "/app/crm", label: "Clientes", icon: Users },
     isAdmin
-      ? { to: "/app/agente", label: "Agente", icon: Bot }
-      : { to: "/app/conexao", label: "Conexão", icon: Smartphone },
+      ? { to: "/app/agente", label: "IA", icon: Bot }
+      : { to: "/app/conexao", label: "Canais", icon: Smartphone },
+    { label: "Mais", icon: Menu, onClick: () => setMoreOpen(true) },
   ];
+
+  const moreItems = [...mainNav, ...footerNav]
+    .flatMap((i) => [i, ...(i.children ?? []).map((c) => ({ ...c, adminOnly: c.adminOnly ?? i.adminOnly }))])
+    .filter((i) => !i.adminOnly || isAdmin);
+
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground" style={{ ["--brand" as any]: primary }}>
@@ -160,6 +190,40 @@ export function AppShell({
       </div>
 
       <MobileBottomNav items={mobileItems} accent={primary} />
+
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <SheetHeader className="text-left">
+            <SheetTitle className="font-display">Tudo do seu painel</SheetTitle>
+          </SheetHeader>
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            {moreItems.map((it) => {
+              const Icon = it.icon;
+              return (
+                <Link
+                  key={it.to}
+                  to={it.to}
+                  onClick={() => setMoreOpen(false)}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-[color:var(--hairline)] bg-[color:var(--panel)] px-2 py-3 text-[12px] font-medium text-center"
+                >
+                  <Icon className="size-5" style={{ color: primary }} />
+                  <span className="leading-tight">{it.label}</span>
+                </Link>
+              );
+            })}
+            {isSuperAdmin && (
+              <Link
+                to="/master/painel"
+                onClick={() => setMoreOpen(false)}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/10 px-2 py-3 text-[12px] font-medium text-destructive text-center"
+              >
+                <Shield className="size-5" />
+                <span className="leading-tight">Master</span>
+              </Link>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -186,20 +250,57 @@ function Sidebar({
         </div>
       </div>
 
-      <nav className="p-3 flex-1 overflow-y-auto space-y-5">
-        {sections.map((sec) => (
-          <div key={sec.label}>
-            <div className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
-              {sec.label}
+      <nav className="p-3 flex-1 overflow-y-auto flex flex-col gap-1">
+        {mainNav.filter((i: NavItem) => !i.adminOnly || isAdmin).map((item: NavItem) => {
+          const active = loc.pathname.startsWith(item.to);
+          return (
+            <div key={item.to}>
+              <NavLink item={item} active={active} primary={primary} />
+              {active && item.children?.length ? (
+                <div className="mt-0.5 ml-[30px] flex flex-col gap-0.5 border-l border-[color:var(--hairline)] pl-2.5">
+                  {item.children.filter((c) => !c.adminOnly || isAdmin).map((c) => (
+                    <Link
+                      key={c.to}
+                      to={c.to}
+                      className={`px-2 py-1.5 rounded-md text-[12.5px] ${
+                        loc.pathname === c.to ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {c.label}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
             </div>
-            <div className="flex flex-col gap-1">
-              {sec.items.filter((i) => !i.adminOnly || isAdmin).map((item) => (
-                <NavLink key={item.to} item={item} active={loc.pathname.startsWith(item.to)} primary={primary} />
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
+
+      <div className="px-3 pb-2 flex flex-col gap-1">
+        {footerNav.filter((i: NavItem) => !i.adminOnly || isAdmin).map((item: NavItem) => {
+          const active = loc.pathname.startsWith(item.to);
+          return (
+            <div key={item.to}>
+              <NavLink item={item} active={active} primary={primary} />
+              {active && item.children?.length ? (
+                <div className="mt-0.5 ml-[30px] flex flex-col gap-0.5 border-l border-[color:var(--hairline)] pl-2.5">
+                  {item.children.filter((c) => !c.adminOnly || isAdmin).map((c) => (
+                    <Link
+                      key={c.to}
+                      to={c.to}
+                      className={`px-2 py-1.5 rounded-md text-[12.5px] ${
+                        loc.pathname === c.to ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {c.label}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
 
       <div className="p-3 border-t border-[color:var(--hairline)]">
         {isSuperAdmin && (

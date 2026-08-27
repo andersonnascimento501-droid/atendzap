@@ -1,9 +1,10 @@
 import { Link, useLocation } from "@tanstack/react-router";
 
 export type MobileNavItem = {
-  to: string;
+  to?: string;
   label: string;
   icon: any;
+  onClick?: () => void;
 };
 
 export function MobileBottomNav({
@@ -24,14 +25,13 @@ export function MobileBottomNav({
         style={{ WebkitBackdropFilter: "blur(20px)" }}
       >
         {items.map((it) => {
-          const active =
-            it.to === loc.pathname ||
-            (it.to !== "/" && loc.pathname.startsWith(it.to));
+          const active = !!it.to && (it.to === loc.pathname || loc.pathname.startsWith(it.to));
           const Icon = it.icon;
+          const Cmp: any = it.to ? Link : "button";
           return (
-            <Link
-              key={it.to}
-              to={it.to}
+            <Cmp
+              key={it.to ?? it.label}
+              {...(it.to ? { to: it.to } : { type: "button", onClick: it.onClick })}
               className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl text-[10.5px] font-medium transition-all"
               style={
                 active
@@ -50,7 +50,7 @@ export function MobileBottomNav({
                   style={{ background: accent, boxShadow: `0 0 10px ${accent}` }}
                 />
               )}
-            </Link>
+            </Cmp>
           );
         })}
       </div>
