@@ -87,20 +87,41 @@ export const listCompanies = createServerFn({ method: "POST" })
     if (error) throw error;
     const ids = (rows ?? []).map((c: any) => c.id);
     let ultByCompany: Record<string, string> = {};
+    let waByCompany: Record<string, string> = {};
+    let igByCompany: Record<string, string> = {};
     if (ids.length) {
-      const { data: msgs } = await supabaseAdmin
-        .from("mensagens")
-        .select("company_id, created_at")
-        .in("company_id", ids)
-        .order("created_at", { ascending: false })
-        .limit(500);
+      const [{ data: msgs }, { data: waRows }, { data: igRows }] = await Promise.all([
+        supabaseAdmin
+          .from("mensagens")
+          .select("company_id, created_at")
+          .in("company_id", ids)
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabaseAdmin.from("whatsapp_instances").select("company_id, status").in("company_id", ids),
+        supabaseAdmin.from("instagram_integration").select("company_id, conectado").in("company_id", ids),
+      ]);
       for (const m of msgs ?? []) {
         if (!ultByCompany[(m as any).company_id]) ultByCompany[(m as any).company_id] = (m as any).created_at;
       }
+      for (const w of waRows ?? []) {
+        const cid = (w as any).company_id;
+        const st = String((w as any).status ?? "").toLowerCase();
+        const connected = st === "connected" || st === "open";
+        if (connected || !waByCompany[cid]) waByCompany[cid] = connected ? "connected" : "disconnected";
+      }
+      for (const i of igRows ?? []) {
+        igByCompany[(i as any).company_id] = (i as any).conectado ? "connected" : "disconnected";
+      }
     }
-    const list = (rows ?? []).map((c: any) => ({ ...c, ultima_atividade: ultByCompany[c.id] ?? null }));
+    const list = (rows ?? []).map((c: any) => ({
+      ...c,
+      ultima_atividade: ultByCompany[c.id] ?? null,
+      whatsapp_status: waByCompany[c.id] ?? "unset",
+      instagram_status: igByCompany[c.id] ?? "unset",
+    }));
     return { rows: list, total: count ?? 0, pageSize };
   });
+
 
 export const suspendCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
