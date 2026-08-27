@@ -44,8 +44,8 @@ const TOOL_LABEL: Record<string, string> = {
 function ChannelIcons({ channels }: { channels: string[] }) {
   return (
     <div className="flex items-center gap-1.5 text-muted-foreground">
-      {channels.includes("whatsapp") && <Smartphone className="size-3.5" title="WhatsApp" />}
-      {channels.includes("instagram") && <Instagram className="size-3.5" title="Instagram" />}
+      {channels.includes("whatsapp") && <Smartphone className="size-3.5" aria-label="WhatsApp" />}
+      {channels.includes("instagram") && <Instagram className="size-3.5" aria-label="Instagram" />}
     </div>
   );
 }
