@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/config/brand";
-import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone } from "lucide-react";
+import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { sendCsat } from "@/lib/csat.functions";
 import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -70,6 +71,7 @@ function ConversasPage() {
   const [drawerCard, setDrawerCard] = useState<LeadCard | null>(null);
   const [sending, setSending] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!companyId) return;
@@ -229,7 +231,13 @@ function ConversasPage() {
   async function assumir() {
     if (!active) return;
     await toggleIa(false);
-    toast.success("Você assumiu este atendimento. IA pausada.");
+    toast.success("Você assumiu o atendimento. O atendente IA foi pausado.");
+  }
+
+  async function devolverParaIa() {
+    if (!active) return;
+    await toggleIa(true);
+    toast.success("Conversa devolvida para o atendente IA.");
   }
 
   async function sendMsg(text?: string) {
@@ -261,9 +269,9 @@ function ConversasPage() {
         </div>
       </header>
 
-      <div className="grid md:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_300px] border border-[color:var(--hairline)] rounded-2xl overflow-hidden h-[calc(100vh-200px)] min-h-[500px] bg-[color:var(--panel)]">
+      <div className="grid md:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_320px] border border-[color:var(--hairline)] rounded-2xl overflow-hidden h-[calc(100dvh-210px)] min-h-[480px] bg-[color:var(--panel)]">
         {/* LISTA */}
-        <aside className="border-r border-[color:var(--hairline)] flex flex-col min-h-0 bg-[color:var(--panel)]">
+        <aside className={`border-r border-[color:var(--hairline)] flex-col min-h-0 bg-[color:var(--panel)] ${active ? "hidden md:flex" : "flex"}`}>
           <div className="p-3 border-b border-[color:var(--hairline)]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -272,7 +280,11 @@ function ConversasPage() {
           </div>
           <ul className="flex-1 overflow-auto">
             {conversations.length === 0 && (
-              <li className="p-8 text-sm text-muted-foreground text-center">Nenhuma conversa neste filtro.</li>
+              <li className="p-8 text-sm text-muted-foreground text-center">
+                {filter === "todas" && channelFilter === "todos" && !search.trim()
+                  ? <>Nenhuma conversa ainda.<br />Quando alguém chamar sua empresa, aparecerá aqui.</>
+                  : "Nenhuma conversa neste filtro."}
+              </li>
             )}
             {conversations.map((c) => {
               const on = c.numero === active;
@@ -316,7 +328,7 @@ function ConversasPage() {
         </aside>
 
         {/* THREAD */}
-        <section className="flex flex-col min-h-0 bg-[color:var(--panel-2)]">
+        <section className={`flex-col min-h-0 bg-[color:var(--panel-2)] ${active ? "flex" : "hidden md:flex"}`}>
           {!active ? (
             <div className="flex-1 grid place-items-center text-muted-foreground text-sm">
               <div className="text-center"><MessageSquareText className="mx-auto mb-2 size-6" />Selecione uma conversa</div>
