@@ -18,6 +18,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { brand } from "@/config/brand";
+import { bootstrapSuperAdmin } from "@/lib/security.functions";
+
 
 type Search = { modo?: "login" | "signup"; plano?: string };
 
