@@ -110,7 +110,7 @@ export function AppShell({
     { to: "/app/conversas", label: "Conversas", icon: Inbox },
     { to: "/app/crm", label: "Clientes", icon: Users },
     isAdmin
-      ? { to: "/app/agente", label: "IA", icon: Bot }
+      ? { to: "/app/agentes", label: "IA", icon: Bot }
       : { to: "/app/conexao", label: "Canais", icon: Smartphone },
     { label: "Mais", icon: Menu, onClick: () => setMoreOpen(true) },
   ];
