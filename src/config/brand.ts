@@ -1,7 +1,7 @@
 // Branding centralizado. Troque aqui pra renomear/recolorir o app inteiro.
 export const brand = {
-  name: "AtendAI",
-  tagline: "IA que atende seu WhatsApp 24/7 + CRM Kanban",
+  name: "AtendZap",
+  tagline: "Seu WhatsApp atendendo por você.",
   // WhatsApp green
   primary: "#22C55E",
   primaryOklch: "0.72 0.18 152",
