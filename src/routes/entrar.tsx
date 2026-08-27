@@ -18,6 +18,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { brand } from "@/config/brand";
+import { bootstrapSuperAdmin } from "@/lib/security.functions";
+
 
 type Search = { modo?: "login" | "signup"; plano?: string };
 
@@ -65,11 +67,14 @@ function EntrarPage() {
   async function routeAfterAuth() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
+    // Promoção do primeiro usuário do sistema (decidida no servidor/banco)
+    try { await bootstrapSuperAdmin(); } catch {}
     if (search.plano) {
       navigate({ to: "/app/checkout", search: { plano: search.plano } as any, replace: true });
       return;
     }
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+
     if (roles?.some((r) => r.role === "super_admin")) {
       navigate({ to: "/master/painel", replace: true });
       return;

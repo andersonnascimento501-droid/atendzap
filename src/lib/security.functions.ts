@@ -69,3 +69,14 @@ export const exportLgpd = createServerFn({ method: "POST" })
       data: out,
     };
   });
+
+// ---------- Bootstrap do super admin (apenas o PRIMEIRO usuário do sistema) ----------
+// A decisão é tomada 100% no banco (função SECURITY DEFINER que compara auth.uid()
+// com o usuário mais antigo de auth.users). O cliente não pode influenciar o resultado.
+export const bootstrapSuperAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase.rpc("ensure_super_admin_bootstrap");
+    if (error) return { isSuperAdmin: false };
+    return { isSuperAdmin: data === true };
+  });
