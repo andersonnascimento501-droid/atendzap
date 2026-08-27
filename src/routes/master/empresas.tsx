@@ -173,11 +173,12 @@ function EmpresasPage() {
       <Card className="overflow-hidden">
         <div className="grid grid-cols-12 text-xs font-medium text-muted-foreground bg-muted/50 px-4 py-2">
           <div className="col-span-3">Nome</div>
-          <div className="col-span-2">Status</div>
-          <div className="col-span-2">Trial até</div>
-          <div className="col-span-2">Criada</div>
-          <div className="col-span-1">Atividade</div>
-          <div className="col-span-2 text-right">Ações</div>
+          <div className="col-span-1">Status</div>
+          <div className="col-span-1">Créditos</div>
+          <div className="col-span-2">Conexões</div>
+          <div className="col-span-1">Trial até</div>
+          <div className="col-span-1">Criada</div>
+          <div className="col-span-3 text-right">Ações</div>
         </div>
         {loading ? (
           <div className="p-8 grid place-items-center"><Loader2 className="animate-spin text-muted-foreground" /></div>
@@ -191,18 +192,24 @@ function EmpresasPage() {
                   <div className="font-medium truncate">{c.nome}</div>
                   <div className="text-xs text-muted-foreground truncate">{c.slug}</div>
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <StatusBadge s={c.status_cobranca} />
                 </div>
-                <div className="col-span-2 text-xs text-muted-foreground">
-                  {c.trial_ate ? new Date(c.trial_ate).toLocaleDateString("pt-BR") : "—"}
-                </div>
-                <div className="col-span-2 text-xs text-muted-foreground">
-                  {new Date(c.created_at).toLocaleDateString("pt-BR")}
+                <div className="col-span-1 text-xs font-medium">{c.creditos_saldo ?? 0}</div>
+                <div className="col-span-2 flex flex-wrap gap-1">
+                  <ConnBadge label="WA" s={c.whatsapp_status} />
+                  <ConnBadge label="IG" s={c.instagram_status} />
                 </div>
                 <div className="col-span-1 text-xs text-muted-foreground">
-                  {c.ultima_atividade ? new Date(c.ultima_atividade).toLocaleDateString("pt-BR") : "—"}
+                  {c.trial_ate ? new Date(c.trial_ate).toLocaleDateString("pt-BR") : "—"}
                 </div>
+                <div className="col-span-1 text-xs text-muted-foreground">
+                  {new Date(c.created_at).toLocaleDateString("pt-BR")}
+                  <div className="text-[10px]">
+                    {c.ultima_atividade ? `ativ. ${new Date(c.ultima_atividade).toLocaleDateString("pt-BR")}` : "sem ativ."}
+                  </div>
+                </div>
+
                 <div className="col-span-2 flex justify-end gap-1">
                   <Button size="sm" variant="outline" onClick={() => openDetails(c.id)} title="Ver detalhes">
                     <Eye className="size-3.5" />
