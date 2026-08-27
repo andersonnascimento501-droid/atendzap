@@ -63,19 +63,28 @@ export function LeadDrawer({
           <div className="flex items-center gap-3">
             <InitialsAvatar name={local.nome || local.numero} size={48} />
             <div className="min-w-0 flex-1">
-              <SheetTitle className="truncate text-base">{local.nome || local.numero}</SheetTitle>
-              <div className="text-xs text-muted-foreground font-mono">{local.numero}</div>
+              <SheetTitle className="truncate text-base">{local.nome || contactDisplayId(local.numero, local.nome)}</SheetTitle>
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                {channelOf(local.numero) === "instagram"
+                  ? <><Instagram className="size-3.5 text-[#C13584]" /> Instagram Direct</>
+                  : <><Phone className="size-3.5 text-emerald-600" /> <span className="font-mono">{local.numero}</span></>}
+              </div>
             </div>
           </div>
         </SheetHeader>
 
         <Tabs value={tab} onValueChange={setTab} className="mt-4">
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="dados">Dados</TabsTrigger>
+          <TabsList className="flex flex-wrap h-auto w-full justify-start gap-1">
+            <TabsTrigger value="resumo">Resumo</TabsTrigger>
+            <TabsTrigger value="dados">Informações</TabsTrigger>
             <TabsTrigger value="conversa">Conversa</TabsTrigger>
-            <TabsTrigger value="notas">Notas</TabsTrigger>
             <TabsTrigger value="hist">Histórico</TabsTrigger>
+            <TabsTrigger value="notas">Notas</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="resumo" className="mt-4">
+            <ResumoTab card={local} stages={stages} members={members} companyId={companyId} onGoTo={setTab} />
+          </TabsContent>
 
           <TabsContent value="dados" className="space-y-3 mt-4">
             <Field label="Nome" value={local.nome ?? ""} onChange={(v) => set("nome", v)} />
