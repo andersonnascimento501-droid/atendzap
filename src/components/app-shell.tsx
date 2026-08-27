@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 import {
-  LayoutDashboard, Bot, KanbanSquare, LogOut, Smartphone, Shield,
+  Home, Bot, LogOut, Smartphone, Shield,
   Inbox, Users, BarChart3, Settings, Contact, Zap, MessageCircle, Megaphone, Webhook, Wallet, Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
