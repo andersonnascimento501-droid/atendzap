@@ -262,12 +262,73 @@ function EmpresasPage() {
                 <Field k="Status" v={detail.company.status_cobranca} />
                 <Field k="Email corporativo" v={detail.company.email_corporativo} />
                 <Field k="Telefone" v={detail.company.telefone} />
-                <Field k="CNPJ" v={detail.company.cnpj} />
-                <Field k="Endereço" v={detail.company.endereco} />
-                <Field k="Cidade/UF" v={[detail.company.cidade, detail.company.uf].filter(Boolean).join(" / ")} />
+                <Field k={detail.company.tipo_pessoa === "pf" ? "CPF" : "CNPJ"} v={detail.company.cnpj_cpf} />
+                <Field k="Razão social" v={detail.company.razao_social} />
+                <Field
+                  k="Endereço"
+                  v={[
+                    [detail.company.rua, detail.company.numero].filter(Boolean).join(", "),
+                    detail.company.complemento,
+                    detail.company.bairro,
+                    detail.company.cep,
+                  ].filter(Boolean).join(" · ")}
+                />
+                <Field k="Cidade/UF" v={[detail.company.cidade, detail.company.estado].filter(Boolean).join(" / ")} />
                 <Field k="Segmento" v={detail.company.segmento} />
                 <Field k="Trial até" v={detail.company.trial_ate ? new Date(detail.company.trial_ate).toLocaleString("pt-BR") : "—"} />
                 <Field k="Criada" v={new Date(detail.company.created_at).toLocaleString("pt-BR")} />
+              </Section>
+
+              <Section title="Créditos de IA">
+                <Field k="Saldo atual" v={String(detail.credits?.saldo ?? 0)} />
+                <Field k="Origem" v={detail.credits?.origem} />
+                <Field k="Consumo (últ. movimentações)" v={String(detail.credits?.consumo_recente ?? 0)} />
+                <Field k="Resetam em" v={detail.credits?.resetam_em ? new Date(detail.credits.resetam_em).toLocaleString("pt-BR") : "—"} />
+                <div className="col-span-2 space-y-1 mt-1">
+                  {detail.credits?.ledger?.length ? detail.credits.ledger.map((l: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between border rounded-md px-3 py-1.5 text-xs">
+                      <span className="truncate">
+                        {new Date(l.created_at).toLocaleString("pt-BR")} · {l.motivo}{l.ref ? ` (${l.ref})` : ""}
+                      </span>
+                      <span className={l.delta < 0 ? "text-destructive font-medium" : "text-primary font-medium"}>
+                        {l.delta > 0 ? `+${l.delta}` : l.delta} → {l.saldo_apos}
+                      </span>
+                    </div>
+                  )) : <div className="text-muted-foreground text-xs">Sem movimentações.</div>}
+                </div>
+                <div className="col-span-2">
+                  <Button size="sm" variant="outline" onClick={() => doGrantCredits({ ...detail.company, creditos_saldo: detail.credits?.saldo ?? 0 })}>
+                    <Sparkles className="size-3.5 mr-1" /> Ajustar créditos
+                  </Button>
+                </div>
+              </Section>
+
+              <Section title="Conexões">
+                <div className="col-span-2 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-medium">WhatsApp:</span>
+                    {detail.whatsapp?.length ? detail.whatsapp.map((w: any) => (
+                      <span key={w.instance_name} className="flex items-center gap-1">
+                        <ConnBadge label="WA" s={String(w.status ?? "").toLowerCase() === "connected" || String(w.status ?? "").toLowerCase() === "open" ? "connected" : "disconnected"} />
+                        <span className="text-muted-foreground">
+                          {w.numero || w.instance_name} · atualizado {w.updated_at ? new Date(w.updated_at).toLocaleString("pt-BR") : "—"}
+                        </span>
+                      </span>
+                    )) : <ConnBadge label="WA" s="unset" />}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-medium">Instagram:</span>
+                    {detail.instagram ? (
+                      <span className="flex items-center gap-1">
+                        <ConnBadge label="IG" s={detail.instagram.status} />
+                        <span className="text-muted-foreground">
+                          {detail.instagram.username ? `@${detail.instagram.username}` : "—"} · atualizado{" "}
+                          {detail.instagram.updated_at ? new Date(detail.instagram.updated_at).toLocaleString("pt-BR") : "—"}
+                        </span>
+                      </span>
+                    ) : <ConnBadge label="IG" s="unset" />}
+                  </div>
+                </div>
               </Section>
 
               <Section title="Assinatura">
@@ -283,6 +344,30 @@ function EmpresasPage() {
                 ) : (
                   <div className="text-muted-foreground col-span-2">Sem assinatura.</div>
                 )}
+              </Section>
+
+              <Section title="Alterar plano">
+                <div className="col-span-2 space-y-2">
+                  <div className="text-xs text-muted-foreground">
+                    Plano atual: <strong>{detail.subscription?.plan?.nome ?? "—"}</strong>
+                    {detail.subscription?.provider && detail.subscription.provider !== "manual" && (
+                      <> · assinatura gerenciada por <strong>{detail.subscription.provider}</strong>: a alteração é apenas administrativa (sem sincronizar com o gateway).</>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={newPlanId} onValueChange={setNewPlanId}>
+                      <SelectTrigger className="w-64"><SelectValue placeholder="Novo plano" /></SelectTrigger>
+                      <SelectContent>
+                        {plans.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" onClick={savePlan} disabled={!newPlanId || savingPlan}>
+                      {savingPlan ? <Loader2 className="size-3.5 animate-spin" /> : "Salvar"}
+                    </Button>
+                  </div>
+                </div>
               </Section>
 
               <Section title="Usuários">
@@ -305,6 +390,7 @@ function EmpresasPage() {
                 <Field k="Mensagens" v={String(detail.stats.mensagens)} />
                 <Field k="Cards CRM" v={String(detail.stats.cards)} />
               </Section>
+
             </div>
           ) : null}
         </DialogContent>
