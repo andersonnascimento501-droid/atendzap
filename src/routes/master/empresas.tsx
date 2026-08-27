@@ -210,7 +210,7 @@ function EmpresasPage() {
                   </div>
                 </div>
 
-                <div className="col-span-2 flex justify-end gap-1">
+                <div className="col-span-3 flex justify-end gap-1">
                   <Button size="sm" variant="outline" onClick={() => openDetails(c.id)} title="Ver detalhes">
                     <Eye className="size-3.5" />
                   </Button>
