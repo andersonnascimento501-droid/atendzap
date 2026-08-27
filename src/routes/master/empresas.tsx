@@ -93,13 +93,19 @@ function EmpresasPage() {
   }
 
   async function doGrantCredits(c: any) {
-    const raw = prompt(`Créditos de IA para "${c.nome}".\n\nDigite quantidade (positivo adiciona, negativo remove):`, "100");
+    const saldoAtual = c.creditos_saldo ?? 0;
+    const raw = prompt(
+      `Créditos de IA para "${c.nome}".\n\nSaldo atual: ${saldoAtual} créditos.\n\nDigite quantidade (positivo adiciona, negativo remove):`,
+      "100",
+    );
     if (raw === null) return;
     const qtd = Number(raw);
     if (!qtd || isNaN(qtd)) return toast.error("Quantidade inválida");
     try {
       const r: any = await grantCredits({ data: { companyId: c.id, qtd, motivo: "ajuste_admin" } });
-      toast.success(`Saldo agora: ${r.saldo} créditos`);
+      toast.success(`Saldo: ${saldoAtual} → ${r.saldo} créditos`);
+      setRows((prev) => prev.map((x) => (x.id === c.id ? { ...x, creditos_saldo: r.saldo } : x)));
+      if (detail?.company?.id === c.id) await openDetails(c.id);
     } catch (e: any) {
       toast.error(e?.message || "Falha ao ajustar créditos");
     }
@@ -111,6 +117,13 @@ function EmpresasPage() {
     try {
       const r = await details({ data: { companyId } });
       setDetail(r);
+      setNewPlanId((r as any)?.subscription?.plan_id ?? "");
+      if (!plans.length) {
+        try {
+          const p: any = await loadPlans();
+          setPlans(p.plans ?? []);
+        } catch {}
+      }
     } catch (e: any) {
       toast.error(e?.message || "Falha ao carregar detalhes");
       setDetail(null);
@@ -118,6 +131,22 @@ function EmpresasPage() {
       setDetailLoading(false);
     }
   }
+
+  async function savePlan() {
+    if (!detail?.company?.id || !newPlanId) return;
+    setSavingPlan(true);
+    try {
+      const r: any = await changePlan({ data: { companyId: detail.company.id, planId: newPlanId } });
+      toast.success(`Plano alterado para ${r.planNome}`);
+      await openDetails(detail.company.id);
+      reload();
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao alterar plano");
+    } finally {
+      setSavingPlan(false);
+    }
+  }
+
 
   const pages = Math.ceil(total / pageSize);
 
