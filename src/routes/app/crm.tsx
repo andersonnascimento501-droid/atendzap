@@ -175,24 +175,44 @@ function KanbanPage() {
         <div className="text-sm text-muted-foreground ml-auto">{visibleCards.length} cliente(s)</div>
       </div>
 
-      <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-        <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${Math.max(stages.length,1)}, minmax(280px,1fr))`, overflowX: "auto" }}>
-          {stages.map((col) => (
-            <Column key={col.id} stage={col} count={(byStage[col.id] ?? []).length}
-              onEdit={() => setEditingStage(col)} onDelete={() => deleteStage(col.id)}>
-              {(byStage[col.id] ?? []).map((c) => (
-                <KCard key={c.id} card={c} onClick={() => setSelected(c)} />
-              ))}
-              {(byStage[col.id] ?? []).length === 0 && (
-                <div className="text-xs text-muted-foreground text-center py-8 border border-dashed border-[var(--border)] rounded-xl">
-                  vazio
-                </div>
-              )}
-            </Column>
-          ))}
+      {cards.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[var(--border)] p-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            Seus clientes aparecerão aqui conforme o {brand.name} iniciar os atendimentos.
+          </p>
+          <Button className="mt-4" variant="outline" onClick={() => setAdding(true)}>
+            <Plus className="size-4 mr-1.5" /> Adicionar conversa
+          </Button>
         </div>
-        <DragOverlay>{activeCard ? <CardBody card={activeCard} dragging /> : null}</DragOverlay>
-      </DndContext>
+      ) : isMobile ? (
+        <MobileStages
+          stages={stages} byStage={byStage} cards={visibleCards}
+          value={mobileStage} onChange={setMobileStage}
+          onOpen={(c) => setSelected(c)} onMove={(id, sid) => void moveCard(id, sid)}
+        />
+      ) : view === "lista" ? (
+        <ClientList cards={visibleCards} stages={stages} onOpen={(c) => setSelected(c)}
+          onMove={(id, sid) => void moveCard(id, sid)} />
+      ) : (
+        <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+          <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${Math.max(stages.length,1)}, minmax(280px,1fr))`, overflowX: "auto" }}>
+            {stages.map((col) => (
+              <Column key={col.id} stage={col} count={(byStage[col.id] ?? []).length}
+                onEdit={() => setEditingStage(col)} onDelete={() => deleteStage(col.id)}>
+                {(byStage[col.id] ?? []).map((c) => (
+                  <KCard key={c.id} card={c} onClick={() => setSelected(c)} />
+                ))}
+                {(byStage[col.id] ?? []).length === 0 && (
+                  <div className="text-xs text-muted-foreground text-center py-8 border border-dashed border-[var(--border)] rounded-xl">
+                    Nenhum cliente nesta etapa
+                  </div>
+                )}
+              </Column>
+            ))}
+          </div>
+          <DragOverlay>{activeCard ? <CardBody card={activeCard} dragging /> : null}</DragOverlay>
+        </DndContext>
+      )}
 
       <StageDialog open={newStageOpen} onClose={() => setNewStageOpen(false)}
         onSave={(n, c) => { createStage(n, c); setNewStageOpen(false); }} />
@@ -381,5 +401,143 @@ function AddFromWhatsappDialog({ open, onClose, companyId, userId, firstStageId,
           )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ETAPA 6 — Mobile: etapas como filtro + lista em coluna única (sem kanban horizontal).
+function MobileStages({ stages, byStage, cards, value, onChange, onOpen, onMove }: {
+  stages: Stage[]; byStage: Record<string, LeadCard[]>; cards: LeadCard[];
+  value: string; onChange: (v: string) => void;
+  onOpen: (c: LeadCard) => void; onMove: (id: string, stageId: string) => void;
+}) {
+  const list = value === "todos" ? cards : (byStage[value] ?? []);
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        <StageChip label="Todos" count={cards.length} on={value === "todos"} onClick={() => onChange("todos")} />
+        {stages.map((s) => (
+          <StageChip key={s.id} label={s.nome} cor={s.cor} count={(byStage[s.id] ?? []).length}
+            on={value === s.id} onClick={() => onChange(s.id)} />
+        ))}
+      </div>
+      {list.length === 0 ? (
+        <div className="text-sm text-muted-foreground text-center py-10 border border-dashed border-[var(--border)] rounded-xl">
+          Nenhum cliente nesta etapa
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {list.map((c) => (
+            <li key={c.id} className="relative">
+              <div onClick={() => onOpen(c)}><CardBody card={c} /></div>
+              <div className="absolute top-3 right-3">
+                <MoveMenu stages={stages} current={c.stage_id} onMove={(sid) => onMove(c.id, sid)} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function StageChip({ label, count, on, cor, onClick }: { label: string; count: number; on: boolean; cor?: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-semibold border transition-colors ${
+        on ? "bg-[var(--brand)]/15 text-[var(--brand-text)] border-[var(--brand)]/40" : "bg-[var(--panel)] text-muted-foreground border-[var(--border)]"
+      }`}>
+      {cor && <span className="size-2 rounded-full" style={{ background: cor }} />}
+      {label}
+      <span className="text-[11px] opacity-70">{count}</span>
+    </button>
+  );
+}
+
+function MoveMenu({ stages, current, onMove }: { stages: Stage[]; current: string | null; onMove: (sid: string) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button onClick={(e) => e.stopPropagation()} aria-label="Mover para outra etapa"
+          className="p-1.5 rounded-lg bg-[var(--panel)] border border-[var(--border)] text-muted-foreground">
+          <ArrowRightLeft className="size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {stages.map((s) => (
+          <DropdownMenuItem key={s.id} disabled={s.id === current}
+            onClick={(e) => { e.stopPropagation(); onMove(s.id); }}>
+            <span className="size-2 rounded-full mr-2" style={{ background: s.cor }} />{s.nome}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// ETAPA 6 — Visualização em lista (desktop).
+function ClientList({ cards, stages, onOpen, onMove }: {
+  cards: LeadCard[]; stages: Stage[]; onOpen: (c: LeadCard) => void; onMove: (id: string, stageId: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] overflow-hidden">
+      <div className="grid grid-cols-12 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-[var(--panel-2)] px-5 py-3 border-b border-[var(--border)]">
+        <div className="col-span-4">Cliente</div>
+        <div className="col-span-2">Canal</div>
+        <div className="col-span-2">Etapa</div>
+        <div className="col-span-2">Valor</div>
+        <div className="col-span-2">Última interação</div>
+      </div>
+      {cards.length === 0 ? (
+        <div className="p-10 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</div>
+      ) : (
+        <ul className="divide-y divide-[var(--border)]">
+          {cards.map((c) => {
+            const st = stages.find((s) => s.id === c.stage_id) ?? null;
+            const ch = channelOf(c.numero);
+            return (
+              <li key={c.id} className="relative">
+                <button onClick={() => onOpen(c)}
+                  className="w-full grid grid-cols-12 items-center px-5 py-3.5 text-left text-[14px] hover:bg-[var(--panel-2)] transition-colors">
+                  <div className="col-span-4 flex items-center gap-3 min-w-0">
+                    <InitialsAvatar name={c.nome || c.numero} size={36} />
+                    <div className="min-w-0">
+                      <div className="font-semibold truncate">{c.nome || contactDisplayId(c.numero, c.nome)}</div>
+                      {c.proxima_acao && (
+                        <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                          <Target className="size-3" /> {c.proxima_acao}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="col-span-2 text-[12.5px] text-muted-foreground inline-flex items-center gap-1.5">
+                    {ch === "instagram" ? <Instagram className="size-3.5 text-[#C13584]" /> : <Phone className="size-3.5 text-emerald-600" />}
+                    {channelLabel(ch)}
+                  </div>
+                  <div className="col-span-2">
+                    {st ? (
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-full ring-1"
+                        style={{ background: `color-mix(in oklab, ${st.cor} 18%, transparent)`, color: st.cor, borderColor: `color-mix(in oklab, ${st.cor} 35%, transparent)` } as any}>
+                        <span className="size-1.5 rounded-full" style={{ background: st.cor }} />{st.nome}
+                      </span>
+                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                  </div>
+                  <div className="col-span-2 font-semibold">
+                    {(c.valor ?? 0) > 0
+                      ? `R$ ${Number(c.valor).toLocaleString("pt-BR")}`
+                      : <span className="text-muted-foreground font-normal">—</span>}
+                  </div>
+                  <div className="col-span-2 text-muted-foreground text-[12.5px] truncate pr-10">
+                    {new Date(c.ultima_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </button>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <MoveMenu stages={stages} current={c.stage_id} onMove={(sid) => onMove(c.id, sid)} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
