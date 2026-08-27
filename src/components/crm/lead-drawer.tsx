@@ -9,7 +9,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Save, Trash2, Send } from "lucide-react";
+import { Save, Trash2, Send, Instagram, Phone, Sparkles, Clock, User2, Tag, Target, DollarSign } from "lucide-react";
+import { channelOf, contactDisplayId, channelLabel } from "@/lib/channels";
 
 export interface LeadCard {
   id: string; numero: string; nome: string | null;
@@ -30,8 +31,8 @@ export function LeadDrawer({
   companyId: string; onClose: () => void; onChanged: () => void;
 }) {
   const [local, setLocal] = useState<LeadCard | null>(card);
-  const [tab, setTab] = useState("dados");
-  useEffect(() => { setLocal(card); setTab("dados"); }, [card?.id]);
+  const [tab, setTab] = useState("resumo");
+  useEffect(() => { setLocal(card); setTab("resumo"); }, [card?.id]);
 
   if (!card || !local) return null;
 
@@ -142,6 +143,102 @@ export function LeadDrawer({
         </Tabs>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function ResumoTab({ card, stages, members, companyId, onGoTo }: {
+  card: LeadCard; stages: Stage[]; members: Member[]; companyId: string; onGoTo: (t: string) => void;
+}) {
+  const [labels, setLabels] = useState<Record<string, string>>({});
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("agent_custom_fields")
+        .select("key,label").eq("company_id", companyId);
+      const m: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => { m[r.key] = r.label || r.key; });
+      setLabels(m);
+    })();
+  }, [companyId]);
+
+  const stage = stages.find((s) => s.id === card.stage_id) ?? null;
+  const owner = members.find((m) => m.user_id === card.owner_id) ?? null;
+  const coletadas = Object.entries((card.custom_data ?? {}) as Record<string, any>)
+    .filter(([, v]) => v !== null && v !== undefined && v !== "");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {stage ? (
+          <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-full ring-1"
+            style={{ background: `color-mix(in oklab, ${stage.cor} 18%, transparent)`, color: stage.cor, borderColor: `color-mix(in oklab, ${stage.cor} 35%, transparent)` } as any}>
+            <Sparkles className="size-3.5" /> {stage.nome}
+          </span>
+        ) : <span className="text-xs text-muted-foreground">Sem etapa no funil</span>}
+        <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-full bg-[var(--panel-2)] border border-[var(--border)] text-muted-foreground">
+          {channelOf(card.numero) === "instagram" ? <Instagram className="size-3" /> : <Phone className="size-3" />}
+          {channelLabel(channelOf(card.numero))}
+        </span>
+      </div>
+
+      <dl className="grid gap-2">
+        <Row icon={<Clock className="size-3.5" />} label="Último contato"
+          value={new Date(card.ultima_em).toLocaleString("pt-BR")} />
+        {owner && <Row icon={<User2 className="size-3.5" />} label="Responsável" value={owner.nome || owner.email || "—"} />}
+        {(card.valor ?? 0) > 0 && (
+          <Row icon={<DollarSign className="size-3.5" />} label="Oportunidade"
+            value={`R$ ${Number(card.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+        )}
+        {card.proxima_acao && <Row icon={<Target className="size-3.5" />} label="Próxima ação" value={card.proxima_acao} />}
+        {card.origem && <Row icon={<Tag className="size-3.5" />} label="Origem" value={card.origem} />}
+      </dl>
+
+      {(card.tags ?? []).length > 0 && (
+        <div>
+          <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Tags</div>
+          <div className="flex flex-wrap gap-1">
+            {(card.tags ?? []).map((t) => (
+              <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[var(--panel-2)] border border-[var(--border)] text-muted-foreground">{t}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {coletadas.length > 0 && (
+        <div>
+          <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Informações coletadas pelo atendente</div>
+          <ul className="rounded-xl border border-[var(--border)] bg-[var(--panel-2)] divide-y divide-[var(--border)]">
+            {coletadas.map(([k, v]) => (
+              <li key={k} className="flex gap-3 px-3 py-2 text-[13px]">
+                <span className="text-muted-foreground min-w-[40%]">{labels[k] || k}</span>
+                <span className="font-medium break-words">{Array.isArray(v) ? v.join(", ") : String(v)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {card.ultima_mensagem && (
+        <div>
+          <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Última mensagem</div>
+          <p className="text-[13px] text-foreground/85 whitespace-pre-wrap">{card.ultima_mensagem}</p>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={() => onGoTo("dados")}>Editar informações</Button>
+        <Button variant="ghost" size="sm" onClick={() => onGoTo("conversa")}>Ver conversa</Button>
+      </div>
+    </div>
+  );
+}
+
+function Row({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2 text-[13px]">
+      <span className="text-muted-foreground mt-0.5">{icon}</span>
+      <span className="text-muted-foreground min-w-[38%]">{label}</span>
+      <span className="font-medium break-words flex-1">{value}</span>
+    </div>
   );
 }
 
