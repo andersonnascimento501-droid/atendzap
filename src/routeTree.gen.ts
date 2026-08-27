@@ -22,6 +22,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MasterIndexRouteImport } from './routes/master/index'
 import { Route as DemoIndexRouteImport } from './routes/demo/index'
+import { Route as MasterTemplatesRouteImport } from './routes/master/templates'
 import { Route as MasterPlanosRouteImport } from './routes/master/planos'
 import { Route as MasterPainelRouteImport } from './routes/master/painel'
 import { Route as MasterNovaEmpresaRouteImport } from './routes/master/nova-empresa'
@@ -54,6 +55,7 @@ import { Route as AppConfiguracoesRouteImport } from './routes/app/configuracoes
 import { Route as AppConexaoRouteImport } from './routes/app/conexao'
 import { Route as AppCheckoutRouteImport } from './routes/app/checkout'
 import { Route as AppCampanhasRouteImport } from './routes/app/campanhas'
+import { Route as AppAgentesRouteImport } from './routes/app/agentes'
 import { Route as AppAgenteRouteImport } from './routes/app/agente'
 import { Route as AppAgenteAvancadoRouteImport } from './routes/app/agente.avancado'
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
@@ -129,6 +131,11 @@ const DemoIndexRoute = DemoIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DemoRoute,
+} as any)
+const MasterTemplatesRoute = MasterTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => MasterRoute,
 } as any)
 const MasterPlanosRoute = MasterPlanosRouteImport.update({
   id: '/planos',
@@ -290,6 +297,11 @@ const AppCampanhasRoute = AppCampanhasRouteImport.update({
   path: '/campanhas',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAgentesRoute = AppAgentesRouteImport.update({
+  id: '/agentes',
+  path: '/agentes',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAgenteRoute = AppAgenteRouteImport.update({
   id: '/agente',
   path: '/agente',
@@ -359,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/termos': typeof TermosRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/app/agente': typeof AppAgenteRouteWithChildren
+  '/app/agentes': typeof AppAgentesRoute
   '/app/campanhas': typeof AppCampanhasRoute
   '/app/checkout': typeof AppCheckoutRoute
   '/app/conexao': typeof AppConexaoRoute
@@ -391,6 +404,7 @@ export interface FileRoutesByFullPath {
   '/master/nova-empresa': typeof MasterNovaEmpresaRoute
   '/master/painel': typeof MasterPainelRoute
   '/master/planos': typeof MasterPlanosRoute
+  '/master/templates': typeof MasterTemplatesRoute
   '/demo/': typeof DemoIndexRoute
   '/master/': typeof MasterIndexRoute
   '/api/public/google-callback': typeof ApiPublicGoogleCallbackRoute
@@ -414,6 +428,7 @@ export interface FileRoutesByTo {
   '/termos': typeof TermosRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/app/agente': typeof AppAgenteRouteWithChildren
+  '/app/agentes': typeof AppAgentesRoute
   '/app/campanhas': typeof AppCampanhasRoute
   '/app/checkout': typeof AppCheckoutRoute
   '/app/conexao': typeof AppConexaoRoute
@@ -446,6 +461,7 @@ export interface FileRoutesByTo {
   '/master/nova-empresa': typeof MasterNovaEmpresaRoute
   '/master/painel': typeof MasterPainelRoute
   '/master/planos': typeof MasterPlanosRoute
+  '/master/templates': typeof MasterTemplatesRoute
   '/demo': typeof DemoIndexRoute
   '/master': typeof MasterIndexRoute
   '/api/public/google-callback': typeof ApiPublicGoogleCallbackRoute
@@ -472,6 +488,7 @@ export interface FileRoutesById {
   '/termos': typeof TermosRoute
   '/trocar-senha': typeof TrocarSenhaRoute
   '/app/agente': typeof AppAgenteRouteWithChildren
+  '/app/agentes': typeof AppAgentesRoute
   '/app/campanhas': typeof AppCampanhasRoute
   '/app/checkout': typeof AppCheckoutRoute
   '/app/conexao': typeof AppConexaoRoute
@@ -504,6 +521,7 @@ export interface FileRoutesById {
   '/master/nova-empresa': typeof MasterNovaEmpresaRoute
   '/master/painel': typeof MasterPainelRoute
   '/master/planos': typeof MasterPlanosRoute
+  '/master/templates': typeof MasterTemplatesRoute
   '/demo/': typeof DemoIndexRoute
   '/master/': typeof MasterIndexRoute
   '/api/public/google-callback': typeof ApiPublicGoogleCallbackRoute
@@ -531,6 +549,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/trocar-senha'
     | '/app/agente'
+    | '/app/agentes'
     | '/app/campanhas'
     | '/app/checkout'
     | '/app/conexao'
@@ -563,6 +582,7 @@ export interface FileRouteTypes {
     | '/master/nova-empresa'
     | '/master/painel'
     | '/master/planos'
+    | '/master/templates'
     | '/demo/'
     | '/master/'
     | '/api/public/google-callback'
@@ -586,6 +606,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/trocar-senha'
     | '/app/agente'
+    | '/app/agentes'
     | '/app/campanhas'
     | '/app/checkout'
     | '/app/conexao'
@@ -618,6 +639,7 @@ export interface FileRouteTypes {
     | '/master/nova-empresa'
     | '/master/painel'
     | '/master/planos'
+    | '/master/templates'
     | '/demo'
     | '/master'
     | '/api/public/google-callback'
@@ -643,6 +665,7 @@ export interface FileRouteTypes {
     | '/termos'
     | '/trocar-senha'
     | '/app/agente'
+    | '/app/agentes'
     | '/app/campanhas'
     | '/app/checkout'
     | '/app/conexao'
@@ -675,6 +698,7 @@ export interface FileRouteTypes {
     | '/master/nova-empresa'
     | '/master/painel'
     | '/master/planos'
+    | '/master/templates'
     | '/demo/'
     | '/master/'
     | '/api/public/google-callback'
@@ -803,6 +827,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/demo/'
       preLoaderRoute: typeof DemoIndexRouteImport
       parentRoute: typeof DemoRoute
+    }
+    '/master/templates': {
+      id: '/master/templates'
+      path: '/templates'
+      fullPath: '/master/templates'
+      preLoaderRoute: typeof MasterTemplatesRouteImport
+      parentRoute: typeof MasterRoute
     }
     '/master/planos': {
       id: '/master/planos'
@@ -1028,6 +1059,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCampanhasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/agentes': {
+      id: '/app/agentes'
+      path: '/agentes'
+      fullPath: '/app/agentes'
+      preLoaderRoute: typeof AppAgentesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/agente': {
       id: '/app/agente'
       path: '/agente'
@@ -1115,6 +1153,7 @@ const AppAgenteRouteWithChildren = AppAgenteRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAgenteRoute: typeof AppAgenteRouteWithChildren
+  AppAgentesRoute: typeof AppAgentesRoute
   AppCampanhasRoute: typeof AppCampanhasRoute
   AppCheckoutRoute: typeof AppCheckoutRoute
   AppConexaoRoute: typeof AppConexaoRoute
@@ -1132,6 +1171,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAgenteRoute: AppAgenteRouteWithChildren,
+  AppAgentesRoute: AppAgentesRoute,
   AppCampanhasRoute: AppCampanhasRoute,
   AppCheckoutRoute: AppCheckoutRoute,
   AppConexaoRoute: AppConexaoRoute,
@@ -1190,6 +1230,7 @@ interface MasterRouteChildren {
   MasterNovaEmpresaRoute: typeof MasterNovaEmpresaRoute
   MasterPainelRoute: typeof MasterPainelRoute
   MasterPlanosRoute: typeof MasterPlanosRoute
+  MasterTemplatesRoute: typeof MasterTemplatesRoute
   MasterIndexRoute: typeof MasterIndexRoute
 }
 
@@ -1200,6 +1241,7 @@ const MasterRouteChildren: MasterRouteChildren = {
   MasterNovaEmpresaRoute: MasterNovaEmpresaRoute,
   MasterPainelRoute: MasterPainelRoute,
   MasterPlanosRoute: MasterPlanosRoute,
+  MasterTemplatesRoute: MasterTemplatesRoute,
   MasterIndexRoute: MasterIndexRoute,
 }
 

@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { brand } from "@/config/brand";
-import { Shield, LogOut, BarChart3, Building2, Plus, Settings, ArrowLeft, Package, CreditCard } from "lucide-react";
+import { Shield, LogOut, BarChart3, Building2, Plus, Settings, ArrowLeft, Package, CreditCard, Bot } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileBottomNav, type MobileNavItem } from "@/components/mobile-bottom-nav";
 
@@ -34,6 +34,7 @@ const sections = [
     label: "Catálogo",
     items: [
       { to: "/master/planos", label: "Planos", icon: Package },
+      { to: "/master/templates", label: "Templates de agentes", icon: Bot },
     ],
   },
   {
