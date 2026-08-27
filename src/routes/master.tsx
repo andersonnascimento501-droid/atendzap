@@ -34,6 +34,7 @@ const sections = [
     label: "Catálogo",
     items: [
       { to: "/master/planos", label: "Planos", icon: Package },
+      { to: "/master/templates", label: "Templates de agentes", icon: Bot },
     ],
   },
   {
