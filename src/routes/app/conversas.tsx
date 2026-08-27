@@ -57,6 +57,7 @@ function ConversasPage() {
   const [pauses, setPauses] = useState<Record<string, boolean>>({}); // numero → pausado?
   const [stages, setStages] = useState<StageWithTipo[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>(() => {
@@ -141,6 +142,10 @@ function ConversasPage() {
     setMembers(((cu ?? []) as any[]).map((r) => ({
       user_id: r.user_id, nome: r.profiles?.nome ?? null, email: r.profiles?.email ?? null,
     })));
+    const { data: cf } = await supabase.from("agent_custom_fields").select("key,label").eq("company_id", cid);
+    const fl: Record<string, string> = {};
+    (cf ?? []).forEach((r: any) => { fl[r.key] = r.label || r.key; });
+    setFieldLabels(fl);
     await loadPauses(cid);
   }
 
@@ -181,6 +186,9 @@ function ConversasPage() {
   const activeCard = active ? cards[active] : undefined;
   const activeStage = activeCard?.stage_id ? stages.find((s) => s.id === activeCard.stage_id) : null;
   const iaAtivaAqui = active ? !(pauses[active] ?? false) : true;
+  const activeOwner = activeCard?.owner_id ? members.find((m) => m.user_id === activeCard.owner_id) : null;
+  const activeColetadas = Object.entries((activeCard?.custom_data ?? {}) as Record<string, any>)
+    .filter(([, v]) => v !== null && v !== undefined && v !== "");
 
   // Keyboard shortcuts (after conversations is declared)
   useEffect(() => {
@@ -461,8 +469,9 @@ function ConversasPage() {
                   </div>
                 </div>
               </div>
+              <div><StatusPill iaAtiva={iaAtivaAqui} /></div>
               <div>
-                <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Etapa CRM</div>
+                <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Etapa do funil</div>
                 {activeStage ? (
                   <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-1.5 rounded-full ring-1"
                     style={{ background: `color-mix(in oklab, ${activeStage.cor} 18%, transparent)`, color: activeStage.cor, borderColor: `color-mix(in oklab, ${activeStage.cor} 35%, transparent)` } as any}>
@@ -470,6 +479,16 @@ function ConversasPage() {
                   </span>
                 ) : <span className="text-xs text-muted-foreground">Sem etapa</span>}
               </div>
+              {activeOwner && (
+                <InfoRow icon={<User2 className="size-3.5" />} label="Responsável" value={activeOwner.nome || activeOwner.email || "—"} />
+              )}
+              {(activeCard?.valor ?? 0) > 0 && (
+                <InfoRow icon={<DollarSign className="size-3.5" />} label="Oportunidade"
+                  value={`R$ ${Number(activeCard?.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+              )}
+              {activeCard?.proxima_acao && (
+                <InfoRow icon={<Target className="size-3.5" />} label="Próxima ação" value={activeCard.proxima_acao} />
+              )}
               {(activeCard?.tags ?? []).length > 0 && (
                 <div>
                   <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Tags</div>
@@ -480,6 +499,19 @@ function ConversasPage() {
                   </div>
                 </div>
               )}
+              {activeColetadas.length > 0 && (
+                <div>
+                  <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Informações coletadas</div>
+                  <ul className="rounded-xl border border-[color:var(--hairline)] bg-[color:var(--panel-2)] divide-y divide-[color:var(--hairline)]">
+                    {activeColetadas.map(([k, v]) => (
+                      <li key={k} className="px-3 py-2 text-[12.5px] flex gap-2">
+                        <span className="text-muted-foreground min-w-[45%]">{fieldLabels[k] || k}</span>
+                        <span className="font-medium break-words">{Array.isArray(v) ? v.join(", ") : String(v)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {activeCard?.observacao && (
                 <div>
                   <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold">Observações</div>
@@ -488,7 +520,7 @@ function ConversasPage() {
               )}
               {activeCard && (
                 <Button variant="outline" size="sm" onClick={() => setDrawerCard(activeCard)}>
-                  <ExternalLink className="size-3.5 mr-1.5" /> Abrir ficha do lead
+                  <ExternalLink className="size-3.5 mr-1.5" /> Ver cliente
                 </Button>
               )}
               <div className="mt-auto pt-3 border-t border-[color:var(--hairline)] text-[11.5px] text-muted-foreground flex items-center gap-1.5">
@@ -506,6 +538,16 @@ function ConversasPage() {
           onChanged={() => { if (companyId) void load(companyId); }}
         />
       )}
+    </div>
+  );
+}
+
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2 text-[12.5px]">
+      <span className="text-muted-foreground mt-0.5">{icon}</span>
+      <span className="text-muted-foreground min-w-[42%]">{label}</span>
+      <span className="font-medium break-words flex-1">{value}</span>
     </div>
   );
 }
