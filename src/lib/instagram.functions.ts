@@ -142,8 +142,24 @@ export const sendChannelMessage = createServerFn({ method: "POST" })
       );
     }
 
+    // Proteção de qualidade do número (comportamento original do WhatsApp preservado).
+    if (channel === "whatsapp") {
+      const { data: recentOutbound } = await supabase
+        .from("mensagens")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("numero", data.numero)
+        .eq("direcao", "saida")
+        .gte("created_at", new Date(Date.now() - 10 * 60_000).toISOString())
+        .limit(6);
+      if ((recentOutbound?.length ?? 0) >= 6) {
+        throw new Error("Envio pausado por alguns minutos para proteger a qualidade do número.");
+      }
+    }
+
     const { assertWithinLimit } = await import("./plan-limits.server");
     await assertWithinLimit(companyId, "mensagens");
+
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { resolveChannelTarget, sendChannelText } = await import("./channels.server");
