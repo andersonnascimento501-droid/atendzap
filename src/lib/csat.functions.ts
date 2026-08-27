@@ -18,8 +18,11 @@ export const sendCsat = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const companyId = await resolveCompanyId(supabase, userId);
-    const numero = String(data.numero).replace(/\D/g, "");
-    if (!numero) throw new Error("Número inválido.");
+    const { channelOf } = await import("./channels");
+    const channel = channelOf(data.numero);
+    // WhatsApp: só dígitos. Instagram: identidade namespaceada `ig:<IGSID>`.
+    const numero = channel === "instagram" ? String(data.numero).trim() : String(data.numero).replace(/\D/g, "");
+    if (!numero) throw new Error("Contato inválido.");
 
     const { data: row, error } = await supabase
       .from("csat_response")
@@ -28,21 +31,23 @@ export const sendCsat = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error || !row) throw new Error(error?.message ?? "Falha ao registrar CSAT.");
 
-    const { data: inst } = await supabase.from("whatsapp_instances").select("instance_name,status").eq("company_id", companyId).maybeSingle();
-    if (inst && inst.status === "open") {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { resolveChannelTarget, sendChannelText } = await import("./channels.server");
+    const target = await resolveChannelTarget(supabaseAdmin, companyId, numero);
+    if (target.ready) {
       const link = `${appOrigin()}/csat/${row.token}`;
       const texto = `Olá! Como foi nosso atendimento? Avalie em 1 minuto: ${link}`;
       try {
-        const { evoSendText } = await import("./evolution.server");
-        await evoSendText(inst.instance_name, numero, texto);
+        await sendChannelText(target, texto);
         await supabase.from("mensagens").insert({
           company_id: companyId, user_id: userId, numero, contato_nome: data.contatoNome ?? null,
-          direcao: "saida", autor: "sistema", texto,
-        });
+          channel, direcao: "saida", autor: "sistema", texto,
+        } as any);
       } catch (e: any) {
         console.warn("[csat send]", e);
       }
     }
+
     return { ok: true, token: row.token };
   });
 

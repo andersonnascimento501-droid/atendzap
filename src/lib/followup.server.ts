@@ -331,7 +331,7 @@ async function applyFinalAction(admin: any, seq: SequenceRow, state: StateRow) {
 
 type Guard = { ok: boolean; reason?: string; hard?: boolean };
 
-async function revalidate(admin: any, seq: SequenceRow, state: StateRow): Promise<Guard & { cardId: string | null; instanceName?: string }> {
+async function revalidate(admin: any, seq: SequenceRow, state: StateRow): Promise<Guard & { cardId: string | null; instanceName?: string; target?: any }> {
   // sequência desativada
   if (!seq.ativo) return { ok: false, reason: "sequência desativada", hard: true, cardId: state.card_id };
 
@@ -386,17 +386,14 @@ async function revalidate(admin: any, seq: SequenceRow, state: StateRow): Promis
     if (st?.tipo === "ganho" || st?.tipo === "perda") return { ok: false, reason: "lead finalizado", hard: true, cardId };
   }
 
-  // WhatsApp da própria company
-  const { data: inst } = await admin
-    .from("whatsapp_instances")
-    .select("instance_name, status")
-    .eq("company_id", seq.company_id)
-    .maybeSingle();
-  if (!inst?.instance_name || (inst.status !== "open" && inst.status !== "connected")) {
-    return { ok: false, reason: "whatsapp desconectado", hard: false, cardId };
+  // Canal da própria company (WhatsApp ou Instagram, conforme a conversa)
+  const { resolveChannelTarget } = await import("./channels.server");
+  const target = await resolveChannelTarget(admin, seq.company_id, state.numero);
+  if (!target.ready) {
+    return { ok: false, reason: target.reason ?? "canal desconectado", hard: false, cardId };
   }
 
-  return { ok: true, cardId, instanceName: inst.instance_name };
+  return { ok: true, cardId, instanceName: target.instanceName ?? undefined, target };
 }
 
 async function buildAiMessage(admin: any, seq: SequenceRow, state: StateRow, step: StepRow): Promise<string> {
@@ -529,8 +526,8 @@ export async function processFollowupState(admin: any, state: StateRow): Promise
         : await buildAiMessage(admin, seq, state, step);
     if (texto) {
       try {
-        const { evoSendText } = await import("./evolution.server");
-        await evoSendText(guard.instanceName!, state.numero, texto);
+        const { sendChannelText } = await import("./channels.server");
+        await sendChannelText(guard.target, texto);
         sentText = texto;
         const { data: card } = await admin
           .from("crm_cards")
@@ -545,8 +542,9 @@ export async function processFollowupState(admin: any, state: StateRow): Promise
           .maybeSingle();
         await admin.from("mensagens").insert({
           company_id: seq.company_id,
-          user_id: card?.user_id ?? inst?.user_id,
+          user_id: card?.user_id ?? inst?.user_id ?? guard.target?.userId ?? null,
           numero: state.numero,
+          channel: guard.target?.channel ?? "whatsapp",
           direcao: "saida",
           autor: "ia",
           texto,

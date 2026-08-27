@@ -57,6 +57,7 @@ import { Route as AppCampanhasRouteImport } from './routes/app/campanhas'
 import { Route as AppAgenteRouteImport } from './routes/app/agente'
 import { Route as AppAgenteAvancadoRouteImport } from './routes/app/agente.avancado'
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
+import { Route as ApiPublicInstagramWebhookRouteImport } from './routes/api/public/instagram-webhook'
 import { Route as ApiPublicGoogleCallbackRouteImport } from './routes/api/public/google-callback'
 import { Route as ApiPublicV1SplatRouteImport } from './routes/api/public/v1/$'
 import { Route as ApiPublicHooksProcessMessageQueueRouteImport } from './routes/api/public/hooks/process-message-queue'
@@ -305,6 +306,12 @@ const ApiPublicWhatsappWebhookRoute =
     path: '/api/public/whatsapp-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicInstagramWebhookRoute =
+  ApiPublicInstagramWebhookRouteImport.update({
+    id: '/api/public/instagram-webhook',
+    path: '/api/public/instagram-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicGoogleCallbackRoute = ApiPublicGoogleCallbackRouteImport.update({
   id: '/api/public/google-callback',
   path: '/api/public/google-callback',
@@ -387,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/demo/': typeof DemoIndexRoute
   '/master/': typeof MasterIndexRoute
   '/api/public/google-callback': typeof ApiPublicGoogleCallbackRoute
+  '/api/public/instagram-webhook': typeof ApiPublicInstagramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/app/agente/avancado': typeof AppAgenteAvancadoRoute
   '/api/public/billing/webhook': typeof ApiPublicBillingWebhookRoute
@@ -441,6 +449,7 @@ export interface FileRoutesByTo {
   '/demo': typeof DemoIndexRoute
   '/master': typeof MasterIndexRoute
   '/api/public/google-callback': typeof ApiPublicGoogleCallbackRoute
+  '/api/public/instagram-webhook': typeof ApiPublicInstagramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/app/agente/avancado': typeof AppAgenteAvancadoRoute
   '/api/public/billing/webhook': typeof ApiPublicBillingWebhookRoute
@@ -498,6 +507,7 @@ export interface FileRoutesById {
   '/demo/': typeof DemoIndexRoute
   '/master/': typeof MasterIndexRoute
   '/api/public/google-callback': typeof ApiPublicGoogleCallbackRoute
+  '/api/public/instagram-webhook': typeof ApiPublicInstagramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/app/agente/avancado': typeof AppAgenteAvancadoRoute
   '/api/public/billing/webhook': typeof ApiPublicBillingWebhookRoute
@@ -556,6 +566,7 @@ export interface FileRouteTypes {
     | '/demo/'
     | '/master/'
     | '/api/public/google-callback'
+    | '/api/public/instagram-webhook'
     | '/api/public/whatsapp-webhook'
     | '/app/agente/avancado'
     | '/api/public/billing/webhook'
@@ -610,6 +621,7 @@ export interface FileRouteTypes {
     | '/demo'
     | '/master'
     | '/api/public/google-callback'
+    | '/api/public/instagram-webhook'
     | '/api/public/whatsapp-webhook'
     | '/app/agente/avancado'
     | '/api/public/billing/webhook'
@@ -666,6 +678,7 @@ export interface FileRouteTypes {
     | '/demo/'
     | '/master/'
     | '/api/public/google-callback'
+    | '/api/public/instagram-webhook'
     | '/api/public/whatsapp-webhook'
     | '/app/agente/avancado'
     | '/api/public/billing/webhook'
@@ -689,6 +702,7 @@ export interface RootRouteChildren {
   TrocarSenhaRoute: typeof TrocarSenhaRoute
   CsatTokenRoute: typeof CsatTokenRoute
   ApiPublicGoogleCallbackRoute: typeof ApiPublicGoogleCallbackRoute
+  ApiPublicInstagramWebhookRoute: typeof ApiPublicInstagramWebhookRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
   ApiPublicBillingWebhookRoute: typeof ApiPublicBillingWebhookRoute
   ApiPublicHooksProcessCampaignsRoute: typeof ApiPublicHooksProcessCampaignsRoute
@@ -1035,6 +1049,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/instagram-webhook': {
+      id: '/api/public/instagram-webhook'
+      path: '/api/public/instagram-webhook'
+      fullPath: '/api/public/instagram-webhook'
+      preLoaderRoute: typeof ApiPublicInstagramWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/google-callback': {
       id: '/api/public/google-callback'
       path: '/api/public/google-callback'
@@ -1199,6 +1220,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrocarSenhaRoute: TrocarSenhaRoute,
   CsatTokenRoute: CsatTokenRoute,
   ApiPublicGoogleCallbackRoute: ApiPublicGoogleCallbackRoute,
+  ApiPublicInstagramWebhookRoute: ApiPublicInstagramWebhookRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
   ApiPublicBillingWebhookRoute: ApiPublicBillingWebhookRoute,
   ApiPublicHooksProcessCampaignsRoute: ApiPublicHooksProcessCampaignsRoute,

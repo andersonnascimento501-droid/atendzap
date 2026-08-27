@@ -1,6 +1,8 @@
 // BLOCO 4 — Pipeline de PROCESSAMENTO (roda no worker, nunca na request do webhook).
 // Todo o comportamento do webhook antigo foi movido para cá sem mudança de regra:
-// mídia → contact_pause → horário → buffer/consolidação → Supervisor → agente → tools → Evolution → follow-up.
+// mídia → contact_pause → horário → buffer/consolidação → Supervisor → agente → tools → canal (WhatsApp/Instagram) → follow-up.
+
+import { channelOf } from "./channels";
 
 export type QueueJob = {
   id: string;
@@ -47,7 +49,7 @@ async function markProcessed(admin: any, ids: string[]) {
 async function resolveMedia(
   admin: any,
   companyId: string,
-  instanceName: string,
+  target: any,
   pend: PendingMsg[],
 ): Promise<{ notice: string | null }> {
   let notice: string | null = null;
@@ -63,7 +65,7 @@ async function resolveMedia(
     .maybeSingle();
   const openaiKey = ((keyCfg as any)?.openai_api_key || "").trim();
 
-  const { evoGetMediaBase64 } = await import("@/lib/evolution.server");
+  const { downloadChannelMedia } = await import("@/lib/channels.server");
   const { transcribeAudio, describeImage, readDocument, isSupportedDocument } = await import("@/lib/media.server");
 
   for (const m of withMedia) {
@@ -76,7 +78,7 @@ async function resolveMedia(
         texto = `${label} (formato não suportado: ${media.mimetype})`;
         notice = "Recebi seu arquivo, mas não consigo abrir esse formato por aqui. Pode me enviar em PDF, imagem ou descrever por texto?";
       } else {
-        const dl = await evoGetMediaBase64(instanceName, { key: media.key, message: media.message });
+        const dl = await downloadChannelMedia(target, media);
         if (!dl?.base64) throw new Error("mídia sem base64");
         const mime = dl.mimetype || media.mimetype;
         if (media.kind === "audio") {
@@ -111,6 +113,7 @@ async function resolveMedia(
   return { notice };
 }
 
+
 /** Envio idempotente: response_key = job + índice da parte. Só grava depois do envio confirmado. */
 async function sendPartOnce(
   admin: any,
@@ -119,7 +122,7 @@ async function sendPartOnce(
     userId: string;
     numero: string;
     contatoNome: string | null;
-    instanceName: string;
+    target: any;
     jobId: string;
     index: number;
     texto: string;
@@ -135,12 +138,13 @@ async function sendPartOnce(
     .maybeSingle();
   if (already) return; // retry: essa parte já foi enviada
 
-  const { evoSendText } = await import("@/lib/evolution.server");
-  await evoSendText(args.instanceName, args.numero, args.texto);
+  const { sendChannelText } = await import("@/lib/channels.server");
+  await sendChannelText(args.target, args.texto);
   await admin.from("mensagens").insert({
     company_id: args.companyId,
     user_id: args.userId,
     numero: args.numero,
+    channel: args.target.channel,
     contato_nome: args.contatoNome,
     direcao: "saida",
     autor: args.autor ?? "ia",
@@ -154,14 +158,14 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   const companyId = job.company_id;
   const number = job.numero;
 
-  const { data: inst } = await admin
-    .from("whatsapp_instances")
-    .select("company_id, user_id, instance_name")
-    .eq("company_id", companyId)
-    .maybeSingle();
-  const instanceName = (job.instance_name || (inst as any)?.instance_name) as string;
-  const userId = (inst as any)?.user_id as string;
-  if (!instanceName || !userId) return { status: "skipped", reason: "instance-missing" };
+  const { resolveChannelTarget } = await import("@/lib/channels.server");
+  const target = await resolveChannelTarget(admin, companyId, number, { instanceName: job.instance_name });
+  const userId = target.userId as string;
+  if (!target.ready || !userId) {
+    return { status: "skipped", reason: target.reason ?? "channel-not-ready" };
+  }
+  const channel = target.channel;
+
 
   const pending = await loadPending(admin, companyId, number);
   if (!pending.length) return { status: "skipped", reason: "nothing-pending" };
@@ -204,14 +208,14 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     .eq("numero", number)
     .maybeSingle();
   if (pauseRow?.pausado) {
-    await resolveMediaSafe(admin, companyId, instanceName, pending);
+    await resolveMediaSafe(admin, pending);
     await markProcessed(admin, ids);
     await upsertCard(admin, companyId, userId, number, pushName, pending[pending.length - 1]!.texto, stages);
     return { status: "skipped", reason: "paused-contact" };
   }
 
   // ---- mídia (pesado, aqui no worker)
-  const { notice: mediaFailureNotice } = await resolveMedia(admin, companyId, instanceName, pending);
+  const { notice: mediaFailureNotice } = await resolveMedia(admin, companyId, target, pending);
   const text = pending
     .map((m) => (m.texto || "").trim())
     .filter(Boolean)
@@ -244,7 +248,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
       if (!ultimaFoiFora) {
         await sendPartOnce(admin, {
           companyId, userId, numero: number, contatoNome: pushName ?? null,
-          instanceName, jobId: job.id, index: 0, texto: msgFora,
+          target, jobId: job.id, index: 0, texto: msgFora,
         });
       }
       await markProcessed(admin, ids);
@@ -259,7 +263,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   if (mediaFailureNotice) {
     await sendPartOnce(admin, {
       companyId, userId, numero: number, contatoNome: pushName ?? null,
-      instanceName, jobId: job.id, index: 0, texto: mediaFailureNotice,
+      target, jobId: job.id, index: 0, texto: mediaFailureNotice,
     });
     await markProcessed(admin, ids);
     await upsertCard(admin, companyId, userId, number, pushName, lastText, stages);
@@ -444,23 +448,23 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
         titulo: agendar.titulo,
         inicio: agendar.inicio,
         fim: agendar.fim,
-        descricao: `Agendado via WhatsApp — ${pushName || number}`,
+        descricao: `Agendado via ${channel === "instagram" ? "Instagram" : "WhatsApp"} — ${pushName || number}`,
       });
     } catch (e: any) {
       console.error("[agendar]", e?.message);
     }
   }
 
-  const { evoSendPresence } = await import("@/lib/evolution.server");
+  const { sendChannelTyping } = await import("@/lib/channels.server");
   for (let i = 0; i < finalParts.length; i++) {
     const part = finalParts[i];
     if (!part) continue;
     const typingMs = Math.min(3000, 1200 + Math.floor(part.length * 35));
-    await evoSendPresence(instanceName, number, "composing", typingMs);
+    await sendChannelTyping(target, typingMs);
     await new Promise((r) => setTimeout(r, typingMs));
     await sendPartOnce(admin, {
       companyId, userId, numero: number, contatoNome: pushName ?? null,
-      instanceName, jobId: job.id, index: i, texto: part,
+      target, jobId: job.id, index: i, texto: part,
     });
     if (i < finalParts.length - 1) await new Promise((r) => setTimeout(r, 700 + Math.floor(Math.random() * 800)));
   }
@@ -479,7 +483,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   return { status: "completed" };
 }
 
-async function resolveMediaSafe(admin: any, companyId: string, instanceName: string, pending: PendingMsg[]) {
+async function resolveMediaSafe(admin: any, pending: PendingMsg[]) {
   try {
     await admin
       .from("mensagens")
@@ -566,5 +570,6 @@ export async function upsertCard(
   } else {
     payload.status = "Conversas";
   }
+  payload.channel = channelOf(numero);
   await admin.from("crm_cards").upsert(payload, { onConflict: "company_id,numero" });
 }

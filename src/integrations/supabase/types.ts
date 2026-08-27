@@ -981,6 +981,7 @@ export type Database = {
       }
       crm_cards: {
         Row: {
+          channel: string
           company_id: string
           custom_data: Json
           follow_up: string | null
@@ -1004,6 +1005,7 @@ export type Database = {
           valor: number
         }
         Insert: {
+          channel?: string
           company_id: string
           custom_data?: Json
           follow_up?: string | null
@@ -1027,6 +1029,7 @@ export type Database = {
           valor?: number
         }
         Update: {
+          channel?: string
           company_id?: string
           custom_data?: Json
           follow_up?: string | null
@@ -1549,6 +1552,59 @@ export type Database = {
           },
         ]
       }
+      instagram_integration: {
+        Row: {
+          company_id: string
+          conectado: boolean
+          created_at: string
+          ig_user_id: string | null
+          page_access_token: string | null
+          page_id: string | null
+          page_name: string | null
+          ultimo_erro: string | null
+          updated_at: string
+          user_id: string | null
+          username: string | null
+          verify_token: string
+        }
+        Insert: {
+          company_id: string
+          conectado?: boolean
+          created_at?: string
+          ig_user_id?: string | null
+          page_access_token?: string | null
+          page_id?: string | null
+          page_name?: string | null
+          ultimo_erro?: string | null
+          updated_at?: string
+          user_id?: string | null
+          username?: string | null
+          verify_token?: string
+        }
+        Update: {
+          company_id?: string
+          conectado?: boolean
+          created_at?: string
+          ig_user_id?: string | null
+          page_access_token?: string | null
+          page_id?: string | null
+          page_name?: string | null
+          ultimo_erro?: string | null
+          updated_at?: string
+          user_id?: string | null
+          username?: string | null
+          verify_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instagram_integration_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_evento: {
         Row: {
           agent_id: string | null
@@ -1650,6 +1706,7 @@ export type Database = {
         Row: {
           ai_processed_at: string | null
           autor: string
+          channel: string
           company_id: string
           contato_nome: string | null
           created_at: string
@@ -1665,6 +1722,7 @@ export type Database = {
         Insert: {
           ai_processed_at?: string | null
           autor: string
+          channel?: string
           company_id: string
           contato_nome?: string | null
           created_at?: string
@@ -1680,6 +1738,7 @@ export type Database = {
         Update: {
           ai_processed_at?: string | null
           autor?: string
+          channel?: string
           company_id?: string
           contato_nome?: string | null
           created_at?: string

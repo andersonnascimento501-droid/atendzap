@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/config/brand";
-import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star } from "lucide-react";
+import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone } from "lucide-react";
 import { sendCsat } from "@/lib/csat.functions";
 import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
-import { sendWhatsappText, setContactIaActive } from "@/lib/evolution.functions";
+import { setContactIaActive } from "@/lib/evolution.functions";
+import { sendChannelMessage } from "@/lib/instagram.functions";
+import { channelOf, contactDisplayId, type Channel } from "@/lib/channels";
 import { LeadDrawer, type LeadCard, type Stage, type Member } from "@/components/crm/lead-drawer";
 import { listTemplates, type MessageTemplate } from "@/lib/templates.functions";
 
@@ -23,7 +25,7 @@ export const Route = createFileRoute("/app/conversas")({
 interface Msg {
   id: string; numero: string; contato_nome: string | null;
   direcao: "entrada" | "saida"; autor: "ia" | "humano" | "contato";
-  texto: string; created_at: string; user_id: string | null;
+  texto: string; created_at: string; user_id: string | null; channel?: string | null;
 }
 
 type Filter = "todas" | "nao_lidas" | "minhas" | "ia_ativa" | "resolvidas";
@@ -43,7 +45,7 @@ function ConversasPage() {
   const userId = ctx.user.id;
 
 
-  const sendFn = useServerFn(sendWhatsappText);
+  const sendFn = useServerFn(sendChannelMessage);
   const sendCsatFn = useServerFn(sendCsat);
   const toggleIaFn = useServerFn(setContactIaActive);
   const fetchTemplates = useServerFn(listTemplates);
@@ -62,6 +64,7 @@ function ConversasPage() {
     if (typeof window === "undefined") return "todas";
     return (localStorage.getItem("conv:filter") as Filter) || "todas";
   });
+  const [channelFilter, setChannelFilter] = useState<"todos" | Channel>("todos");
   const [active, setActive] = useState<string | null>(null);
   const [composer, setComposer] = useState("");
   const [drawerCard, setDrawerCard] = useState<LeadCard | null>(null);
@@ -153,6 +156,7 @@ function ConversasPage() {
       const q = search.toLowerCase();
       list = list.filter((c) => (c.nome ?? "").toLowerCase().includes(q) || c.numero.includes(q));
     }
+    if (channelFilter !== "todos") list = list.filter((c) => channelOf(c.numero) === channelFilter);
     // Filtros
     list = list.filter((c) => {
       const card = cards[c.numero];
@@ -168,7 +172,7 @@ function ConversasPage() {
       }
     });
     return list.sort((a, b) => +new Date(b.last.created_at) - +new Date(a.last.created_at));
-  }, [msgs, search, filter, unread, cards, pauses, stages, userId]);
+  }, [msgs, search, filter, channelFilter, unread, cards, pauses, stages, userId]);
 
   const thread = useMemo(() =>
     [...msgs].filter((m) => m.numero === active).sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at)),
@@ -247,11 +251,14 @@ function ConversasPage() {
       <header className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h1 className="font-display text-[26px] font-extrabold tracking-tight flex items-center gap-2">Conversas <HelpTip text="Caixa de entrada unificada do WhatsApp. Filtre por status, assuma um atendimento manualmente, envie CSAT e responda em nome do agente." /></h1>
-          <p className="text-sm text-muted-foreground">Inbox em tempo real do WhatsApp</p>
+          <p className="text-sm text-muted-foreground">Inbox unificada em tempo real — WhatsApp e Instagram</p>
         </div>
-        <FilterTabs value={filter} onChange={setFilter} counts={{
-          nao_lidas: Object.values(unread).reduce((a, b) => a + b, 0),
-        }} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <ChannelTabs value={channelFilter} onChange={setChannelFilter} />
+          <FilterTabs value={filter} onChange={setFilter} counts={{
+            nao_lidas: Object.values(unread).reduce((a, b) => a + b, 0),
+          }} />
+        </div>
       </header>
 
       <div className="grid md:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_300px] border border-[color:var(--hairline)] rounded-2xl overflow-hidden h-[calc(100vh-200px)] min-h-[500px] bg-[color:var(--panel)]">
@@ -283,7 +290,8 @@ function ConversasPage() {
                     <InitialsAvatar name={c.nome || c.numero} size={40} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <b className="text-[13.5px] truncate">{c.nome || c.numero}</b>
+                        <ChannelIcon channel={channelOf(c.numero)} />
+                        <b className="text-[13.5px] truncate">{c.nome || contactDisplayId(c.numero, c.nome)}</b>
                         <span className="ml-auto text-[10.5px] text-muted-foreground whitespace-nowrap">
                           {new Date(c.last.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                         </span>
@@ -318,8 +326,13 @@ function ConversasPage() {
               <header className="flex items-center gap-3 px-4 py-3 border-b border-[color:var(--hairline)] bg-[color:var(--panel)]">
                 <InitialsAvatar name={activeConv?.nome || active} size={38} />
                 <div className="min-w-0">
-                  <div className="font-semibold text-sm truncate">{activeConv?.nome || active}</div>
-                  <div className="text-[11.5px] text-muted-foreground truncate font-mono">{active}</div>
+                  <div className="font-semibold text-sm truncate flex items-center gap-1.5">
+                    <ChannelIcon channel={channelOf(active)} />
+                    {activeConv?.nome || contactDisplayId(active, activeConv?.nome)}
+                  </div>
+                  <div className="text-[11.5px] text-muted-foreground truncate font-mono">
+                    {channelOf(active) === "instagram" ? "Instagram Direct" : active}
+                  </div>
                 </div>
                 <div className="ml-auto flex items-center gap-3 flex-wrap">
                   <label className="flex items-center gap-2 text-[12.5px] text-muted-foreground font-medium">
@@ -418,8 +431,11 @@ function ConversasPage() {
               <div className="flex flex-col items-center text-center gap-2 pb-4 border-b border-[color:var(--hairline)]">
                 <InitialsAvatar name={activeConv?.nome || active} size={72} />
                 <div>
-                  <div className="font-semibold text-sm">{activeConv?.nome || active}</div>
-                  <div className="text-[11.5px] text-muted-foreground font-mono">{active}</div>
+                  <div className="font-semibold text-sm">{activeConv?.nome || contactDisplayId(active, activeConv?.nome)}</div>
+                  <div className="text-[11.5px] text-muted-foreground font-mono flex items-center justify-center gap-1.5">
+                    <ChannelIcon channel={channelOf(active)} />
+                    {channelOf(active) === "instagram" ? "Instagram Direct" : active}
+                  </div>
                 </div>
               </div>
               <div>
@@ -467,6 +483,34 @@ function ConversasPage() {
           onChanged={() => { if (companyId) void load(companyId); }}
         />
       )}
+    </div>
+  );
+}
+
+function ChannelIcon({ channel }: { channel: Channel }) {
+  return channel === "instagram" ? (
+    <Instagram className="size-3.5 shrink-0 text-[#C13584]" aria-label="Instagram" />
+  ) : (
+    <Phone className="size-3.5 shrink-0 text-emerald-600" aria-label="WhatsApp" />
+  );
+}
+
+function ChannelTabs({ value, onChange }: { value: "todos" | Channel; onChange: (v: "todos" | Channel) => void }) {
+  const opts: Array<{ v: "todos" | Channel; label: string }> = [
+    { v: "todos", label: "Todos os canais" },
+    { v: "whatsapp", label: "WhatsApp" },
+    { v: "instagram", label: "Instagram" },
+  ];
+  return (
+    <div className="inline-flex rounded-lg border border-[color:var(--hairline)] bg-[color:var(--panel)] p-1">
+      {opts.map((o) => (
+        <button key={o.v} onClick={() => onChange(o.v)}
+          className={`px-3 py-1.5 text-[13px] font-semibold rounded-md transition-colors ${
+            value === o.v ? "bg-[color:var(--brand-soft)] text-[color:var(--brand-text)]" : "text-muted-foreground hover:text-foreground"
+          }`}>
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
