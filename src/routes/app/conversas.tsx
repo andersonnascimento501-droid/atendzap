@@ -4,11 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/config/brand";
 import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { sendCsat } from "@/lib/csat.functions";
 import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -71,7 +69,6 @@ function ConversasPage() {
   const [drawerCard, setDrawerCard] = useState<LeadCard | null>(null);
   const [sending, setSending] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!companyId) return;
@@ -310,8 +307,10 @@ function ConversasPage() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-[12.5px] text-muted-foreground truncate flex-1">{c.last.texto}</p>
-                        {iaAtiva && (
-                          <span title="IA ativa" className="text-[color:var(--brand-text)]"><Bot className="size-3" /></span>
+                        {iaAtiva ? (
+                          <span title="Atendente IA ativo" className="text-[color:var(--brand-text)]"><Bot className="size-3.5" /></span>
+                        ) : (
+                          <span title="Atendimento humano" className="text-amber-600"><Hand className="size-3.5" /></span>
                         )}
                         {u > 0 && (
                           <span className="bg-[color:var(--brand)] text-primary-foreground text-[10px] font-bold min-w-[18px] h-[18px] rounded-full grid place-items-center px-1">
@@ -508,6 +507,18 @@ function ConversasPage() {
         />
       )}
     </div>
+  );
+}
+
+function StatusPill({ iaAtiva }: { iaAtiva: boolean }) {
+  return iaAtiva ? (
+    <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2 py-0.5 rounded-full bg-[color:var(--brand-soft)] text-[color:var(--brand-text)]">
+      <Bot className="size-3" /> Atendente IA ativo
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+      <Hand className="size-3" /> Atendimento humano
+    </span>
   );
 }
 
