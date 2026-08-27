@@ -369,10 +369,47 @@ export const getCompanyDetails = createServerFn({ method: "POST" })
       supabaseAdmin.from("crm_cards").select("id", { count: "exact", head: true }).eq("company_id", data.companyId),
     ]);
 
+    // Créditos: saldo atual + últimas movimentações (sem criar outro sistema)
+    const { data: ledger } = await supabaseAdmin
+      .from("credit_ledger")
+      .select("delta, saldo_apos, motivo, ref, created_at")
+      .eq("company_id", data.companyId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const consumo = (ledger ?? [])
+      .filter((l: any) => Number(l.delta) < 0)
+      .reduce((s: number, l: any) => s + Math.abs(Number(l.delta)), 0);
+
+    // Conexões — somente estado persistido, sem chamadas externas. Nunca retorna tokens.
+    const { data: waRows } = await supabaseAdmin
+      .from("whatsapp_instances")
+      .select("instance_name, numero, status, updated_at")
+      .eq("company_id", data.companyId);
+    const { data: igRow } = await supabaseAdmin
+      .from("instagram_integration")
+      .select("username, page_name, ig_user_id, conectado, updated_at")
+      .eq("company_id", data.companyId)
+      .maybeSingle();
+
     return {
       company,
       members: membersFull,
       subscription,
+      credits: {
+        saldo: (company as any).creditos_saldo ?? 0,
+        origem: (company as any).creditos_origem ?? null,
+        resetam_em: (company as any).creditos_resetam_em ?? null,
+        consumo_recente: consumo,
+        ledger: ledger ?? [],
+      },
+      whatsapp: waRows ?? [],
+      instagram: igRow
+        ? {
+            status: igRow.conectado ? "connected" : "disconnected",
+            username: igRow.username ?? igRow.page_name ?? igRow.ig_user_id ?? null,
+            updated_at: igRow.updated_at,
+          }
+        : null,
       stats: {
         mensagens: msgCount ?? 0,
         contatos: contactsCount ?? 0,
@@ -380,3 +417,73 @@ export const getCompanyDetails = createServerFn({ method: "POST" })
       },
     };
   });
+
+// Alteração administrativa de plano — reutiliza plan/subscription, registra no audit_log.
+export const changeCompanyPlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { companyId: string; planId: string }) => ({
+    companyId: String(d.companyId),
+    planId: String(d.planId),
+  }))
+  .handler(async ({ context, data }) => {
+    await assertSuper(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { writeAudit } = await import("@/lib/audit.server");
+
+    const { data: plan } = await supabaseAdmin
+      .from("plan")
+      .select("id, nome, slug, ativo")
+      .eq("id", data.planId)
+      .maybeSingle();
+    if (!plan || !plan.ativo) throw new Error("Plano inválido ou inativo");
+
+    const { data: sub } = await supabaseAdmin
+      .from("subscription")
+      .select("id, plan_id, status, provider, metadata")
+      .eq("company_id", data.companyId)
+      .maybeSingle();
+
+    let previousPlanId: string | null = null;
+    if (sub) {
+      previousPlanId = sub.plan_id ?? null;
+      const metadata = {
+        ...(((sub as any).metadata ?? {}) as Record<string, unknown>),
+        plan_change_origin: "admin_manual",
+        plan_change_at: new Date().toISOString(),
+        plan_change_by: context.userId,
+        previous_plan_id: previousPlanId,
+      };
+      const { error } = await supabaseAdmin
+        .from("subscription")
+        .update({ plan_id: plan.id, metadata })
+        .eq("id", sub.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabaseAdmin.from("subscription").insert({
+        company_id: data.companyId,
+        plan_id: plan.id,
+        status: "active",
+        provider: "manual",
+        metadata: {
+          plan_change_origin: "admin_manual",
+          plan_change_at: new Date().toISOString(),
+          plan_change_by: context.userId,
+        },
+      } as any);
+      if (error) throw error;
+    }
+
+    await supabaseAdmin.from("company").update({ selected_plan_slug: plan.slug }).eq("id", data.companyId);
+
+    await writeAudit({
+      companyId: data.companyId,
+      userId: context.userId,
+      actorEmail: (context.claims as any)?.email ?? null,
+      acao: "master.plan_change",
+      recurso: `subscription:${data.companyId}`,
+      detalhes: { previous_plan_id: previousPlanId, new_plan_id: plan.id, plano: plan.nome, origem: "admin_manual" },
+    });
+
+    return { ok: true, planId: plan.id, planNome: plan.nome };
+  });
+
