@@ -18,6 +18,7 @@ export interface LeadCard {
   observacao: string | null; valor: number | null;
   origem: string | null; owner_id: string | null;
   tags: string[]; proxima_acao: string | null; follow_up: string | null;
+  custom_data?: Record<string, any> | null;
 }
 export interface Stage { id: string; nome: string; cor: string; }
 export interface Member { user_id: string; email?: string | null; nome?: string | null; }
