@@ -422,3 +422,9 @@ function StatusBadge({ s }: { s: string }) {
   if (s === "trial") return <Badge variant="secondary">Trial</Badge>;
   return <Badge variant="destructive">Suspensa</Badge>;
 }
+
+function ConnBadge({ label, s }: { label: string; s?: string }) {
+  if (s === "connected") return <Badge className="bg-primary text-[10px]">{label} conectado</Badge>;
+  if (s === "disconnected") return <Badge variant="destructive" className="text-[10px]">{label} desconectado</Badge>;
+  return <Badge variant="outline" className="text-[10px]">{label} não configurado</Badge>;
+}
