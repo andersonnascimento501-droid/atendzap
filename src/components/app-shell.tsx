@@ -21,33 +21,56 @@ type NavItem = {
   adminOnly?: boolean;
   tag?: string;
   badge?: boolean;
+  children?: NavItem[];
 };
 
-const sections: { label: string; items: NavItem[] }[] = [
+// Navegação simples: 7 itens principais. Nada foi removido — telas secundárias
+// aparecem como subitens do item principal a que pertencem.
+const mainNav: NavItem[] = [
+  { to: "/app/dashboard", label: "Início", icon: Home },
+  { to: "/app/conversas", label: "Conversas", icon: Inbox, badge: true },
   {
-    label: "Atendimento",
-    items: [
-      { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/app/conversas", label: "Conversas", icon: Inbox, badge: true },
-      { to: "/app/crm", label: "CRM Kanban", icon: KanbanSquare },
-      { to: "/app/campanhas", label: "Campanhas", icon: Megaphone, adminOnly: true },
-      { to: "/app/agentes", label: "Agentes", icon: Sparkles, tag: "NOVO", adminOnly: true },
-      { to: "/app/agente", label: "Agente IA", icon: Bot, tag: "IA", adminOnly: true },
-    ],
+    to: "/app/crm",
+    label: "Clientes",
+    icon: Users,
+    children: [{ to: "/app/contatos", label: "Lista de contatos", icon: Contact }],
   },
   {
-    label: "Gestão",
-    items: [
-      { to: "/app/contatos", label: "Contatos", icon: Contact },
-      { to: "/app/financeiro", label: "Financeiro", icon: Wallet, adminOnly: true, tag: "PRO" },
-      { to: "/app/relatorios", label: "Relatórios", icon: BarChart3, adminOnly: true },
-      { to: "/app/conexao", label: "Conexão", icon: Smartphone },
-      { to: "/app/equipe", label: "Equipe", icon: Users, adminOnly: true },
-      { to: "/app/integracoes", label: "Integrações", icon: Webhook, adminOnly: true },
-      { to: "/app/configuracoes", label: "Configurações", icon: Settings, adminOnly: true },
+    to: "/app/agente",
+    label: "Atendente IA",
+    icon: Bot,
+    adminOnly: true,
+    children: [
+      { to: "/app/agentes", label: "Modelos prontos", icon: Sparkles },
+      { to: "/app/agente/avancado", label: "Avançado", icon: Settings },
     ],
+  },
+  { to: "/app/campanhas", label: "Disparos", icon: Megaphone, adminOnly: true },
+  {
+    to: "/app/conexao",
+    label: "Canais",
+    icon: Smartphone,
+    children: [{ to: "/app/integracoes", label: "Integrações", icon: Webhook, adminOnly: true }],
+  },
+  {
+    to: "/app/relatorios",
+    label: "Resultados",
+    icon: BarChart3,
+    adminOnly: true,
+    children: [{ to: "/app/financeiro", label: "Financeiro", icon: Wallet }],
   },
 ];
+
+const footerNav: NavItem[] = [
+  {
+    to: "/app/configuracoes",
+    label: "Configurações",
+    icon: Settings,
+    adminOnly: true,
+    children: [{ to: "/app/equipe", label: "Equipe", icon: Users }],
+  },
+];
+
 
 export function AppShell({
   children,
