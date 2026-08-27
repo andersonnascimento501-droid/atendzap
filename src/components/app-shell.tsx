@@ -104,14 +104,19 @@ export function AppShell({
   const userName = (email || "Você").split("@")[0];
 
   const mobileItems: MobileNavItem[] = [
-    { to: "/app/dashboard", label: "Início", icon: LayoutDashboard },
+    { to: "/app/dashboard", label: "Início", icon: Home },
     { to: "/app/conversas", label: "Conversas", icon: Inbox },
-    { to: "/app/crm", label: "CRM", icon: KanbanSquare },
-    { to: "/app/contatos", label: "Contatos", icon: Contact },
+    { to: "/app/crm", label: "Clientes", icon: Users },
     isAdmin
-      ? { to: "/app/agente", label: "Agente", icon: Bot }
-      : { to: "/app/conexao", label: "Conexão", icon: Smartphone },
+      ? { to: "/app/agente", label: "IA", icon: Bot }
+      : { to: "/app/conexao", label: "Canais", icon: Smartphone },
+    { label: "Mais", icon: Menu, onClick: () => setMoreOpen(true) },
   ];
+
+  const moreItems = [...mainNav, ...footerNav]
+    .flatMap((i) => [i, ...(i.children ?? []).map((c) => ({ ...c, adminOnly: c.adminOnly ?? i.adminOnly }))])
+    .filter((i) => !i.adminOnly || isAdmin);
+
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground" style={{ ["--brand" as any]: primary }}>
