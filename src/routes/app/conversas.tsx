@@ -335,33 +335,45 @@ function ConversasPage() {
             </div>
           ) : (
             <>
-              <header className="flex items-center gap-3 px-4 py-3 border-b border-[color:var(--hairline)] bg-[color:var(--panel)]">
+              <header className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 border-b border-[color:var(--hairline)] bg-[color:var(--panel)]">
+                <button onClick={() => setActive(null)} aria-label="Voltar para a lista"
+                  className="md:hidden -ml-1 p-1.5 rounded-lg text-muted-foreground hover:bg-[color:var(--panel-2)]">
+                  <ArrowLeft className="size-4" />
+                </button>
                 <InitialsAvatar name={activeConv?.nome || active} size={38} />
                 <div className="min-w-0">
                   <div className="font-semibold text-sm truncate flex items-center gap-1.5">
                     <ChannelIcon channel={channelOf(active)} />
                     {activeConv?.nome || contactDisplayId(active, activeConv?.nome)}
                   </div>
-                  <div className="text-[11.5px] text-muted-foreground truncate font-mono">
-                    {channelOf(active) === "instagram" ? "Instagram Direct" : active}
+                  <div className="mt-0.5">
+                    <StatusPill iaAtiva={iaAtivaAqui} />
                   </div>
                 </div>
-                <div className="ml-auto flex items-center gap-3 flex-wrap">
-                  <label className="flex items-center gap-2 text-[12.5px] text-muted-foreground font-medium">
-                    <Bot className="size-3.5" /> IA ativa
-                    <Switch checked={iaAtivaAqui} onCheckedChange={(v) => void toggleIa(v)} />
-                  </label>
-                  <Button size="sm" variant="outline" onClick={() => void assumir()}>
-                    <Hand className="size-3.5 mr-1" /> Assumir
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={async () => {
+                <div className="ml-auto flex items-center gap-2">
+                  {iaAtivaAqui ? (
+                    <Button size="sm" onClick={() => void assumir()}>
+                      <Hand className="size-3.5 mr-1.5" /> <span className="hidden sm:inline">Assumir conversa</span><span className="sm:hidden">Assumir</span>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => void devolverParaIa()}>
+                      <Undo2 className="size-3.5 mr-1.5" /> <span className="hidden sm:inline">Devolver para IA</span><span className="sm:hidden">Devolver</span>
+                    </Button>
+                  )}
+                  {activeCard && (
+                    <Button size="sm" variant="ghost" className="xl:hidden" aria-label="Detalhes do cliente"
+                      onClick={() => setDrawerCard(activeCard)}>
+                      <Info className="size-4" />
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" className="hidden sm:inline-flex" onClick={async () => {
                     if (!active) return;
                     try {
                       await sendCsatFn({ data: { numero: active, contatoNome: activeConv?.nome ?? null } });
                       toast.success("Pesquisa de satisfação enviada");
                     } catch (e: any) { toast.error(e?.message ?? "Erro ao enviar"); }
                   }}>
-                    <Star className="size-3.5 mr-1" /> CSAT
+                    <Star className="size-3.5 sm:mr-1" /> <span className="hidden lg:inline">Satisfação</span>
                   </Button>
                 </div>
               </header>
