@@ -57,6 +57,7 @@ import { Route as AppCheckoutRouteImport } from './routes/app/checkout'
 import { Route as AppCampanhasRouteImport } from './routes/app/campanhas'
 import { Route as AppAgentesRouteImport } from './routes/app/agentes'
 import { Route as AppAgenteRouteImport } from './routes/app/agente'
+import { Route as AppAgenteConfigurarRouteImport } from './routes/app/agente.configurar'
 import { Route as AppAgenteAvancadoRouteImport } from './routes/app/agente.avancado'
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
 import { Route as ApiPublicInstagramWebhookRouteImport } from './routes/api/public/instagram-webhook'
@@ -307,6 +308,11 @@ const AppAgenteRoute = AppAgenteRouteImport.update({
   path: '/agente',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAgenteConfigurarRoute = AppAgenteConfigurarRouteImport.update({
+  id: '/configurar',
+  path: '/configurar',
+  getParentRoute: () => AppAgenteRoute,
+} as any)
 const AppAgenteAvancadoRoute = AppAgenteAvancadoRouteImport.update({
   id: '/avancado',
   path: '/avancado',
@@ -411,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/api/public/instagram-webhook': typeof ApiPublicInstagramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/app/agente/avancado': typeof AppAgenteAvancadoRoute
+  '/app/agente/configurar': typeof AppAgenteConfigurarRoute
   '/api/public/billing/webhook': typeof ApiPublicBillingWebhookRoute
   '/api/public/hooks/process-campaigns': typeof ApiPublicHooksProcessCampaignsRoute
   '/api/public/hooks/process-followups': typeof ApiPublicHooksProcessFollowupsRoute
@@ -468,6 +475,7 @@ export interface FileRoutesByTo {
   '/api/public/instagram-webhook': typeof ApiPublicInstagramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/app/agente/avancado': typeof AppAgenteAvancadoRoute
+  '/app/agente/configurar': typeof AppAgenteConfigurarRoute
   '/api/public/billing/webhook': typeof ApiPublicBillingWebhookRoute
   '/api/public/hooks/process-campaigns': typeof ApiPublicHooksProcessCampaignsRoute
   '/api/public/hooks/process-followups': typeof ApiPublicHooksProcessFollowupsRoute
@@ -528,6 +536,7 @@ export interface FileRoutesById {
   '/api/public/instagram-webhook': typeof ApiPublicInstagramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/app/agente/avancado': typeof AppAgenteAvancadoRoute
+  '/app/agente/configurar': typeof AppAgenteConfigurarRoute
   '/api/public/billing/webhook': typeof ApiPublicBillingWebhookRoute
   '/api/public/hooks/process-campaigns': typeof ApiPublicHooksProcessCampaignsRoute
   '/api/public/hooks/process-followups': typeof ApiPublicHooksProcessFollowupsRoute
@@ -589,6 +598,7 @@ export interface FileRouteTypes {
     | '/api/public/instagram-webhook'
     | '/api/public/whatsapp-webhook'
     | '/app/agente/avancado'
+    | '/app/agente/configurar'
     | '/api/public/billing/webhook'
     | '/api/public/hooks/process-campaigns'
     | '/api/public/hooks/process-followups'
@@ -646,6 +656,7 @@ export interface FileRouteTypes {
     | '/api/public/instagram-webhook'
     | '/api/public/whatsapp-webhook'
     | '/app/agente/avancado'
+    | '/app/agente/configurar'
     | '/api/public/billing/webhook'
     | '/api/public/hooks/process-campaigns'
     | '/api/public/hooks/process-followups'
@@ -705,6 +716,7 @@ export interface FileRouteTypes {
     | '/api/public/instagram-webhook'
     | '/api/public/whatsapp-webhook'
     | '/app/agente/avancado'
+    | '/app/agente/configurar'
     | '/api/public/billing/webhook'
     | '/api/public/hooks/process-campaigns'
     | '/api/public/hooks/process-followups'
@@ -1073,6 +1085,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAgenteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/agente/configurar': {
+      id: '/app/agente/configurar'
+      path: '/configurar'
+      fullPath: '/app/agente/configurar'
+      preLoaderRoute: typeof AppAgenteConfigurarRouteImport
+      parentRoute: typeof AppAgenteRoute
+    }
     '/app/agente/avancado': {
       id: '/app/agente/avancado'
       path: '/avancado'
@@ -1141,10 +1160,12 @@ declare module '@tanstack/react-router' {
 
 interface AppAgenteRouteChildren {
   AppAgenteAvancadoRoute: typeof AppAgenteAvancadoRoute
+  AppAgenteConfigurarRoute: typeof AppAgenteConfigurarRoute
 }
 
 const AppAgenteRouteChildren: AppAgenteRouteChildren = {
   AppAgenteAvancadoRoute: AppAgenteAvancadoRoute,
+  AppAgenteConfigurarRoute: AppAgenteConfigurarRoute,
 }
 
 const AppAgenteRouteWithChildren = AppAgenteRoute._addFileChildren(

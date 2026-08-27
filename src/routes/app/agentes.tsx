@@ -1,4 +1,5 @@
-// BLOCO 6 — Catálogo de agentes + Meus Agentes (cliente).
+// ETAPA 5 — Atendente IA: meus atendentes + catálogo (UI simplificada).
+// Mecanismo de instalação do BLOCO 6 preservado integralmente.
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Bot, Check, Loader2, Star, Trash2, Download, Settings2, Instagram, Smartphone } from "lucide-react";
+import { Bot, Check, Loader2, Star, Trash2, Plus, Settings2, Sparkles } from "lucide-react";
 import { brand } from "@/config/brand";
 import {
   listCatalog, listMyAgents, installTemplate, updateMyAgent, deleteMyAgent,
@@ -18,10 +19,10 @@ import {
 export const Route = createFileRoute("/app/agentes")({
   head: () => ({
     meta: [
-      { title: `${brand.name} — Agentes de IA` },
-      { name: "description", content: "Instale agentes de IA prontos e gerencie os agentes da sua empresa." },
-      { property: "og:title", content: `${brand.name} — Agentes de IA` },
-      { property: "og:description", content: "Catálogo de agentes prontos para instalar na sua empresa." },
+      { title: `${brand.name} — Atendente IA` },
+      { name: "description", content: "Configure quem atende seus clientes por você no WhatsApp e no Instagram." },
+      { property: "og:title", content: `${brand.name} — Atendente IA` },
+      { property: "og:description", content: "Escolha um atendente pronto para o seu tipo de negócio." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -33,25 +34,7 @@ export const Route = createFileRoute("/app/agentes")({
   component: AgentesPage,
 });
 
-const TOOL_LABEL: Record<string, string> = {
-  atualizar_lead: "Atualizar lead",
-  qualificar_lead: "Qualificar lead",
-  mover_pipeline: "Mover no pipeline",
-  transferir_humano: "Transferir para humano",
-  finalizar_lead: "Finalizar lead",
-};
-
-function ChannelIcons({ channels }: { channels: string[] }) {
-  return (
-    <div className="flex items-center gap-1.5 text-muted-foreground">
-      {channels.includes("whatsapp") && <Smartphone className="size-3.5" aria-label="WhatsApp" />}
-      {channels.includes("instagram") && <Instagram className="size-3.5" aria-label="Instagram" />}
-    </div>
-  );
-}
-
 function AgentesPage() {
-  const [tab, setTab] = useState<"meus" | "catalogo">("meus");
   const fetchCatalog = useServerFn(listCatalog);
   const fetchMine = useServerFn(listMyAgents);
   const doInstall = useServerFn(installTemplate);
@@ -76,7 +59,7 @@ function AgentesPage() {
       setInstalledIds(cat.installedTemplateIds);
       setMine(agents);
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao carregar agentes");
+      toast.error(e?.message ?? "Erro ao carregar atendentes");
     } finally {
       setLoading(false);
     }
@@ -97,13 +80,12 @@ function AgentesPage() {
     setInstalling(t.id);
     try {
       const r = await doInstall({ data: { templateId: t.id } });
-      if (r.alreadyInstalled) toast.info("Este agente já está instalado.");
-      else toast.success(`${t.nome} instalado na sua empresa`);
+      if (r.alreadyInstalled) toast.info("Este atendente já está na sua conta.");
+      else toast.success(`${t.nome} adicionado`);
       setDetail(null);
       await reload();
-      setTab("meus");
     } catch (e: any) {
-      toast.error(e?.message ?? "Falha ao instalar");
+      toast.error(e?.message ?? "Falha ao adicionar");
     } finally {
       setInstalling(null);
     }
@@ -121,7 +103,7 @@ function AgentesPage() {
   async function makeDefault(a: InstalledAgent) {
     try {
       await doUpdate({ data: { id: a.id, makeDefault: true } });
-      toast.success(`${a.nome_agente} é o agente padrão`);
+      toast.success(`${a.nome_agente} agora é o atendente principal`);
       await reload();
     } catch (e: any) {
       toast.error(e?.message);
@@ -132,7 +114,7 @@ function AgentesPage() {
     if (!confirmDelete) return;
     try {
       await doDelete({ data: { id: confirmDelete.id } });
-      toast.success("Agente excluído");
+      toast.success("Atendente removido");
       setConfirmDelete(null);
       await reload();
     } catch (e: any) {
@@ -140,120 +122,141 @@ function AgentesPage() {
     }
   }
 
+  const ativos = mine.filter((a) => a.ativo).length;
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-display font-bold tracking-tight flex items-center gap-2">
-            <Bot className="size-6 text-primary" /> Agentes de IA
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Instale agentes prontos do catálogo. Cada instalação é uma cópia independente da sua empresa.
-          </p>
-        </div>
-        <div className="inline-flex rounded-lg border border-[color:var(--hairline)] p-1 bg-[color:var(--panel)]">
-          {(["meus", "catalogo"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded-md text-[13.5px] font-medium ${
-                tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t === "meus" ? `Meus Agentes (${mine.length})` : "Catálogo"}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="space-y-8 w-full min-w-0">
+      <header>
+        <h1 className="text-2xl font-display font-bold tracking-tight flex items-center gap-2">
+          <Bot className="size-6 text-primary" /> Atendente IA
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">Configure quem atende seus clientes por você.</p>
+      </header>
 
       {loading ? (
         <div className="grid place-items-center py-16">
           <Loader2 className="animate-spin text-muted-foreground" />
         </div>
-      ) : tab === "catalogo" ? (
-        templates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum agente disponível no catálogo ainda.</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {templates.map((t) => {
-              const installed = installedIds.includes(t.id);
-              return (
-                <Card key={t.id} className="p-4 flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold truncate">{t.nome}</h3>
-                        {t.destaque && <Star className="size-3.5 text-amber-500" />}
-                      </div>
-                      <Badge variant="secondary" className="mt-1 text-[11px]">{t.categoria}</Badge>
-                    </div>
-                    <ChannelIcons channels={t.channels_supported} />
-                  </div>
-                  <p className="text-[13px] text-muted-foreground line-clamp-3 flex-1">
-                    {t.descricao_curta || t.descricao}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => setDetail(t)}>
-                      Detalhes
-                    </Button>
-                    {installed ? (
-                      <Button size="sm" variant="ghost" disabled className="text-emerald-600">
-                        <Check className="size-4 mr-1" /> Instalado
-                      </Button>
-                    ) : (
-                      <Button size="sm" onClick={() => install(t)} disabled={installing === t.id}>
-                        {installing === t.id ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )
-      ) : mine.length === 0 ? (
-        <Card className="p-8 text-center space-y-3">
-          <p className="text-sm text-muted-foreground">Você ainda não tem agentes. Instale um do catálogo.</p>
-          <Button onClick={() => setTab("catalogo")}>Ver catálogo</Button>
-        </Card>
       ) : (
-        <div className="space-y-3">
-          {mine.map((a) => (
-            <Card key={a.id} className="p-4 flex items-center gap-4 flex-wrap">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold truncate">{a.nome_agente}</h3>
-                  {a.is_default && <Badge className="text-[11px]">Padrão</Badge>}
-                  {!a.ativo && <Badge variant="secondary" className="text-[11px]">Inativo</Badge>}
-                </div>
-                <p className="text-[12.5px] text-muted-foreground line-clamp-1">{a.descricao || "—"}</p>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <ChannelIcons channels={a.channels} />
-                  <span className="text-[11px] text-muted-foreground">{a.allowed_tools.length} ferramentas</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={a.ativo} onCheckedChange={(v) => toggleAtivo(a, v)} />
-                {!a.is_default && (
-                  <Button size="sm" variant="ghost" onClick={() => makeDefault(a)}>
-                    <Star className="size-4 mr-1" /> Padrão
-                  </Button>
+        <>
+          {/* Meus atendentes */}
+          <section className="space-y-3">
+            {mine.length === 0 ? (
+              <Card className="p-6 sm:p-8 text-center space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Você ainda não tem um atendente. Escolha um pronto abaixo ou crie o seu com ajuda da IA.
+                </p>
+                <Button asChild className="w-full sm:w-auto">
+                  <Link to="/app/agente"><Sparkles className="size-4 mr-1.5" /> Criar meu atendente</Link>
+                </Button>
+              </Card>
+            ) : (
+              <>
+                {ativos > 1 && (
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--panel-2)] p-3">
+                    <p className="text-sm font-medium">Atendimento inteligente ativado</p>
+                    <p className="text-xs text-muted-foreground">
+                      Quando você tem mais de um atendente, o {brand.name} identifica automaticamente qual deles
+                      deve cuidar de cada conversa.
+                    </p>
+                  </div>
                 )}
-                <Button size="sm" variant="outline" asChild>
-                  <Link to="/app/agente">
-                    <Settings2 className="size-4 mr-1" /> Configurar
-                  </Link>
-                </Button>
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setConfirmDelete(a)}>
-                  <Trash2 className="size-4" />
-                </Button>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {mine.map((a) => (
+                    <Card key={a.id} className="p-4 flex flex-col gap-3 min-w-0">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold truncate">{a.nome_agente}</h3>
+                          {a.is_default && <Badge className="text-[11px]">Principal</Badge>}
+                          <Badge variant="secondary" className="text-[11px]">{a.ativo ? "Ativo" : "Inativo"}</Badge>
+                        </div>
+                        <p className="text-[13px] text-muted-foreground line-clamp-2">
+                          {a.descricao || "Atende seus clientes por você."}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 flex-wrap mt-auto">
+                        <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                          <Switch checked={a.ativo} onCheckedChange={(v) => toggleAtivo(a, v)} /> Ativo
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          {!a.is_default && (
+                            <Button size="sm" variant="ghost" onClick={() => makeDefault(a)}>
+                              <Star className="size-4 mr-1" /> Principal
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" asChild>
+                            <Link to="/app/agente/configurar" search={{ id: a.id }}>
+                              <Settings2 className="size-4 mr-1" /> Configurar
+                            </Link>
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setConfirmDelete(a)}>
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* Catálogo */}
+          <section className="space-y-3 border-t border-[var(--border)] pt-6">
+            <div>
+              <h2 className="text-lg font-display font-semibold">Adicionar atendente</h2>
+              <p className="text-sm text-muted-foreground">Escolha um atendente pronto para o seu tipo de negócio.</p>
+            </div>
+            {templates.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum atendente pronto disponível ainda.</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {templates.map((t) => {
+                  const installed = installedIds.includes(t.id);
+                  return (
+                    <Card
+                      key={t.id}
+                      className={`p-4 flex flex-col gap-3 min-w-0 ${t.destaque ? "border-primary/50 bg-primary/[0.04]" : ""}`}
+                    >
+                      <div className="min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold truncate">{t.nome}</h3>
+                          {t.destaque && <Star className="size-3.5 text-amber-500 shrink-0" />}
+                        </div>
+                        <Badge variant="secondary" className="text-[11px]">{t.categoria}</Badge>
+                      </div>
+                      <p className="text-[13px] text-muted-foreground line-clamp-3 flex-1">
+                        {t.descricao_curta || t.descricao}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="ghost" className="px-2" onClick={() => setDetail(t)}>
+                          Saber mais
+                        </Button>
+                        {installed ? (
+                          <Button size="sm" variant="ghost" disabled className="ml-auto text-emerald-600">
+                            <Check className="size-4 mr-1" /> Adicionado
+                          </Button>
+                        ) : (
+                          <Button size="sm" className="ml-auto" onClick={() => install(t)} disabled={installing === t.id}>
+                            {installing === t.id ? (
+                              <Loader2 className="size-4 mr-1 animate-spin" />
+                            ) : (
+                              <Plus className="size-4 mr-1" />
+                            )}
+                            Adicionar
+                          </Button>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
-            </Card>
-          ))}
-        </div>
+            )}
+          </section>
+        </>
       )}
 
-      {/* Detalhes do template */}
+      {/* Detalhes do atendente pronto */}
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -266,60 +269,36 @@ function AgentesPage() {
                 <p className="text-muted-foreground whitespace-pre-wrap">{detail.descricao || detail.descricao_curta}</p>
               </div>
               <div>
-                <h4 className="font-semibold mb-1">O que coleta</h4>
+                <h4 className="font-semibold mb-1">Especialidade</h4>
+                <p className="text-muted-foreground">{detail.categoria}</p>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-1">O que ele descobre com o cliente</h4>
                 {(fieldsByTemplate.get(detail.id) ?? []).length === 0 ? (
-                  <p className="text-muted-foreground">Nenhum campo específico.</p>
+                  <p className="text-muted-foreground">Nada específico.</p>
                 ) : (
                   <ul className="list-disc pl-5 text-muted-foreground">
                     {(fieldsByTemplate.get(detail.id) ?? []).map((f) => (
-                      <li key={f.id}>
-                        {f.label} <span className="text-[11px]">({f.field_type})</span>
-                      </li>
+                      <li key={f.id}>{f.label}</li>
                     ))}
                   </ul>
                 )}
               </div>
-              <div>
-                <h4 className="font-semibold mb-1">Ferramentas</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {detail.default_tools.length === 0 ? (
-                    <span className="text-muted-foreground">Nenhuma.</span>
-                  ) : (
-                    detail.default_tools.map((t) => (
-                      <Badge key={t} variant="secondary" className="text-[11px]">{TOOL_LABEL[t] ?? t}</Badge>
-                    ))
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <h4 className="font-semibold">Canais:</h4>
-                <ChannelIcons channels={detail.channels_supported} />
-                <span className="text-muted-foreground text-[12.5px]">{detail.channels_supported.join(", ")}</span>
-              </div>
-              {detail.recommended_stages.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-1">Pipeline recomendado</h4>
-                  <p className="text-muted-foreground">{detail.recommended_stages.map((s) => s.nome).join(" → ")}</p>
-                </div>
-              )}
               {detail.recommended_followup?.steps?.length ? (
-                <div>
-                  <h4 className="font-semibold mb-1">Follow-up recomendado</h4>
-                  <p className="text-muted-foreground">
-                    {detail.recommended_followup.steps.length} etapa(s) — criada desativada para você revisar.
-                  </p>
-                </div>
+                <p className="text-muted-foreground">
+                  Já vem com lembretes automáticos sugeridos — desligados para você revisar antes.
+                </p>
               ) : null}
             </div>
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDetail(null)}>Fechar</Button>
             {detail && installedIds.includes(detail.id) ? (
-              <Button disabled><Check className="size-4 mr-1.5" /> Instalado</Button>
+              <Button disabled><Check className="size-4 mr-1.5" /> Adicionado</Button>
             ) : (
               <Button onClick={() => detail && install(detail)} disabled={!!installing}>
-                {installing ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Download className="size-4 mr-1.5" />}
-                Instalar agente
+                {installing ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Plus className="size-4 mr-1.5" />}
+                Adicionar atendente
               </Button>
             )}
           </DialogFooter>
@@ -329,14 +308,14 @@ function AgentesPage() {
       <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Excluir agente?</DialogTitle>
+            <DialogTitle>Remover atendente?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            {confirmDelete?.nome_agente} será removido. O histórico das conversas e os leads são preservados.
+            {confirmDelete?.nome_agente} será removido. Suas conversas e seus clientes continuam salvos.
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirmDelete(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={remove}>Excluir</Button>
+            <Button variant="destructive" onClick={remove}>Remover</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
