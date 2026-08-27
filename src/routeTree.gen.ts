@@ -22,6 +22,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MasterIndexRouteImport } from './routes/master/index'
 import { Route as DemoIndexRouteImport } from './routes/demo/index'
+import { Route as MasterTemplatesRouteImport } from './routes/master/templates'
 import { Route as MasterPlanosRouteImport } from './routes/master/planos'
 import { Route as MasterPainelRouteImport } from './routes/master/painel'
 import { Route as MasterNovaEmpresaRouteImport } from './routes/master/nova-empresa'
@@ -130,6 +131,11 @@ const DemoIndexRoute = DemoIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DemoRoute,
+} as any)
+const MasterTemplatesRoute = MasterTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => MasterRoute,
 } as any)
 const MasterPlanosRoute = MasterPlanosRouteImport.update({
   id: '/planos',
@@ -398,6 +404,7 @@ export interface FileRoutesByFullPath {
   '/master/nova-empresa': typeof MasterNovaEmpresaRoute
   '/master/painel': typeof MasterPainelRoute
   '/master/planos': typeof MasterPlanosRoute
+  '/master/templates': typeof MasterTemplatesRoute
   '/demo/': typeof DemoIndexRoute
   '/master/': typeof MasterIndexRoute
   '/api/public/google-callback': typeof ApiPublicGoogleCallbackRoute
@@ -454,6 +461,7 @@ export interface FileRoutesByTo {
   '/master/nova-empresa': typeof MasterNovaEmpresaRoute
   '/master/painel': typeof MasterPainelRoute
   '/master/planos': typeof MasterPlanosRoute
+  '/master/templates': typeof MasterTemplatesRoute
   '/demo': typeof DemoIndexRoute
   '/master': typeof MasterIndexRoute
   '/api/public/google-callback': typeof ApiPublicGoogleCallbackRoute
@@ -513,6 +521,7 @@ export interface FileRoutesById {
   '/master/nova-empresa': typeof MasterNovaEmpresaRoute
   '/master/painel': typeof MasterPainelRoute
   '/master/planos': typeof MasterPlanosRoute
+  '/master/templates': typeof MasterTemplatesRoute
   '/demo/': typeof DemoIndexRoute
   '/master/': typeof MasterIndexRoute
   '/api/public/google-callback': typeof ApiPublicGoogleCallbackRoute
@@ -573,6 +582,7 @@ export interface FileRouteTypes {
     | '/master/nova-empresa'
     | '/master/painel'
     | '/master/planos'
+    | '/master/templates'
     | '/demo/'
     | '/master/'
     | '/api/public/google-callback'
@@ -629,6 +639,7 @@ export interface FileRouteTypes {
     | '/master/nova-empresa'
     | '/master/painel'
     | '/master/planos'
+    | '/master/templates'
     | '/demo'
     | '/master'
     | '/api/public/google-callback'
@@ -687,6 +698,7 @@ export interface FileRouteTypes {
     | '/master/nova-empresa'
     | '/master/painel'
     | '/master/planos'
+    | '/master/templates'
     | '/demo/'
     | '/master/'
     | '/api/public/google-callback'
@@ -815,6 +827,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/demo/'
       preLoaderRoute: typeof DemoIndexRouteImport
       parentRoute: typeof DemoRoute
+    }
+    '/master/templates': {
+      id: '/master/templates'
+      path: '/templates'
+      fullPath: '/master/templates'
+      preLoaderRoute: typeof MasterTemplatesRouteImport
+      parentRoute: typeof MasterRoute
     }
     '/master/planos': {
       id: '/master/planos'
@@ -1211,6 +1230,7 @@ interface MasterRouteChildren {
   MasterNovaEmpresaRoute: typeof MasterNovaEmpresaRoute
   MasterPainelRoute: typeof MasterPainelRoute
   MasterPlanosRoute: typeof MasterPlanosRoute
+  MasterTemplatesRoute: typeof MasterTemplatesRoute
   MasterIndexRoute: typeof MasterIndexRoute
 }
 
@@ -1221,6 +1241,7 @@ const MasterRouteChildren: MasterRouteChildren = {
   MasterNovaEmpresaRoute: MasterNovaEmpresaRoute,
   MasterPainelRoute: MasterPainelRoute,
   MasterPlanosRoute: MasterPlanosRoute,
+  MasterTemplatesRoute: MasterTemplatesRoute,
   MasterIndexRoute: MasterIndexRoute,
 }
 
