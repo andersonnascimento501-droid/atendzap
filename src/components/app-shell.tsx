@@ -31,6 +31,7 @@ const sections: { label: string; items: NavItem[] }[] = [
       { to: "/app/conversas", label: "Conversas", icon: Inbox, badge: true },
       { to: "/app/crm", label: "CRM Kanban", icon: KanbanSquare },
       { to: "/app/campanhas", label: "Campanhas", icon: Megaphone, adminOnly: true },
+      { to: "/app/agentes", label: "Agentes", icon: Sparkles, tag: "NOVO", adminOnly: true },
       { to: "/app/agente", label: "Agente IA", icon: Bot, tag: "IA", adminOnly: true },
     ],
   },
