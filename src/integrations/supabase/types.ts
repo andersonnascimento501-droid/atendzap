@@ -77,6 +77,7 @@ export type Database = {
           assinar_mensagens: boolean | null
           ativo: boolean
           chamar_por_nome: boolean | null
+          channels: string[]
           como_vender: string
           company_id: string
           created_at: string
@@ -126,6 +127,7 @@ export type Database = {
           servicos_agendaveis: string
           slug: string
           sobre_empresa: string
+          source_template_id: string | null
           tamanho_resposta: string
           telefone_transferencia: string
           ticket_medio: string
@@ -147,6 +149,7 @@ export type Database = {
           assinar_mensagens?: boolean | null
           ativo?: boolean
           chamar_por_nome?: boolean | null
+          channels?: string[]
           como_vender?: string
           company_id: string
           created_at?: string
@@ -196,6 +199,7 @@ export type Database = {
           servicos_agendaveis?: string
           slug: string
           sobre_empresa?: string
+          source_template_id?: string | null
           tamanho_resposta?: string
           telefone_transferencia?: string
           ticket_medio?: string
@@ -217,6 +221,7 @@ export type Database = {
           assinar_mensagens?: boolean | null
           ativo?: boolean
           chamar_por_nome?: boolean | null
+          channels?: string[]
           como_vender?: string
           company_id?: string
           created_at?: string
@@ -266,6 +271,7 @@ export type Database = {
           servicos_agendaveis?: string
           slug?: string
           sobre_empresa?: string
+          source_template_id?: string | null
           tamanho_resposta?: string
           telefone_transferencia?: string
           ticket_medio?: string
@@ -276,7 +282,15 @@ export type Database = {
           user_id?: string | null
           velocidade_resposta?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agent_config_source_template_id_fkey"
+            columns: ["source_template_id"]
+            isOneToOne: false
+            referencedRelation: "agent_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       agent_custom_fields: {
         Row: {
@@ -340,6 +354,125 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      agent_template_fields: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string
+          field_type: string
+          id: string
+          key: string
+          label: string
+          options: Json
+          required: boolean
+          sort_order: number
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          field_type?: string
+          id?: string
+          key: string
+          label: string
+          options?: Json
+          required?: boolean
+          sort_order?: number
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          field_type?: string
+          id?: string
+          key?: string
+          label?: string
+          options?: Json
+          required?: boolean
+          sort_order?: number
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_template_fields_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "agent_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_templates: {
+        Row: {
+          ativo: boolean
+          categoria: string
+          channels_supported: string[]
+          created_at: string
+          default_tools: Json
+          descricao: string
+          descricao_curta: string
+          destaque: boolean
+          icon: string | null
+          id: string
+          metadata: Json
+          model_default: string
+          nome: string
+          prompt_base: string
+          provider_default: string
+          recommended_followup: Json | null
+          recommended_stages: Json
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string
+          channels_supported?: string[]
+          created_at?: string
+          default_tools?: Json
+          descricao?: string
+          descricao_curta?: string
+          destaque?: boolean
+          icon?: string | null
+          id?: string
+          metadata?: Json
+          model_default?: string
+          nome: string
+          prompt_base?: string
+          provider_default?: string
+          recommended_followup?: Json | null
+          recommended_stages?: Json
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string
+          channels_supported?: string[]
+          created_at?: string
+          default_tools?: Json
+          descricao?: string
+          descricao_curta?: string
+          destaque?: boolean
+          icon?: string | null
+          id?: string
+          metadata?: Json
+          model_default?: string
+          nome?: string
+          prompt_base?: string
+          provider_default?: string
+          recommended_followup?: Json | null
+          recommended_stages?: Json
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       api_token: {
         Row: {
