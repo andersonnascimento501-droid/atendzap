@@ -102,6 +102,7 @@ export type Database = {
           created_at: string
           duracao_min: number
           id: string
+          lembretes_ativos: boolean
           nome: string
           updated_at: string
         }
@@ -113,6 +114,7 @@ export type Database = {
           created_at?: string
           duracao_min?: number
           id?: string
+          lembretes_ativos?: boolean
           nome: string
           updated_at?: string
         }
@@ -124,6 +126,7 @@ export type Database = {
           created_at?: string
           duracao_min?: number
           id?: string
+          lembretes_ativos?: boolean
           nome?: string
           updated_at?: string
         }
@@ -149,6 +152,8 @@ export type Database = {
           google_event_id: string | null
           id: string
           inicio: string
+          lembrete_24h_em: string | null
+          lembrete_2h_em: string | null
           numero: string | null
           observacoes: string
           service_id: string | null
@@ -167,6 +172,8 @@ export type Database = {
           google_event_id?: string | null
           id?: string
           inicio: string
+          lembrete_24h_em?: string | null
+          lembrete_2h_em?: string | null
           numero?: string | null
           observacoes?: string
           service_id?: string | null
@@ -185,6 +192,8 @@ export type Database = {
           google_event_id?: string | null
           id?: string
           inicio?: string
+          lembrete_24h_em?: string | null
+          lembrete_2h_em?: string | null
           numero?: string | null
           observacoes?: string
           service_id?: string | null
