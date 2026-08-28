@@ -1,45 +1,44 @@
-# Redesign AtendZap — escopo proposto (após auditoria)
+# Módulo de Agenda — do parcial ao completo
 
-Auditoria entregue no chat. Nada foi alterado. Este plano descreve o redesign, para aprovação em etapas.
+Objetivo: a IA poder consultar horários reais, agendar, remarcar e cancelar; e a empresa poder ver e gerenciar a agenda no painel. Nada de planos, checkout, CRM, tenancy ou fluxo de texto atual é alterado.
 
-## Princípios
+## Etapa 1 — Estrutura de disponibilidade (banco)
+- `agenda_servico`: empresa, nome, duração em minutos, intervalo entre atendimentos, antecedência mínima, ativo.
+- `agenda_recurso` (profissional/sala): empresa, nome, ativo (opcional na criação; agenda única se não usado).
+- `agenda_janela`: empresa, recurso, dia da semana, hora início, hora fim.
+- `agenda_bloqueio`: empresa, recurso, início, fim, motivo (férias, feriado, almoço extra).
+- `agendamento`: acrescentar serviço, recurso, telefone/canal do cliente, status `agendado | remarcado | cancelado | concluido`, e versionar a tabela em uma migration própria.
+- RLS por empresa em todas, com GRANTs para authenticated e service_role.
 
-- Marca AtendZap, posicionamento "Seu WhatsApp atendendo por você".
-- Poucos elementos por tela, português simples, zero jargão técnico visível.
-- Somente frontend/apresentação: nenhuma mudança em banco, migrations, server functions, tenancy, planos, checkout ou pipeline de mensagens.
+## Etapa 2 — Motor de disponibilidade (servidor)
+- Novo `src/lib/agenda.server.ts`: gera slots a partir de janelas − bloqueios − agendamentos existentes, respeitando duração, intervalo, antecedência e timezone da empresa.
+- Se o Google Agenda estiver conectado, também consulta `freeBusy` do calendário para descartar horários ocupados fora do sistema.
+- Trava de conflito na criação (verificação transacional) para não gerar dois agendamentos no mesmo slot.
 
-## Etapa 1 — Marca e linguagem
+## Etapa 3 — Google Agenda completo
+- Reaproveita o OAuth e o refresh de token existentes.
+- Acrescenta consulta de evento, atualização (remarcar) e remoção (cancelar), mantendo `google_event_id` sincronizado com o registro interno.
 
-- `src/config/brand.ts`: nome AtendZap + tagline nova.
-- Títulos e meta de `__root.tsx`, `index.tsx` e de cada rota de conteúdo.
-- Trocar textos "AtendAI"/"AtendeZap" visíveis (landing, master/configuracoes, integrações, telas demo). Cabeçalho de webhook e prefixo de instância Evolution ficam como estão para não quebrar conexões ativas.
+## Etapa 4 — Tools de IA
+- Novas tools no runtime já existente: `consultar_disponibilidade`, `criar_agendamento`, `remarcar_agendamento`, `cancelar_agendamento`.
+- Substitui o mecanismo atual de texto `[[AGENDAR: ...]]` por tool-calling, mantendo o bloco antigo funcionando por compatibilidade.
+- Prompt passa a instruir a IA a nunca inventar horário: sempre consultar antes de oferecer.
+- Supervisor ganha reconhecimento de intenção de agendamento para rotear ao agente com agenda habilitada.
 
-## Etapa 2 — Navegação
+## Etapa 5 — Painel
+- Nova página "Agenda" no menu: visão de dia/semana, lista de próximos atendimentos, criar/editar/remarcar/cancelar manualmente.
+- Configuração simples de horários dentro do Atendente IA: serviços, duração, dias e horários de atendimento, bloqueios — substituindo os campos de texto livre atuais (os textos existentes são migrados como referência).
+- Mobile first: lista por dia com chips de data em vez de grade horizontal.
 
-Menu de 13 para 7 itens: Início, Conversas, Clientes, Meu Atendente IA, Disparos, Canais, Resultados, e Configurações no rodapé da sidebar. Bottom nav mobile: Início, Conversas, Clientes, IA, Mais (folha com o restante). Rotas atuais permanecem e ganham redirecionamentos, sem quebrar links.
-
-## Etapa 3 — Home
-
-Nova `/app/dashboard`: faixa de status dos canais + créditos, bloco "Precisa de você", três números grandes, um atalho principal, checklist de primeiros passos quando vazio. Mesmas consultas de dados já existentes; nada novo no backend.
-
-## Etapa 4 — Sistema visual único
-
-Componente de cabeçalho de página, escala tipográfica e cards padronizados aplicados a todas as telas do `/app`, substituindo tamanhos manuais soltos.
-
-## Etapa 5 — Meu Atendente IA
-
-Uma página com abas: Agentes instalados, Catálogo, Personalidade/negócio, Ações permitidas, Lembretes automáticos (follow-up), Campos. Reaproveita `agente.tsx`, `agentes.tsx`, `agente.avancado.tsx`, `agent-tools-panel`, `agent-followup-panel` sem alterar as server functions.
-
-## Etapa 6 — Conversas e Clientes
-
-Conversas: canal, IA ativa e atendimento humano legíveis num relance; no celular, lista e conversa em telas separadas. Clientes: funil e contatos na mesma página, com o Kanban virando lista por etapa no celular.
-
-## Etapa 7 — Canais e Configurações
-
-Canais: um cartão por canal com estado conectado/desconectado e um botão de ação; webhooks, API e UTM movidos para "Avançado". Configurações reduzidas de 8 para 4 abas, com plano, consumo e limites explicados em linguagem simples.
+## Etapa 6 — Lembretes
+- Reaproveita o motor de follow-up para lembrete antes do horário e pedido de confirmação, sem criar novo cron.
 
 ## Detalhes técnicos
+- Tabelas novas via migration única por etapa, com GRANT + RLS por `company_id` usando `has_company_access`.
+- Slots calculados no servidor (nunca no cliente) para evitar divergência de timezone.
+- Tools registradas em `src/lib/agent-tools.server.ts` e executadas pelo loop de `src/lib/agent-runtime.server.ts`.
+- Google Calendar via `src/lib/google.server.ts`, com fallback: se não conectado, agenda apenas interna.
+- Gating de plano mantido: Google Agenda continua Pro/Business; agenda interna disponível a todos (a definir se deve seguir a mesma regra).
 
-- Arquivos previstos: `src/config/brand.ts`, `src/routes/__root.tsx`, `src/routes/index.tsx`, `src/components/app-shell.tsx`, `src/components/mobile-bottom-nav.tsx`, `src/routes/app/*.tsx`, `src/components/agent-*`, `src/styles.css` (tokens/escala).
-- Preservados sem mudança funcional: `checkout`, `onboarding`, `equipe`, `financeiro`, `campanhas`, `relatorios`, todo `/master`, `/demo`, e todas as rotas de API.
-- Escopo total: grande. Sugestão de execução por etapas, aprovando uma por vez.
+## Sugestão de ordem de entrega
+Etapas 1+2 primeiro (base sem a qual nada é confiável), depois 3+4 (IA agendando de verdade), depois 5+6 (painel e lembretes).
