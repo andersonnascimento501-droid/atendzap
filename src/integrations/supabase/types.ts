@@ -14,39 +14,183 @@ export type Database = {
   }
   public: {
     Tables: {
-      agendamento: {
+      agenda_bloqueio: {
         Row: {
-          card_id: string | null
           company_id: string
           created_at: string
+          fim: string
+          id: string
+          inicio: string
+          motivo: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          fim: string
+          id?: string
+          inicio: string
+          motivo?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          fim?: string
+          id?: string
+          inicio?: string
+          motivo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_bloqueio_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_janela: {
+        Row: {
+          ativo: boolean
+          company_id: string
+          created_at: string
+          dia_semana: number
+          hora_fim: string
+          hora_inicio: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          company_id: string
+          created_at?: string
+          dia_semana: number
+          hora_fim: string
+          hora_inicio: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          company_id?: string
+          created_at?: string
+          dia_semana?: number
+          hora_fim?: string
+          hora_inicio?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_janela_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_servico: {
+        Row: {
+          antecedencia_min: number
+          ativo: boolean
+          buffer_min: number
+          company_id: string
+          created_at: string
+          duracao_min: number
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          antecedencia_min?: number
+          ativo?: boolean
+          buffer_min?: number
+          company_id: string
+          created_at?: string
+          duracao_min?: number
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          antecedencia_min?: number
+          ativo?: boolean
+          buffer_min?: number
+          company_id?: string
+          created_at?: string
+          duracao_min?: number
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_servico_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agendamento: {
+        Row: {
+          cancelado_at: string | null
+          card_id: string | null
+          channel: string
+          company_id: string
+          created_at: string
+          criado_por: string
           fim: string
           google_event_id: string | null
           id: string
           inicio: string
+          numero: string | null
+          observacoes: string
+          service_id: string | null
           status: string
           titulo: string
+          updated_at: string
         }
         Insert: {
+          cancelado_at?: string | null
           card_id?: string | null
+          channel?: string
           company_id: string
           created_at?: string
+          criado_por?: string
           fim: string
           google_event_id?: string | null
           id?: string
           inicio: string
+          numero?: string | null
+          observacoes?: string
+          service_id?: string | null
           status?: string
           titulo: string
+          updated_at?: string
         }
         Update: {
+          cancelado_at?: string | null
           card_id?: string | null
+          channel?: string
           company_id?: string
           created_at?: string
+          criado_por?: string
           fim?: string
           google_event_id?: string | null
           id?: string
           inicio?: string
+          numero?: string | null
+          observacoes?: string
+          service_id?: string | null
           status?: string
           titulo?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -61,6 +205,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamento_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_servico"
             referencedColumns: ["id"]
           },
         ]
