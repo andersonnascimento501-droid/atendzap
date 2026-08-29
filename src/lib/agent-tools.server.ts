@@ -667,7 +667,164 @@ export async function executeTool(
         }
         return { ok: true, tool, etapa: stage.nome, campos_salvos: Object.keys(r.accepted), campos_rejeitados: r.rejected };
       }
+
+      // ------------------------------------------------------------ AGENDA
+      case "consultar_disponibilidade": {
+        const { computeAvailability } = await import("./scheduling.server");
+        const r = await computeAvailability(admin, ctx.companyId, {
+          dateFrom: typeof args.data === "string" ? args.data : null,
+          days: Number(args.dias) || 7,
+          servicoNome: typeof args.servico === "string" ? args.servico : null,
+          turno: typeof args.turno === "string" ? args.turno : null,
+          limit: 12,
+        });
+        if (!r.slots.length) {
+          return {
+            ok: true,
+            tool,
+            timezone: r.timezone,
+            horarios: [],
+            instrucao:
+              "Não há horário livre no período consultado. Pergunte ao cliente outra data/período e consulte novamente. NUNCA ofereça um horário que não veio desta lista.",
+          };
+        }
+        return {
+          ok: true,
+          tool,
+          timezone: r.timezone,
+          servico: r.service?.nome ?? null,
+          duracao_min: r.service?.duracao_min ?? null,
+          horarios: r.slots.map((s) => ({ inicio: s.inicio, fim: s.fim, quando: s.label })),
+          instrucao: "Ofereça no máximo 3 opções desta lista, em linguagem natural. Nunca ofereça horário fora da lista.",
+        };
+      }
+
+      case "criar_agendamento": {
+        const { createAgendamento } = await import("./scheduling.server");
+        const r = await createAgendamento(admin, {
+          companyId: ctx.companyId,
+          inicio: String(args.inicio || ""),
+          titulo: typeof args.titulo === "string" ? args.titulo : null,
+          servicoNome: typeof args.servico === "string" ? args.servico : null,
+          cardId: card.id,
+          numero: ctx.numero,
+          observacoes: typeof args.observacoes === "string" ? args.observacoes : null,
+          criadoPor: "ia",
+        });
+        if (r.status === "conflict") {
+          return {
+            ok: false,
+            tool,
+            status: "conflict",
+            message: r.message,
+            alternatives: r.alternatives.map((s) => ({ inicio: s.inicio, quando: s.label })),
+            instrucao: "Explique ao cliente que esse horário não está mais livre e ofereça as alternativas retornadas.",
+          };
+        }
+        if (r.status === "error") return { ok: false, tool, status: "error", error: r.message };
+
+        const { formatSlotLabel } = await import("./scheduling.server");
+        const quando = formatSlotLabel(new Date(r.agendamento.inicio), r.timezone);
+        await logEvent(admin, ctx, card.id, "agendamento_criado", `Agendamento criado: ${r.agendamento.titulo} — ${quando}`, {
+          agendamento_id: r.agendamento.id,
+          inicio: r.agendamento.inicio,
+          fim: r.agendamento.fim,
+          google: r.googleSynced,
+          agent_id: ctx.agentId,
+        });
+        return {
+          ok: true,
+          tool,
+          status: "created",
+          agendamento_id: r.agendamento.id,
+          inicio: r.agendamento.inicio,
+          quando,
+          google_sincronizado: r.googleSynced,
+          instrucao: "Confirme o agendamento com o cliente usando o horário retornado. Não invente endereço nem instruções extras.",
+        };
+      }
+
+      case "consultar_agendamento": {
+        const { findAgendamentosDoContato, getAgendaContext, formatSlotLabel } = await import("./scheduling.server");
+        const ctxAg = await getAgendaContext(admin, ctx.companyId);
+        const rows = await findAgendamentosDoContato(admin, ctx.companyId, ctx.numero, card.id);
+        return {
+          ok: true,
+          tool,
+          total: rows.length,
+          agendamentos: rows.map((a) => ({
+            agendamento_id: a.id,
+            titulo: a.titulo,
+            inicio: a.inicio,
+            quando: formatSlotLabel(new Date(a.inicio), ctxAg.timezone),
+          })),
+          ...(rows.length ? {} : { instrucao: "O cliente não tem agendamento futuro ativo. Não invente um." }),
+        };
+      }
+
+      case "reagendar_agendamento": {
+        const { findAgendamentosDoContato, reagendarAgendamento, formatSlotLabel } = await import("./scheduling.server");
+        const rows = await findAgendamentosDoContato(admin, ctx.companyId, ctx.numero, card.id);
+        if (!rows.length) return { ok: false, tool, error: "Este cliente não tem agendamento futuro ativo." };
+        const alvo = args.agendamento_id ? rows.find((a) => a.id === String(args.agendamento_id)) : rows[0];
+        if (!alvo) return { ok: false, tool, error: "Agendamento não encontrado para este cliente." };
+
+        const r = await reagendarAgendamento(admin, {
+          companyId: ctx.companyId,
+          id: alvo.id,
+          inicio: String(args.novo_inicio || ""),
+        });
+        if (r.status === "conflict") {
+          return {
+            ok: false,
+            tool,
+            status: "conflict",
+            message: r.message,
+            alternatives: r.alternatives.map((s) => ({ inicio: s.inicio, quando: s.label })),
+            instrucao: "Ofereça as alternativas retornadas ao cliente.",
+          };
+        }
+        if (r.status === "error") return { ok: false, tool, status: "error", error: r.message };
+        const quando = formatSlotLabel(new Date(r.agendamento.inicio), r.timezone);
+        await logEvent(admin, ctx, card.id, "agendamento_remarcado", `Agendamento remarcado para ${quando}`, {
+          agendamento_id: r.agendamento.id,
+          inicio: r.agendamento.inicio,
+          google: r.googleSynced,
+          agent_id: ctx.agentId,
+        });
+        return { ok: true, tool, status: "rescheduled", agendamento_id: r.agendamento.id, inicio: r.agendamento.inicio, quando };
+      }
+
+      case "cancelar_agendamento": {
+        const { findAgendamentosDoContato, cancelarAgendamento, getAgendaContext, formatSlotLabel } = await import("./scheduling.server");
+        const rows = await findAgendamentosDoContato(admin, ctx.companyId, ctx.numero, card.id);
+        if (!rows.length) return { ok: false, tool, error: "Este cliente não tem agendamento futuro ativo." };
+        const alvo = args.agendamento_id ? rows.find((a) => a.id === String(args.agendamento_id)) : rows[0];
+        if (!alvo) return { ok: false, tool, error: "Agendamento não encontrado para este cliente." };
+
+        const r = await cancelarAgendamento(admin, {
+          companyId: ctx.companyId,
+          id: alvo.id,
+          motivo: typeof args.motivo === "string" ? args.motivo : null,
+        });
+        if (!r.ok) return { ok: false, tool, error: r.message };
+        const ctxAg = await getAgendaContext(admin, ctx.companyId);
+        await logEvent(admin, ctx, card.id, "agendamento_cancelado", `Agendamento cancelado: ${alvo.titulo}`, {
+          agendamento_id: alvo.id,
+          inicio: alvo.inicio,
+          motivo: args.motivo ?? null,
+          agent_id: ctx.agentId,
+        });
+        return {
+          ok: true,
+          tool,
+          status: "cancelled",
+          agendamento_id: alvo.id,
+          quando: formatSlotLabel(new Date(alvo.inicio), ctxAg.timezone),
+        };
+      }
     }
+
   } catch (e: any) {
     console.error("[tool]", tool, e?.message);
     return { ok: false, tool, error: "Falha ao executar a ação." };
