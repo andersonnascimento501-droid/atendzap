@@ -281,7 +281,67 @@ export function buildToolSpecs(ctx: ToolContext, stageNames: string[]): Internal
         required: ["resultado"],
       },
     },
+
+    consultar_disponibilidade: {
+      name: "consultar_disponibilidade",
+      description:
+        "Consulta os horários REALMENTE disponíveis na agenda da empresa. Use SEMPRE antes de oferecer qualquer horário ao cliente. Nunca invente horários.",
+      parameters: {
+        type: "object",
+        properties: {
+          data: { type: "string", description: "Data inicial desejada no formato AAAA-MM-DD. Omita para começar de hoje." },
+          dias: { type: "number", description: "Quantos dias olhar a partir da data (padrão 7)." },
+          servico: { type: "string", description: "Nome do serviço desejado, se a empresa tiver mais de um." },
+          turno: { type: "string", description: "manha | tarde | noite (opcional)." },
+        },
+      },
+    },
+    criar_agendamento: {
+      name: "criar_agendamento",
+      description:
+        "Cria o agendamento do cliente atual em um horário que ele confirmou. O servidor valida a disponibilidade novamente; se estiver ocupado, retorna status conflict com alternativas.",
+      parameters: {
+        type: "object",
+        properties: {
+          inicio: { type: "string", description: "Início escolhido, ISO com fuso (ex.: 2026-09-02T15:00:00-03:00)." },
+          servico: { type: "string", description: "Nome do serviço, se houver mais de um." },
+          titulo: { type: "string", description: "Título curto do compromisso (opcional)." },
+          observacoes: { type: "string", description: "Detalhes úteis informados pelo cliente (opcional)." },
+        },
+        required: ["inicio"],
+      },
+    },
+    consultar_agendamento: {
+      name: "consultar_agendamento",
+      description: "Lista os agendamentos futuros ativos do cliente atual. Use antes de remarcar ou cancelar.",
+      parameters: { type: "object", properties: {} },
+    },
+    reagendar_agendamento: {
+      name: "reagendar_agendamento",
+      description:
+        "Remarca um agendamento existente do cliente atual para um novo horário. O servidor valida conflito antes de alterar.",
+      parameters: {
+        type: "object",
+        properties: {
+          agendamento_id: { type: "string", description: "ID retornado por consultar_agendamento. Omita se o cliente só tem um." },
+          novo_inicio: { type: "string", description: "Novo início, ISO com fuso." },
+        },
+        required: ["novo_inicio"],
+      },
+    },
+    cancelar_agendamento: {
+      name: "cancelar_agendamento",
+      description: "Cancela um agendamento ativo do cliente atual.",
+      parameters: {
+        type: "object",
+        properties: {
+          agendamento_id: { type: "string", description: "ID retornado por consultar_agendamento. Omita se o cliente só tem um." },
+          motivo: { type: "string", description: "Motivo informado pelo cliente (opcional)." },
+        },
+      },
+    },
   };
+
 
   return ctx.allowedTools.filter((t) => all[t]).map((t) => all[t]!);
 }
