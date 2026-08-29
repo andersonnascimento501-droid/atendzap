@@ -2,16 +2,42 @@
 // Todas as ações são executadas SERVER-SIDE e sempre isoladas por company_id.
 // A IA nunca informa company_id, agent_id, card_id ou stage_id: o servidor resolve.
 
+export const AGENDA_TOOL_NAMES = [
+  "consultar_disponibilidade",
+  "criar_agendamento",
+  "consultar_agendamento",
+  "reagendar_agendamento",
+  "cancelar_agendamento",
+] as const;
+
 export const TOOL_NAMES = [
   "atualizar_lead",
   "qualificar_lead",
   "mover_pipeline",
   "transferir_humano",
   "finalizar_lead",
+  ...AGENDA_TOOL_NAMES,
 ] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
+export type AgendaToolName = (typeof AGENDA_TOOL_NAMES)[number];
 
-export const DEFAULT_ALLOWED_TOOLS: ToolName[] = [...TOOL_NAMES];
+export function isAgendaTool(t: string): t is AgendaToolName {
+  return (AGENDA_TOOL_NAMES as readonly string[]).includes(t);
+}
+
+/** Padrão: apenas as tools de CRM. As de agenda entram quando o agendamento está ativo. */
+export const DEFAULT_ALLOWED_TOOLS: ToolName[] = TOOL_NAMES.filter((t) => !isAgendaTool(t)) as ToolName[];
+
+/**
+ * Agenda ativa no agente → habilita as tools de agenda, a menos que o usuário
+ * tenha escolhido explicitamente quais tools de agenda quer.
+ */
+export function withAgendaTools(list: ToolName[], agendamentoAtivo: boolean): ToolName[] {
+  if (!agendamentoAtivo) return list.filter((t) => !isAgendaTool(t));
+  if (list.some((t) => isAgendaTool(t))) return list;
+  return [...list, ...(AGENDA_TOOL_NAMES as readonly ToolName[])];
+}
+
 
 export type FieldType = "string" | "number" | "boolean" | "date" | "datetime" | "select" | "multiselect";
 
