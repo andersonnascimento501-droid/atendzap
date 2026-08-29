@@ -2,16 +2,42 @@
 // Todas as ações são executadas SERVER-SIDE e sempre isoladas por company_id.
 // A IA nunca informa company_id, agent_id, card_id ou stage_id: o servidor resolve.
 
+export const AGENDA_TOOL_NAMES = [
+  "consultar_disponibilidade",
+  "criar_agendamento",
+  "consultar_agendamento",
+  "reagendar_agendamento",
+  "cancelar_agendamento",
+] as const;
+
 export const TOOL_NAMES = [
   "atualizar_lead",
   "qualificar_lead",
   "mover_pipeline",
   "transferir_humano",
   "finalizar_lead",
+  ...AGENDA_TOOL_NAMES,
 ] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
+export type AgendaToolName = (typeof AGENDA_TOOL_NAMES)[number];
 
-export const DEFAULT_ALLOWED_TOOLS: ToolName[] = [...TOOL_NAMES];
+export function isAgendaTool(t: string): t is AgendaToolName {
+  return (AGENDA_TOOL_NAMES as readonly string[]).includes(t);
+}
+
+/** Padrão: apenas as tools de CRM. As de agenda entram quando o agendamento está ativo. */
+export const DEFAULT_ALLOWED_TOOLS: ToolName[] = TOOL_NAMES.filter((t) => !isAgendaTool(t)) as ToolName[];
+
+/**
+ * Agenda ativa no agente → habilita as tools de agenda, a menos que o usuário
+ * tenha escolhido explicitamente quais tools de agenda quer.
+ */
+export function withAgendaTools(list: ToolName[], agendamentoAtivo: boolean): ToolName[] {
+  if (!agendamentoAtivo) return list.filter((t) => !isAgendaTool(t));
+  if (list.some((t) => isAgendaTool(t))) return list;
+  return [...list, ...(AGENDA_TOOL_NAMES as readonly ToolName[])];
+}
+
 
 export type FieldType = "string" | "number" | "boolean" | "date" | "datetime" | "select" | "multiselect";
 
@@ -255,7 +281,67 @@ export function buildToolSpecs(ctx: ToolContext, stageNames: string[]): Internal
         required: ["resultado"],
       },
     },
+
+    consultar_disponibilidade: {
+      name: "consultar_disponibilidade",
+      description:
+        "Consulta os horários REALMENTE disponíveis na agenda da empresa. Use SEMPRE antes de oferecer qualquer horário ao cliente. Nunca invente horários.",
+      parameters: {
+        type: "object",
+        properties: {
+          data: { type: "string", description: "Data inicial desejada no formato AAAA-MM-DD. Omita para começar de hoje." },
+          dias: { type: "number", description: "Quantos dias olhar a partir da data (padrão 7)." },
+          servico: { type: "string", description: "Nome do serviço desejado, se a empresa tiver mais de um." },
+          turno: { type: "string", description: "manha | tarde | noite (opcional)." },
+        },
+      },
+    },
+    criar_agendamento: {
+      name: "criar_agendamento",
+      description:
+        "Cria o agendamento do cliente atual em um horário que ele confirmou. O servidor valida a disponibilidade novamente; se estiver ocupado, retorna status conflict com alternativas.",
+      parameters: {
+        type: "object",
+        properties: {
+          inicio: { type: "string", description: "Início escolhido, ISO com fuso (ex.: 2026-09-02T15:00:00-03:00)." },
+          servico: { type: "string", description: "Nome do serviço, se houver mais de um." },
+          titulo: { type: "string", description: "Título curto do compromisso (opcional)." },
+          observacoes: { type: "string", description: "Detalhes úteis informados pelo cliente (opcional)." },
+        },
+        required: ["inicio"],
+      },
+    },
+    consultar_agendamento: {
+      name: "consultar_agendamento",
+      description: "Lista os agendamentos futuros ativos do cliente atual. Use antes de remarcar ou cancelar.",
+      parameters: { type: "object", properties: {} },
+    },
+    reagendar_agendamento: {
+      name: "reagendar_agendamento",
+      description:
+        "Remarca um agendamento existente do cliente atual para um novo horário. O servidor valida conflito antes de alterar.",
+      parameters: {
+        type: "object",
+        properties: {
+          agendamento_id: { type: "string", description: "ID retornado por consultar_agendamento. Omita se o cliente só tem um." },
+          novo_inicio: { type: "string", description: "Novo início, ISO com fuso." },
+        },
+        required: ["novo_inicio"],
+      },
+    },
+    cancelar_agendamento: {
+      name: "cancelar_agendamento",
+      description: "Cancela um agendamento ativo do cliente atual.",
+      parameters: {
+        type: "object",
+        properties: {
+          agendamento_id: { type: "string", description: "ID retornado por consultar_agendamento. Omita se o cliente só tem um." },
+          motivo: { type: "string", description: "Motivo informado pelo cliente (opcional)." },
+        },
+      },
+    },
   };
+
 
   return ctx.allowedTools.filter((t) => all[t]).map((t) => all[t]!);
 }
@@ -581,7 +667,164 @@ export async function executeTool(
         }
         return { ok: true, tool, etapa: stage.nome, campos_salvos: Object.keys(r.accepted), campos_rejeitados: r.rejected };
       }
+
+      // ------------------------------------------------------------ AGENDA
+      case "consultar_disponibilidade": {
+        const { computeAvailability } = await import("./scheduling.server");
+        const r = await computeAvailability(admin, ctx.companyId, {
+          dateFrom: typeof args.data === "string" ? args.data : null,
+          days: Number(args.dias) || 7,
+          servicoNome: typeof args.servico === "string" ? args.servico : null,
+          turno: typeof args.turno === "string" ? args.turno : null,
+          limit: 12,
+        });
+        if (!r.slots.length) {
+          return {
+            ok: true,
+            tool,
+            timezone: r.timezone,
+            horarios: [],
+            instrucao:
+              "Não há horário livre no período consultado. Pergunte ao cliente outra data/período e consulte novamente. NUNCA ofereça um horário que não veio desta lista.",
+          };
+        }
+        return {
+          ok: true,
+          tool,
+          timezone: r.timezone,
+          servico: r.service?.nome ?? null,
+          duracao_min: r.service?.duracao_min ?? null,
+          horarios: r.slots.map((s) => ({ inicio: s.inicio, fim: s.fim, quando: s.label })),
+          instrucao: "Ofereça no máximo 3 opções desta lista, em linguagem natural. Nunca ofereça horário fora da lista.",
+        };
+      }
+
+      case "criar_agendamento": {
+        const { createAgendamento } = await import("./scheduling.server");
+        const r = await createAgendamento(admin, {
+          companyId: ctx.companyId,
+          inicio: String(args.inicio || ""),
+          titulo: typeof args.titulo === "string" ? args.titulo : null,
+          servicoNome: typeof args.servico === "string" ? args.servico : null,
+          cardId: card.id,
+          numero: ctx.numero,
+          observacoes: typeof args.observacoes === "string" ? args.observacoes : null,
+          criadoPor: "ia",
+        });
+        if (r.status === "conflict") {
+          return {
+            ok: false,
+            tool,
+            status: "conflict",
+            message: r.message,
+            alternatives: r.alternatives.map((s) => ({ inicio: s.inicio, quando: s.label })),
+            instrucao: "Explique ao cliente que esse horário não está mais livre e ofereça as alternativas retornadas.",
+          };
+        }
+        if (r.status === "error") return { ok: false, tool, status: "error", error: r.message };
+
+        const { formatSlotLabel } = await import("./scheduling.server");
+        const quando = formatSlotLabel(new Date(r.agendamento.inicio), r.timezone);
+        await logEvent(admin, ctx, card.id, "agendamento_criado", `Agendamento criado: ${r.agendamento.titulo} — ${quando}`, {
+          agendamento_id: r.agendamento.id,
+          inicio: r.agendamento.inicio,
+          fim: r.agendamento.fim,
+          google: r.googleSynced,
+          agent_id: ctx.agentId,
+        });
+        return {
+          ok: true,
+          tool,
+          status: "created",
+          agendamento_id: r.agendamento.id,
+          inicio: r.agendamento.inicio,
+          quando,
+          google_sincronizado: r.googleSynced,
+          instrucao: "Confirme o agendamento com o cliente usando o horário retornado. Não invente endereço nem instruções extras.",
+        };
+      }
+
+      case "consultar_agendamento": {
+        const { findAgendamentosDoContato, getAgendaContext, formatSlotLabel } = await import("./scheduling.server");
+        const ctxAg = await getAgendaContext(admin, ctx.companyId);
+        const rows = await findAgendamentosDoContato(admin, ctx.companyId, ctx.numero, card.id);
+        return {
+          ok: true,
+          tool,
+          total: rows.length,
+          agendamentos: rows.map((a) => ({
+            agendamento_id: a.id,
+            titulo: a.titulo,
+            inicio: a.inicio,
+            quando: formatSlotLabel(new Date(a.inicio), ctxAg.timezone),
+          })),
+          ...(rows.length ? {} : { instrucao: "O cliente não tem agendamento futuro ativo. Não invente um." }),
+        };
+      }
+
+      case "reagendar_agendamento": {
+        const { findAgendamentosDoContato, reagendarAgendamento, formatSlotLabel } = await import("./scheduling.server");
+        const rows = await findAgendamentosDoContato(admin, ctx.companyId, ctx.numero, card.id);
+        if (!rows.length) return { ok: false, tool, error: "Este cliente não tem agendamento futuro ativo." };
+        const alvo = args.agendamento_id ? rows.find((a) => a.id === String(args.agendamento_id)) : rows[0];
+        if (!alvo) return { ok: false, tool, error: "Agendamento não encontrado para este cliente." };
+
+        const r = await reagendarAgendamento(admin, {
+          companyId: ctx.companyId,
+          id: alvo.id,
+          inicio: String(args.novo_inicio || ""),
+        });
+        if (r.status === "conflict") {
+          return {
+            ok: false,
+            tool,
+            status: "conflict",
+            message: r.message,
+            alternatives: r.alternatives.map((s) => ({ inicio: s.inicio, quando: s.label })),
+            instrucao: "Ofereça as alternativas retornadas ao cliente.",
+          };
+        }
+        if (r.status === "error") return { ok: false, tool, status: "error", error: r.message };
+        const quando = formatSlotLabel(new Date(r.agendamento.inicio), r.timezone);
+        await logEvent(admin, ctx, card.id, "agendamento_remarcado", `Agendamento remarcado para ${quando}`, {
+          agendamento_id: r.agendamento.id,
+          inicio: r.agendamento.inicio,
+          google: r.googleSynced,
+          agent_id: ctx.agentId,
+        });
+        return { ok: true, tool, status: "rescheduled", agendamento_id: r.agendamento.id, inicio: r.agendamento.inicio, quando };
+      }
+
+      case "cancelar_agendamento": {
+        const { findAgendamentosDoContato, cancelarAgendamento, getAgendaContext, formatSlotLabel } = await import("./scheduling.server");
+        const rows = await findAgendamentosDoContato(admin, ctx.companyId, ctx.numero, card.id);
+        if (!rows.length) return { ok: false, tool, error: "Este cliente não tem agendamento futuro ativo." };
+        const alvo = args.agendamento_id ? rows.find((a) => a.id === String(args.agendamento_id)) : rows[0];
+        if (!alvo) return { ok: false, tool, error: "Agendamento não encontrado para este cliente." };
+
+        const r = await cancelarAgendamento(admin, {
+          companyId: ctx.companyId,
+          id: alvo.id,
+          motivo: typeof args.motivo === "string" ? args.motivo : null,
+        });
+        if (!r.ok) return { ok: false, tool, error: r.message };
+        const ctxAg = await getAgendaContext(admin, ctx.companyId);
+        await logEvent(admin, ctx, card.id, "agendamento_cancelado", `Agendamento cancelado: ${alvo.titulo}`, {
+          agendamento_id: alvo.id,
+          inicio: alvo.inicio,
+          motivo: args.motivo ?? null,
+          agent_id: ctx.agentId,
+        });
+        return {
+          ok: true,
+          tool,
+          status: "cancelled",
+          agendamento_id: alvo.id,
+          quando: formatSlotLabel(new Date(alvo.inicio), ctxAg.timezone),
+        };
+      }
     }
+
   } catch (e: any) {
     console.error("[tool]", tool, e?.message);
     return { ok: false, tool, error: "Falha ao executar a ação." };
@@ -605,6 +848,18 @@ export function buildToolsPromptBlock(ctx: ToolContext, dadosAtuais: Record<stri
     );
   if (ctx.allowedTools.includes("finalizar_lead"))
     linhas.push("• finalizar_lead: quando o atendimento chegar a um desfecho (ganho, perda ou finalizado).");
+  if (ctx.allowedTools.some((t) => isAgendaTool(t))) {
+    linhas.push(
+      "",
+      "AGENDA (regras obrigatórias):",
+      "• NUNCA invente, suponha ou ofereça horário: chame consultar_disponibilidade antes de qualquer proposta de horário.",
+      "• Ofereça no máximo 3 opções, sempre vindas da lista retornada pela tool.",
+      "• Só chame criar_agendamento quando o cliente confirmar claramente um horário oferecido.",
+      "• Se a resposta vier com status conflict, explique que o horário foi ocupado e ofereça as alternativas retornadas.",
+      "• Para mudar ou desmarcar, use consultar_agendamento primeiro e depois reagendar_agendamento ou cancelar_agendamento.",
+    );
+  }
+
 
   if (ctx.fields.length) {
     linhas.push(

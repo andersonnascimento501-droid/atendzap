@@ -344,6 +344,15 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     await admin.from("message_processing_queue").update({ routed_agent_id: cfg.id }).eq("id", job.id);
   }
 
+  // ---- Tools (Bloco 2 preservado) + tools de agenda quando o agendamento está ativo
+  const { normalizeToolList, loadCustomFields, buildToolsPromptBlock, DEFAULT_ALLOWED_TOOLS, withAgendaTools, isAgendaTool } = await import(
+    "@/lib/agent-tools.server"
+  );
+  const allowedTools = cfg?.id
+    ? withAgendaTools(normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS), !!(cfg as any)?.agendamento_ativo)
+    : [];
+  const agendaToolsAtivas = allowedTools.some((t) => isAgendaTool(t));
+
   const { buildSystemPrompt, parseAiOutput } = await import("@/lib/ai-prompt");
   const responderEmPartes = cfg?.responder_em_partes ?? true;
   const system = buildSystemPrompt(cfg ?? {}, {
@@ -353,13 +362,11 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     produtos,
     stages: stages.map((s) => ({ nome: s.nome, tipo: s.tipo })),
     googleConectado: !!googleIntegration?.conectado,
+    agendaTools: agendaToolsAtivas,
   });
 
-  // ---- Tools (Bloco 2 preservado)
-  const { normalizeToolList, loadCustomFields, buildToolsPromptBlock, DEFAULT_ALLOWED_TOOLS } = await import(
-    "@/lib/agent-tools.server"
-  );
-  const allowedTools = cfg?.id ? normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS) : [];
+
+
   const customFields = cfg?.id ? await loadCustomFields(admin, companyId, cfg.id) : [];
   const toolCtx = {
     companyId,
@@ -441,19 +448,28 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   const { parts, stage, agendar } = parseAiOutput(rawReply, stages.map((s) => ({ nome: s.nome, tipo: s.tipo })));
   const finalParts = sanitizeAiParts(responderEmPartes ? parts : [parts.join(" ")]);
 
-  if (agendar && googleIntegration?.conectado) {
+  // LEGADO [AGENDAR: ...]: só roda quando as tools de agenda NÃO estão disponíveis,
+  // e mesmo assim passa pelo motor de disponibilidade (nunca cria horário em conflito).
+  if (agendar && !agendaToolsAtivas) {
     try {
-      const { createCalendarEventForCompany } = await import("@/lib/google.server");
-      await createCalendarEventForCompany(admin, companyId, {
-        titulo: agendar.titulo,
+      const { createAgendamento } = await import("@/lib/scheduling.server");
+      const r = await createAgendamento(admin, {
+        companyId,
         inicio: agendar.inicio,
         fim: agendar.fim,
-        descricao: `Agendado via ${channel === "instagram" ? "Instagram" : "WhatsApp"} — ${pushName || number}`,
+        titulo: agendar.titulo,
+        cardId: (cardRow as any)?.id ?? null,
+        numero: number,
+        channel,
+        observacoes: `Agendado via ${channel === "instagram" ? "Instagram" : "WhatsApp"} — ${pushName || number}`,
+        criadoPor: "ia",
       });
+      if (r.status !== "created") console.warn("[agendar.legado] não criado:", r.status, r.message);
     } catch (e: any) {
       console.error("[agendar]", e?.message);
     }
   }
+
 
   const { sendChannelTyping } = await import("@/lib/channels.server");
   for (let i = 0; i < finalParts.length; i++) {

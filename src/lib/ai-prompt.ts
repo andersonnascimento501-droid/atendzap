@@ -188,6 +188,9 @@ export function buildSystemPrompt(
     produtos?: ProdutoBrief[];
     stages?: StageBrief[];
     googleConectado?: boolean;
+    /** true quando as tools de agenda estão disponíveis (motor de agendamento real). */
+    agendaTools?: boolean;
+
   },
 ): string {
   const partes = opts?.responderEmPartes ?? c.responder_em_partes ?? true;
@@ -282,7 +285,15 @@ Se uma frase só já resolve, use UMA parte e pronto (sem o marcador). Nunca mai
     blocos.push(`FORMATO DA RESPOSTA: uma mensagem só, curta e natural.`);
   }
 
-  if (c.agendamento_ativo && opts?.googleConectado) {
+  if (c.agendamento_ativo && opts?.agendaTools) {
+    const nowIso = new Date().toISOString();
+    blocos.push(
+      `AGENDA REAL (motor de agendamento ativo):
+Agora é ${nowIso} (UTC). Você NÃO tem acesso direto à agenda: use SEMPRE as ferramentas de agenda.
+Nunca invente, estime ou repita horários de memória. Antes de qualquer proposta de horário, consulte a disponibilidade.
+Ao criar, remarcar ou cancelar, use a ferramenta correspondente e siga o resultado retornado pelo servidor (inclusive quando vier conflito).`,
+    );
+  } else if (c.agendamento_ativo && opts?.googleConectado) {
     const nowIso = new Date().toISOString();
     blocos.push(
       `AGENDAMENTO REAL (Google Agenda conectado):
@@ -291,9 +302,10 @@ Hoje é ${nowIso} (UTC, fuso America/Sao_Paulo). Quando o cliente CONFIRMAR um h
 [AGENDAR: AAAA-MM-DDTHH:MM | AAAA-MM-DDTHH:MM | título curto]
 A primeira data é o início, a segunda é o fim (use ${c.duracao_padrao || "30 min"} se o cliente não disser). ` +
         `Use o fuso -03:00 nos horários (ex.: 2026-06-20T15:00:00-03:00). Esse marcador é interno e NÃO aparece pro cliente. ` +
-        `Só emita o marcador quando o cliente confirmou claramente. Nunca invente horários que o cliente não disse.`,
+        `Só emita o marcador quando o cliente confirmou claramente. O horário será validado pelo servidor e pode ser recusado se estiver ocupado.`,
     );
   }
+
 
   blocos.push(
     `AO FINAL DA RESPOSTA, em uma nova linha, escreva exatamente:
