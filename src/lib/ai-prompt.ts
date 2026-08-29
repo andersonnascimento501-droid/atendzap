@@ -188,6 +188,9 @@ export function buildSystemPrompt(
     produtos?: ProdutoBrief[];
     stages?: StageBrief[];
     googleConectado?: boolean;
+    /** true quando as tools de agenda estão disponíveis (motor de agendamento real). */
+    agendaTools?: boolean;
+
   },
 ): string {
   const partes = opts?.responderEmPartes ?? c.responder_em_partes ?? true;
