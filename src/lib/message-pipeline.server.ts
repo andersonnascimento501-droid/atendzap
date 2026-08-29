@@ -355,11 +355,15 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     googleConectado: !!googleIntegration?.conectado,
   });
 
-  // ---- Tools (Bloco 2 preservado)
-  const { normalizeToolList, loadCustomFields, buildToolsPromptBlock, DEFAULT_ALLOWED_TOOLS } = await import(
+  // ---- Tools (Bloco 2 preservado) + tools de agenda quando o agendamento está ativo
+  const { normalizeToolList, loadCustomFields, buildToolsPromptBlock, DEFAULT_ALLOWED_TOOLS, withAgendaTools, isAgendaTool } = await import(
     "@/lib/agent-tools.server"
   );
-  const allowedTools = cfg?.id ? normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS) : [];
+  const allowedTools = cfg?.id
+    ? withAgendaTools(normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS), !!(cfg as any)?.agendamento_ativo)
+    : [];
+  const agendaToolsAtivas = allowedTools.some((t) => isAgendaTool(t));
+
   const customFields = cfg?.id ? await loadCustomFields(admin, companyId, cfg.id) : [];
   const toolCtx = {
     companyId,
