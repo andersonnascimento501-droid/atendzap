@@ -848,6 +848,18 @@ export function buildToolsPromptBlock(ctx: ToolContext, dadosAtuais: Record<stri
     );
   if (ctx.allowedTools.includes("finalizar_lead"))
     linhas.push("• finalizar_lead: quando o atendimento chegar a um desfecho (ganho, perda ou finalizado).");
+  if (ctx.allowedTools.some((t) => isAgendaTool(t))) {
+    linhas.push(
+      "",
+      "AGENDA (regras obrigatórias):",
+      "• NUNCA invente, suponha ou ofereça horário: chame consultar_disponibilidade antes de qualquer proposta de horário.",
+      "• Ofereça no máximo 3 opções, sempre vindas da lista retornada pela tool.",
+      "• Só chame criar_agendamento quando o cliente confirmar claramente um horário oferecido.",
+      "• Se a resposta vier com status conflict, explique que o horário foi ocupado e ofereça as alternativas retornadas.",
+      "• Para mudar ou desmarcar, use consultar_agendamento primeiro e depois reagendar_agendamento ou cancelar_agendamento.",
+    );
+  }
+
 
   if (ctx.fields.length) {
     linhas.push(
