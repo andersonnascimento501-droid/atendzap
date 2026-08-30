@@ -36,6 +36,7 @@ const mainNav: NavItem[] = [
     icon: Users,
     children: [{ to: "/app/contatos", label: "Lista de contatos", icon: Contact }],
   },
+  { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
   {
     to: "/app/agentes",
     label: "Atendente IA",
@@ -47,6 +48,7 @@ const mainNav: NavItem[] = [
     ],
   },
   { to: "/app/campanhas", label: "Disparos", icon: Megaphone, adminOnly: true },
+
   {
     to: "/app/conexao",
     label: "Canais",
