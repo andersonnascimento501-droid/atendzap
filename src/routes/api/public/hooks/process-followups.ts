@@ -21,11 +21,21 @@ export const Route = createFileRoute("/api/public/hooks/process-followups")({
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { processDueFollowups } = await import("@/lib/followup.server");
           const out = await processDueFollowups(supabaseAdmin, 25);
-          return Response.json({ ok: true, ...out });
+          // Lembretes de agendamento no MESMO worker (nenhum cron novo).
+          let lembretes: any = { sent: 0, skipped: 0 };
+          try {
+            const { processAppointmentReminders } = await import("@/lib/scheduling.server");
+            lembretes = await processAppointmentReminders(supabaseAdmin, 50);
+          } catch (e: any) {
+            console.error("[agenda.lembretes]", e?.message);
+            lembretes = { sent: 0, skipped: 0, error: String(e?.message ?? e) };
+          }
+          return Response.json({ ok: true, ...out, lembretes });
         } catch (e: any) {
           console.error("[process-followups]", e?.message);
           return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
         }
+
       },
     },
   },
