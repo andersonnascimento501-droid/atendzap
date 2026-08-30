@@ -1,9 +1,10 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
-  Home, Bot, LogOut, Smartphone, Shield,
+  Home, Bot, LogOut, Smartphone, Shield, CalendarDays,
   Inbox, Users, BarChart3, Settings, Contact, Zap, MessageCircle, Megaphone, Webhook, Wallet, Sparkles, Menu,
 } from "lucide-react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { brand, supportWhatsappUrl, supportWhatsappDisplay } from "@/config/brand";
 import { TrialBanner } from "@/components/trial-banner";
