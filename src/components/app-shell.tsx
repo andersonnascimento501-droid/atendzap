@@ -1,9 +1,10 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
-  Home, Bot, LogOut, Smartphone, Shield,
+  Home, Bot, LogOut, Smartphone, Shield, CalendarDays,
   Inbox, Users, BarChart3, Settings, Contact, Zap, MessageCircle, Megaphone, Webhook, Wallet, Sparkles, Menu,
 } from "lucide-react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { brand, supportWhatsappUrl, supportWhatsappDisplay } from "@/config/brand";
 import { TrialBanner } from "@/components/trial-banner";
@@ -36,6 +37,7 @@ const mainNav: NavItem[] = [
     icon: Users,
     children: [{ to: "/app/contatos", label: "Lista de contatos", icon: Contact }],
   },
+  { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
   {
     to: "/app/agentes",
     label: "Atendente IA",
@@ -47,6 +49,7 @@ const mainNav: NavItem[] = [
     ],
   },
   { to: "/app/campanhas", label: "Disparos", icon: Megaphone, adminOnly: true },
+
   {
     to: "/app/conexao",
     label: "Canais",
