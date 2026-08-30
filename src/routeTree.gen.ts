@@ -57,6 +57,7 @@ import { Route as AppCheckoutRouteImport } from './routes/app/checkout'
 import { Route as AppCampanhasRouteImport } from './routes/app/campanhas'
 import { Route as AppAgentesRouteImport } from './routes/app/agentes'
 import { Route as AppAgenteRouteImport } from './routes/app/agente'
+import { Route as AppAgendaRouteImport } from './routes/app/agenda'
 import { Route as AppAgenteConfigurarRouteImport } from './routes/app/agente.configurar'
 import { Route as AppAgenteAvancadoRouteImport } from './routes/app/agente.avancado'
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
@@ -308,6 +309,11 @@ const AppAgenteRoute = AppAgenteRouteImport.update({
   path: '/agente',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAgendaRoute = AppAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAgenteConfigurarRoute = AppAgenteConfigurarRouteImport.update({
   id: '/configurar',
   path: '/configurar',
@@ -376,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/reset-senha': typeof ResetSenhaRoute
   '/termos': typeof TermosRoute
   '/trocar-senha': typeof TrocarSenhaRoute
+  '/app/agenda': typeof AppAgendaRoute
   '/app/agente': typeof AppAgenteRouteWithChildren
   '/app/agentes': typeof AppAgentesRoute
   '/app/campanhas': typeof AppCampanhasRoute
@@ -434,6 +441,7 @@ export interface FileRoutesByTo {
   '/reset-senha': typeof ResetSenhaRoute
   '/termos': typeof TermosRoute
   '/trocar-senha': typeof TrocarSenhaRoute
+  '/app/agenda': typeof AppAgendaRoute
   '/app/agente': typeof AppAgenteRouteWithChildren
   '/app/agentes': typeof AppAgentesRoute
   '/app/campanhas': typeof AppCampanhasRoute
@@ -495,6 +503,7 @@ export interface FileRoutesById {
   '/reset-senha': typeof ResetSenhaRoute
   '/termos': typeof TermosRoute
   '/trocar-senha': typeof TrocarSenhaRoute
+  '/app/agenda': typeof AppAgendaRoute
   '/app/agente': typeof AppAgenteRouteWithChildren
   '/app/agentes': typeof AppAgentesRoute
   '/app/campanhas': typeof AppCampanhasRoute
@@ -557,6 +566,7 @@ export interface FileRouteTypes {
     | '/reset-senha'
     | '/termos'
     | '/trocar-senha'
+    | '/app/agenda'
     | '/app/agente'
     | '/app/agentes'
     | '/app/campanhas'
@@ -615,6 +625,7 @@ export interface FileRouteTypes {
     | '/reset-senha'
     | '/termos'
     | '/trocar-senha'
+    | '/app/agenda'
     | '/app/agente'
     | '/app/agentes'
     | '/app/campanhas'
@@ -675,6 +686,7 @@ export interface FileRouteTypes {
     | '/reset-senha'
     | '/termos'
     | '/trocar-senha'
+    | '/app/agenda'
     | '/app/agente'
     | '/app/agentes'
     | '/app/campanhas'
@@ -1085,6 +1097,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAgenteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/agenda': {
+      id: '/app/agenda'
+      path: '/agenda'
+      fullPath: '/app/agenda'
+      preLoaderRoute: typeof AppAgendaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/agente/configurar': {
       id: '/app/agente/configurar'
       path: '/configurar'
@@ -1173,6 +1192,7 @@ const AppAgenteRouteWithChildren = AppAgenteRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
+  AppAgendaRoute: typeof AppAgendaRoute
   AppAgenteRoute: typeof AppAgenteRouteWithChildren
   AppAgentesRoute: typeof AppAgentesRoute
   AppCampanhasRoute: typeof AppCampanhasRoute
@@ -1191,6 +1211,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAgendaRoute: AppAgendaRoute,
   AppAgenteRoute: AppAgenteRouteWithChildren,
   AppAgentesRoute: AppAgentesRoute,
   AppCampanhasRoute: AppCampanhasRoute,
