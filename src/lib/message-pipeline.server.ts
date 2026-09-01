@@ -70,6 +70,7 @@ async function resolveMedia(
 
   for (const m of withMedia) {
     const media = m.media_ref;
+    let storedMedia: any = null;
     const label =
       media.kind === "audio" ? "[Áudio]" : media.kind === "image" ? "[Imagem]" : `[Documento: ${media.fileName || "arquivo"}]`;
     let texto = m.texto;
@@ -81,6 +82,16 @@ async function resolveMedia(
         const dl = await downloadChannelMedia(target, media);
         if (!dl?.base64) throw new Error("mídia sem base64");
         const mime = dl.mimetype || media.mimetype;
+        // Guarda o binário no bucket privado da empresa para o atendente humano
+        // poder VER/OUVIR/ABRIR o arquivo na Inbox.
+        try {
+          const { storeMediaBase64, sanitizeFileName } = await import("@/lib/outbound-message.server");
+          const fileName = sanitizeFileName(dl.fileName || media.fileName, media.kind === "audio" ? "audio" : "arquivo");
+          const path = await storeMediaBase64(admin, companyId, dl.base64, mime, fileName);
+          storedMedia = { tipo: media.kind, storage_path: path, mime_type: mime, file_name: fileName, caption: media.caption ?? null };
+        } catch (e: any) {
+          console.error("[media.store]", e?.message);
+        }
         if (media.kind === "audio") {
           const t = (await transcribeAudio(dl.base64, mime, openaiKey)).trim();
           if (!t) throw new Error("transcrição vazia");
@@ -107,7 +118,16 @@ async function resolveMedia(
     }
     m.texto = texto;
     // media_ref é limpo para que um retry não reprocesse (e não gaste) a mídia de novo.
-    await admin.from("mensagens").update({ texto, media_ref: null }).eq("id", m.id);
+    await admin
+      .from("mensagens")
+      .update({
+        texto,
+        media_ref: null,
+        ...(storedMedia
+          ? { tipo: storedMedia.tipo, midia: { ...storedMedia, transcricao: media.kind === "audio" ? texto : null } }
+          : {}),
+      })
+      .eq("id", m.id);
     m.media_ref = null;
   }
   return { notice };
@@ -345,11 +365,15 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   }
 
   // ---- Tools (Bloco 2 preservado) + tools de agenda quando o agendamento está ativo
-  const { normalizeToolList, loadCustomFields, buildToolsPromptBlock, DEFAULT_ALLOWED_TOOLS, withAgendaTools, isAgendaTool } = await import(
+  const { normalizeToolList, loadCustomFields, buildToolsPromptBlock, DEFAULT_ALLOWED_TOOLS, withAgendaTools, isAgendaTool, withMaterialTool, loadMaterials } = await import(
     "@/lib/agent-tools.server"
   );
+  const materials = cfg?.id ? await loadMaterials(admin, companyId, (cfg?.id as string) ?? null) : [];
   const allowedTools = cfg?.id
-    ? withAgendaTools(normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS), !!(cfg as any)?.agendamento_ativo)
+    ? withMaterialTool(
+        withAgendaTools(normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS), !!(cfg as any)?.agendamento_ativo),
+        materials.length > 0,
+      )
     : [];
   const agendaToolsAtivas = allowedTools.some((t) => isAgendaTool(t));
 
@@ -377,6 +401,8 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     contatoNome: pushName ?? null,
     allowedTools,
     fields: customFields,
+    materials,
+    jobId: job.id,
   };
   const toolsPrompt = buildToolsPromptBlock(toolCtx as any, (cardRow as any)?.custom_data ?? null);
 
