@@ -101,7 +101,7 @@ export async function sendChannelMedia(
     }
     const { igSendAttachment } = await import("./instagram.server");
     const type = args.kind === "document" ? "file" : args.kind;
-    const res = await igSendAttachment(target.token, args.url ? target.externalId : target.externalId, type, args.url);
+    const res = await igSendAttachment(target.token, target.externalId, type, args.url);
     // Instagram não envia legenda junto do anexo: vai como mensagem de texto seguida.
     if (args.caption) {
       const { igSendText } = await import("./instagram.server");
