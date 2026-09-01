@@ -515,6 +515,69 @@ export type Database = {
           },
         ]
       }
+      agent_material: {
+        Row: {
+          agent_id: string | null
+          ativo: boolean
+          company_id: string
+          created_at: string
+          descricao: string
+          external_url: string | null
+          file_name: string | null
+          id: string
+          mime_type: string | null
+          nome: string
+          storage_path: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          ativo?: boolean
+          company_id: string
+          created_at?: string
+          descricao?: string
+          external_url?: string | null
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          nome: string
+          storage_path?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          ativo?: boolean
+          company_id?: string
+          created_at?: string
+          descricao?: string
+          external_url?: string | null
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          nome?: string
+          storage_path?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_material_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_material_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_template_fields: {
         Row: {
           active: boolean
@@ -2006,9 +2069,12 @@ export type Database = {
           direcao: string
           id: string
           media_ref: Json | null
+          midia: Json | null
           numero: string
+          provider_message_id: string | null
           response_key: string | null
           texto: string
+          tipo: string
           user_id: string
           whatsapp_message_id: string | null
         }
@@ -2022,9 +2088,12 @@ export type Database = {
           direcao: string
           id?: string
           media_ref?: Json | null
+          midia?: Json | null
           numero: string
+          provider_message_id?: string | null
           response_key?: string | null
           texto: string
+          tipo?: string
           user_id: string
           whatsapp_message_id?: string | null
         }
@@ -2038,9 +2107,12 @@ export type Database = {
           direcao?: string
           id?: string
           media_ref?: Json | null
+          midia?: Json | null
           numero?: string
+          provider_message_id?: string | null
           response_key?: string | null
           texto?: string
+          tipo?: string
           user_id?: string
           whatsapp_message_id?: string | null
         }
