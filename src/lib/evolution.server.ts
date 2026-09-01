@@ -203,3 +203,31 @@ export async function evoFetchNumberFromInstance(instanceName: string): Promise<
     return null;
   }
 }
+
+// BLOCO MÍDIAS — envio de mídia (Evolution v2). Endpoints oficiais da mesma versão já usada.
+export type EvoMediaType = "image" | "video" | "document";
+
+export async function evoSendMedia(
+  instanceName: string,
+  number: string,
+  args: { mediatype: EvoMediaType; media: string; mimetype?: string | null; fileName?: string | null; caption?: string | null },
+) {
+  return evo(`/message/sendMedia/${encodeURIComponent(instanceName)}`, {
+    method: "POST",
+    json: {
+      number,
+      mediatype: args.mediatype,
+      media: args.media,
+      ...(args.mimetype ? { mimetype: args.mimetype } : {}),
+      ...(args.fileName ? { fileName: args.fileName } : {}),
+      ...(args.caption ? { caption: args.caption } : {}),
+    },
+  });
+}
+
+export async function evoSendAudio(instanceName: string, number: string, audioBase64OrUrl: string) {
+  return evo(`/message/sendWhatsAppAudio/${encodeURIComponent(instanceName)}`, {
+    method: "POST",
+    json: { number, audio: audioBase64OrUrl },
+  });
+}
