@@ -70,18 +70,73 @@ export async function resolveChannelTarget(
   };
 }
 
-/** Envio de texto no canal correto. */
-export async function sendChannelText(target: ChannelTarget, texto: string) {
+/** Envio de texto no canal correto. Devolve a resposta crua do provider. */
+export async function sendChannelText(target: ChannelTarget, texto: string): Promise<any> {
   if (target.channel === "instagram") {
     if (!target.token) throw new Error("Instagram não conectado");
     const { igSendText } = await import("./instagram.server");
-    await igSendText(target.token, target.externalId, texto);
-    return;
+    return igSendText(target.token, target.externalId, texto);
   }
   if (!target.instanceName) throw new Error("WhatsApp não conectado");
   const { evoSendText } = await import("./evolution.server");
-  await evoSendText(target.instanceName, target.externalId, texto);
+  return evoSendText(target.instanceName, target.externalId, texto);
 }
+
+/** Envio de mídia no canal correto (provider-neutral). */
+export async function sendChannelMedia(
+  target: ChannelTarget,
+  args: {
+    kind: "image" | "audio" | "video" | "document";
+    base64?: string | null;
+    url?: string | null;
+    mimeType?: string | null;
+    fileName?: string | null;
+    caption?: string | null;
+  },
+): Promise<any> {
+  if (target.channel === "instagram") {
+    if (!target.token) throw new Error("Instagram não conectado");
+    if (!args.url) {
+      throw new Error("O Instagram exige um link acessível do arquivo. Tente novamente em instantes.");
+    }
+    const { igSendAttachment } = await import("./instagram.server");
+    const type = args.kind === "document" ? "file" : args.kind;
+    const res = await igSendAttachment(target.token, target.externalId, type, args.url);
+    // Instagram não envia legenda junto do anexo: vai como mensagem de texto seguida.
+    if (args.caption) {
+      const { igSendText } = await import("./instagram.server");
+      try {
+        await igSendText(target.token, target.externalId, args.caption);
+      } catch (e: any) {
+        console.warn("[instagram.caption]", e?.message);
+      }
+    }
+    return res;
+  }
+
+  if (!target.instanceName) throw new Error("WhatsApp não conectado");
+  const media = args.base64 || args.url;
+  if (!media) throw new Error("Arquivo indisponível para envio.");
+  const { evoSendMedia, evoSendAudio } = await import("./evolution.server");
+  if (args.kind === "audio") {
+    const res = await evoSendAudio(target.instanceName, target.externalId, media);
+    if (args.caption) {
+      const { evoSendText } = await import("./evolution.server");
+      try {
+        await evoSendText(target.instanceName, target.externalId, args.caption);
+      } catch {}
+    }
+    return res;
+  }
+  return evoSendMedia(target.instanceName, target.externalId, {
+    mediatype: args.kind,
+    media,
+    mimetype: args.mimeType ?? null,
+    fileName: args.fileName ?? null,
+    caption: args.caption ?? null,
+  });
+}
+
 
 /** "Digitando…" — best-effort nos dois canais. */
 export async function sendChannelTyping(target: ChannelTarget, ms: number) {

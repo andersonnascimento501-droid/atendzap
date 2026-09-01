@@ -146,3 +146,18 @@ export async function igSubscribePage(token: string, pageId: string) {
     return false;
   }
 }
+
+// BLOCO MÍDIAS — anexos do Instagram Direct. A Meta busca o arquivo pela URL informada,
+// por isso o backend gera uma URL assinada temporária do bucket privado.
+export type IgAttachmentType = "image" | "video" | "audio" | "file";
+
+export async function igSendAttachment(token: string, igsid: string, type: IgAttachmentType, url: string) {
+  return graph("/me/messages", {
+    method: "POST",
+    token,
+    json: {
+      recipient: { id: igsid },
+      message: { attachment: { type, payload: { url, is_reusable: false } } },
+    },
+  });
+}

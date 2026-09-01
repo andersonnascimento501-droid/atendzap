@@ -12,6 +12,7 @@ export const AGENDA_TOOL_NAMES = [
 
 export const TOOL_NAMES = [
   "atualizar_lead",
+  "enviar_material",
   "qualificar_lead",
   "mover_pipeline",
   "transferir_humano",
@@ -25,8 +26,37 @@ export function isAgendaTool(t: string): t is AgendaToolName {
   return (AGENDA_TOOL_NAMES as readonly string[]).includes(t);
 }
 
+/** Materiais cadastrados: a tool só entra quando a empresa/agente tem material ativo. */
+export function withMaterialTool(list: ToolName[], hasMaterials: boolean): ToolName[] {
+  if (!hasMaterials) return list.filter((t) => t !== "enviar_material");
+  return list.includes("enviar_material") ? list : [...list, "enviar_material"];
+}
+
+export type MaterialRef = {
+  id: string;
+  nome: string;
+  descricao: string;
+  tipo: "image" | "audio" | "video" | "document" | "link";
+  agent_id: string | null;
+};
+
+/** Materiais da empresa (agent_id null) + do agente atual. Nunca de outro agente/empresa. */
+export async function loadMaterials(admin: any, companyId: string, agentId: string | null): Promise<MaterialRef[]> {
+  const { data } = await admin
+    .from("agent_material")
+    .select("id, nome, descricao, tipo, agent_id")
+    .eq("company_id", companyId)
+    .eq("ativo", true)
+    .order("created_at", { ascending: true });
+  return ((data ?? []) as any[])
+    .filter((r) => r.agent_id === null || (agentId && r.agent_id === agentId))
+    .map((r) => ({ id: r.id, nome: r.nome, descricao: r.descricao || "", tipo: r.tipo, agent_id: r.agent_id ?? null }));
+}
+
 /** Padrão: apenas as tools de CRM. As de agenda entram quando o agendamento está ativo. */
-export const DEFAULT_ALLOWED_TOOLS: ToolName[] = TOOL_NAMES.filter((t) => !isAgendaTool(t)) as ToolName[];
+export const DEFAULT_ALLOWED_TOOLS: ToolName[] = TOOL_NAMES.filter(
+  (t) => !isAgendaTool(t) && t !== "enviar_material",
+) as ToolName[];
 
 /**
  * Agenda ativa no agente → habilita as tools de agenda, a menos que o usuário
@@ -60,6 +90,8 @@ export type ToolContext = {
   contatoNome?: string | null;
   allowedTools: ToolName[];
   fields: CustomFieldDef[];
+  materials?: MaterialRef[];
+  jobId?: string | null;
 };
 
 export type ToolResult = {
@@ -279,6 +311,20 @@ export function buildToolSpecs(ctx: ToolContext, stageNames: string[]): Internal
           dados: dadosSchema,
         },
         required: ["resultado"],
+      },
+    },
+
+    enviar_material: {
+      name: "enviar_material",
+      description:
+        "Envia ao cliente um material JÁ CADASTRADO pela empresa (imagem, áudio, vídeo, documento ou link). Você escolhe apenas o material pelo id da lista de materiais disponíveis. Você NUNCA informa URL, caminho de arquivo nem cria material novo.",
+      parameters: {
+        type: "object",
+        properties: {
+          material_id: { type: "string", description: "Id exato do material, retirado da lista de materiais disponíveis." },
+          caption: { type: "string", description: "Frase curta opcional para acompanhar o material." },
+        },
+        required: ["material_id"],
       },
     },
 
@@ -668,6 +714,72 @@ export async function executeTool(
         return { ok: true, tool, etapa: stage.nome, campos_salvos: Object.keys(r.accepted), campos_rejeitados: r.rejected };
       }
 
+      // ------------------------------------------------------------ MATERIAIS
+      case "enviar_material": {
+        const materialId = String(args.material_id || "").trim();
+        if (!materialId) return { ok: false, tool, error: "Informe o material_id de um material da lista." };
+        const permitido = (ctx.materials ?? []).some((m) => m.id === materialId);
+        if (!permitido) {
+          return {
+            ok: false,
+            tool,
+            error: "Material não disponível para este atendente. Use apenas os materiais listados.",
+            materiais_disponiveis: (ctx.materials ?? []).map((m) => ({ id: m.id, nome: m.nome })),
+          };
+        }
+        const { data: mat } = await admin
+          .from("agent_material")
+          .select("id, nome, tipo, storage_path, external_url, mime_type, file_name, ativo, agent_id")
+          .eq("id", materialId)
+          .eq("company_id", ctx.companyId) // isolamento entre empresas
+          .maybeSingle();
+        if (!mat || !(mat as any).ativo) return { ok: false, tool, error: "Material indisponível." };
+        if ((mat as any).agent_id && (mat as any).agent_id !== ctx.agentId) {
+          return { ok: false, tool, error: "Material exclusivo de outro atendente." };
+        }
+        const m = mat as any;
+        if (m.tipo !== "link" && !m.storage_path) return { ok: false, tool, error: "O arquivo deste material não está disponível." };
+
+        try {
+          const { sendOutbound } = await import("./outbound-message.server");
+          const idem = `mat:${ctx.jobId || ctx.numero}:${materialId}`;
+          const r = await sendOutbound(admin, {
+            companyId: ctx.companyId,
+            userId: ctx.userId,
+            contactId: ctx.numero,
+            contatoNome: ctx.contatoNome ?? null,
+            senderType: "ai",
+            agentId: ctx.agentId,
+            kind: m.tipo,
+            texto: m.tipo === "link" ? m.external_url : null,
+            caption: typeof args.caption === "string" ? args.caption.slice(0, 300) : null,
+            media: m.tipo === "link" ? null : { storagePath: m.storage_path, mimeType: m.mime_type, fileName: m.file_name },
+            idempotencyKey: idem,
+            materialId,
+          });
+          await logEvent(admin, ctx, card.id, "material_enviado", `Material enviado: ${m.nome}`, {
+            material_id: materialId,
+            tipo: m.tipo,
+            provider_message_id: r.providerMessageId,
+            duplicado: r.duplicate,
+            agent_id: ctx.agentId,
+          });
+          return {
+            ok: true,
+            tool,
+            material_id: materialId,
+            nome: m.nome,
+            tipo: m.tipo,
+            provider_message_id: r.providerMessageId,
+            ja_enviado: r.duplicate,
+            instrucao: "Material entregue. Agora sim você pode comentar com o cliente que enviou.",
+          };
+        } catch (e: any) {
+          console.error("[tool.material]", e?.message);
+          return { ok: false, tool, material_id: materialId, error: `Não foi possível enviar o material: ${e?.message ?? e}` };
+        }
+      }
+
       // ------------------------------------------------------------ AGENDA
       case "consultar_disponibilidade": {
         const { computeAvailability } = await import("./scheduling.server");
@@ -834,7 +946,7 @@ export async function executeTool(
 
 /** Bloco de prompt (extra) explicando as Tools e os campos a coletar. */
 export function buildToolsPromptBlock(ctx: ToolContext, dadosAtuais: Record<string, any> | null): string {
-  if (!ctx.allowedTools.length && !ctx.fields.length) return "";
+  if (!ctx.allowedTools.length && !ctx.fields.length && !(ctx.materials ?? []).length) return "";
   const linhas: string[] = ["AÇÕES INTERNAS (tools) — use as funções disponíveis, nunca escreva o nome delas na conversa."];
   if (ctx.allowedTools.includes("atualizar_lead"))
     linhas.push("• atualizar_lead: sempre que o cliente informar um dado novo, salve-o (envie apenas os campos novos).");
@@ -848,6 +960,20 @@ export function buildToolsPromptBlock(ctx: ToolContext, dadosAtuais: Record<stri
     );
   if (ctx.allowedTools.includes("finalizar_lead"))
     linhas.push("• finalizar_lead: quando o atendimento chegar a um desfecho (ganho, perda ou finalizado).");
+  if (ctx.allowedTools.includes("enviar_material") && (ctx.materials ?? []).length) {
+    linhas.push(
+      "",
+      "MATERIAIS DISPONÍVEIS (envie com a tool enviar_material, usando o id exato):",
+      ...(ctx.materials ?? []).map(
+        (m) => `• id: ${m.id} — ${m.nome} (${m.tipo})${m.descricao ? `\n  Quando usar: ${m.descricao}` : ""}`,
+      ),
+      "REGRAS DE MATERIAL:",
+      "• Envie material somente quando fizer sentido para a conversa; nunca dispare arquivos sem motivo.",
+      "• Nunca envie vários materiais de uma vez sem necessidade e não reenvie o mesmo material.",
+      "• Nunca invente material, link ou arquivo que não esteja nesta lista, e nunca escreva URL de arquivo.",
+      "• Só afirme que enviou DEPOIS de a tool retornar sucesso.",
+    );
+  }
   if (ctx.allowedTools.some((t) => isAgendaTool(t))) {
     linhas.push(
       "",
