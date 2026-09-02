@@ -191,7 +191,11 @@ export const deleteMaterial = createServerFn({ method: "POST" })
     const path = (mat as any)?.storage_path;
     if (path && String(path).startsWith(`${companyId}/`)) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      await supabaseAdmin.storage.from("materiais").remove([path]).catch?.(() => {});
+      try {
+        await supabaseAdmin.storage.from("materiais").remove([path]);
+      } catch (e: any) {
+        console.warn("[material.remove]", e?.message);
+      }
     }
     return { ok: true };
   });
