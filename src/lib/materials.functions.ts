@@ -204,6 +204,8 @@ export const deleteMaterial = createServerFn({ method: "POST" })
 
 /** Regras de janela/qualidade iguais às do envio de texto humano. */
 async function assertCanReply(supabase: any, companyId: string, numero: string) {
+  const { assertWithinLimit } = await import("./plan-limits.server");
+  await assertWithinLimit(companyId, "mensagens");
   const { channelOf, replyWindowHours } = await import("./channels");
   const channel = channelOf(numero);
   const { data: recentInbound } = await supabase
