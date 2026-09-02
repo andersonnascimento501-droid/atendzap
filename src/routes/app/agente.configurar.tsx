@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { AgentActionsPanel } from "@/components/agent-actions-panel";
 import { AgentFieldsPanel } from "@/components/agent-fields-panel";
 import { AgentFollowupPanel } from "@/components/agent-followup-panel";
+import { AgentMaterialsPanel } from "@/components/agent-materials-panel";
 import { toast } from "sonner";
 import { Bot, Loader2, Save, ArrowLeft, ChevronDown, Star } from "lucide-react";
 import { brand } from "@/config/brand";
@@ -43,6 +44,7 @@ const TABS: Array<[string, string]> = [
   ["acoes", "O que pode fazer"],
   ["lembretes", "Lembretes"],
   ["campos", "Informações para coletar"],
+  ["materiais", "Materiais"],
 ];
 
 const PERSONALIDADES: Array<[string, string]> = [
@@ -305,6 +307,12 @@ function ConfigurarPage() {
       {tab === "campos" && (
         <Card>
           <AgentFieldsPanel companyId={companyId} agentId={cfg.id} />
+        </Card>
+      )}
+
+      {tab === "materiais" && (
+        <Card>
+          <AgentMaterialsPanel companyId={companyId} agentId={cfg.id} />
         </Card>
       )}
     </div>
