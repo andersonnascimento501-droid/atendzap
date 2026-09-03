@@ -943,7 +943,10 @@ export type Database = {
           enviado_em: string | null
           erro: string | null
           id: string
+          locked_at: string | null
+          locked_by: string | null
           status: Database["public"]["Enums"]["campaign_target_status"]
+          tentativas: number
         }
         Insert: {
           campaign_id: string
@@ -954,7 +957,10 @@ export type Database = {
           enviado_em?: string | null
           erro?: string | null
           id?: string
+          locked_at?: string | null
+          locked_by?: string | null
           status?: Database["public"]["Enums"]["campaign_target_status"]
+          tentativas?: number
         }
         Update: {
           campaign_id?: string
@@ -965,7 +971,10 @@ export type Database = {
           enviado_em?: string | null
           erro?: string | null
           id?: string
+          locked_at?: string | null
+          locked_by?: string | null
           status?: Database["public"]["Enums"]["campaign_target_status"]
+          tentativas?: number
         }
         Relationships: [
           {
@@ -2676,6 +2685,10 @@ export type Database = {
       has_company_access: { Args: { _company_id: string }; Returns: boolean }
       has_company_role: {
         Args: { _company_id: string; _roles: string[] }
+        Returns: boolean
+      }
+      is_company_operational: {
+        Args: { _company_id: string }
         Returns: boolean
       }
       is_super_admin: { Args: never; Returns: boolean }
