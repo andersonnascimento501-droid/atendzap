@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/config/brand";
-import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign } from "lucide-react";
+import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign, Paperclip, FolderOpen, Loader2, Download } from "lucide-react";
 import { sendCsat } from "@/lib/csat.functions";
 import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -15,6 +15,8 @@ import { sendChannelMessage } from "@/lib/instagram.functions";
 import { channelOf, contactDisplayId, type Channel } from "@/lib/channels";
 import { LeadDrawer, type LeadCard, type Stage, type Member } from "@/components/crm/lead-drawer";
 import { listTemplates, type MessageTemplate } from "@/lib/templates.functions";
+import { listMaterials, sendMaterialToContact, sendMediaToContact, type Material } from "@/lib/materials.functions";
+import { uploadMaterialFile, tipoIcon } from "@/components/agent-materials-panel";
 
 export const Route = createFileRoute("/app/conversas")({
   head: () => ({ meta: [{ title: `${brand.name} — Conversas` }] }),
@@ -25,6 +27,7 @@ interface Msg {
   id: string; numero: string; contato_nome: string | null;
   direcao: "entrada" | "saida"; autor: "ia" | "humano" | "contato";
   texto: string; created_at: string; user_id: string | null; channel?: string | null;
+  tipo?: string | null; midia?: any;
 }
 
 type Filter = "todas" | "nao_lidas" | "minhas" | "ia_ativa" | "resolvidas";
@@ -49,6 +52,13 @@ function ConversasPage() {
   const toggleIaFn = useServerFn(setContactIaActive);
   const fetchTemplates = useServerFn(listTemplates);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const fetchMaterials = useServerFn(listMaterials);
+  const sendMaterialFn = useServerFn(sendMaterialToContact);
+  const sendMediaFn = useServerFn(sendMediaToContact);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [showMaterialPicker, setShowMaterialPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const composerRef = useRef<HTMLInputElement>(null);
 
@@ -112,6 +122,7 @@ function ConversasPage() {
   useEffect(() => {
     void (async () => {
       try { setTemplates(await fetchTemplates()); } catch {}
+      try { setMaterials((await fetchMaterials({})).filter((m) => m.ativo)); } catch {}
     })();
     // eslint-disable-next-line
   }, []);
@@ -147,6 +158,52 @@ function ConversasPage() {
     (cf ?? []).forEach((r: any) => { fl[r.key] = r.label || r.key; });
     setFieldLabels(fl);
     await loadPauses(cid);
+  }
+
+  function activeConvName(): string | null {
+    return active ? (cards[active]?.nome ?? null) : null;
+  }
+
+  async function enviarMaterial(m: Material) {
+    if (!active) return;
+    setShowMaterialPicker(false);
+    try {
+      await sendMaterialFn({ data: { numero: active, materialId: m.id, contatoNome: activeConvName() } });
+      toast.success(`${m.nome} enviado`);
+      if (companyId) await load(companyId);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível enviar o material");
+    }
+  }
+
+  async function enviarArquivo(file: File | null) {
+    if (!file || !active || !companyId) return;
+    if (file.size > 25 * 1024 * 1024) return toast.error("Arquivo muito grande. O limite é 25 MB.");
+    const mime = file.type || "";
+    const tipo = mime.startsWith("image/") ? "image" : mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : "document";
+    setUploading(true);
+    try {
+      const path = await uploadMaterialFile(companyId, file);
+      await sendMediaFn({
+        data: {
+          numero: active,
+          storagePath: path,
+          tipo: tipo as any,
+          mimeType: mime,
+          fileName: file.name,
+          caption: composer.trim() || null,
+          contatoNome: activeConvName(),
+          clientKey: path,
+        },
+      });
+      setComposer("");
+      toast.success("Arquivo enviado");
+      if (companyId) await load(companyId);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível enviar o arquivo");
+    }
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   const conversations = useMemo(() => {
@@ -417,6 +474,34 @@ function ConversasPage() {
                     ))}
                   </div>
                 )}
+                {showMaterialPicker && (
+                  <div className="absolute bottom-[calc(100%+6px)] left-4 right-16 max-h-64 overflow-auto bg-[color:var(--panel)] border border-[color:var(--hairline)] rounded-xl shadow-lg z-10 p-1">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1.5 font-semibold">Materiais da empresa</div>
+                    {materials.length === 0 ? (
+                      <p className="text-[12.5px] text-muted-foreground px-2 py-2">Nenhum material cadastrado ainda.</p>
+                    ) : materials.map((mt) => {
+                      const Icon = tipoIcon(mt.tipo);
+                      return (
+                        <button key={mt.id} type="button" onClick={() => void enviarMaterial(mt)}
+                          className="w-full text-left flex gap-2 items-center px-2 py-2 rounded-md hover:bg-[color:var(--panel-2)] text-sm">
+                          <Icon className="size-3.5 shrink-0 text-[color:var(--brand-text)]" />
+                          <span className="truncate">{mt.nome}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <input ref={fileRef} type="file" className="hidden" onChange={(e) => void enviarArquivo(e.target.files?.[0] ?? null)} />
+                <button type="button" aria-label="Enviar arquivo" disabled={uploading}
+                  onClick={() => fileRef.current?.click()}
+                  className="size-10 shrink-0 rounded-full grid place-items-center text-muted-foreground hover:bg-[color:var(--panel-2)] disabled:opacity-50">
+                  {uploading ? <Loader2 className="size-4 animate-spin" /> : <Paperclip className="size-4" />}
+                </button>
+                <button type="button" aria-label="Enviar material da empresa"
+                  onClick={() => setShowMaterialPicker((v) => !v)}
+                  className="size-10 shrink-0 rounded-full grid place-items-center text-muted-foreground hover:bg-[color:var(--panel-2)]">
+                  <FolderOpen className="size-4" />
+                </button>
                 <input
                   ref={composerRef}
                   value={composer}
@@ -564,6 +649,48 @@ function StatusPill({ iaAtiva }: { iaAtiva: boolean }) {
   );
 }
 
+function MediaAttachment({ m }: { m: Msg }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [erro, setErro] = useState(false);
+  const path = m.midia?.storage_path as string | undefined;
+  const tipo = (m.tipo || m.midia?.tipo || "document") as string;
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      if (!path) return;
+      const { data, error } = await supabase.storage.from("materiais").createSignedUrl(path, 3600);
+      if (!alive) return;
+      if (error || !data?.signedUrl) setErro(true);
+      else setUrl(data.signedUrl);
+    })();
+    return () => { alive = false; };
+  }, [path]);
+
+  if (erro) return <p className="text-[12px] opacity-80 mb-1">Arquivo indisponível.</p>;
+  if (!url) return <div className="h-10 grid place-items-center opacity-70"><Loader2 className="size-4 animate-spin" /></div>;
+
+  if (tipo === "image") {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="block mb-1.5">
+        <img src={url} alt={m.midia?.file_name || "Imagem enviada na conversa"} loading="lazy" className="rounded-lg max-h-64 w-auto" />
+      </a>
+    );
+  }
+  if (tipo === "audio") {
+    return <audio controls src={url} className="mb-1.5 w-56 max-w-full" />;
+  }
+  if (tipo === "video") {
+    return <video controls src={url} className="mb-1.5 rounded-lg max-h-64 w-auto" />;
+  }
+  return (
+    <a href={url} target="_blank" rel="noreferrer"
+      className="mb-1.5 inline-flex items-center gap-2 text-[12.5px] underline break-all">
+      <Download className="size-3.5 shrink-0" /> {m.midia?.file_name || "Abrir arquivo"}
+    </a>
+  );
+}
+
 function ChannelIcon({ channel }: { channel: Channel }) {
   return channel === "instagram" ? (
     <Instagram className="size-3.5 shrink-0 text-[#C13584]" aria-label="Instagram" />
@@ -632,7 +759,8 @@ function Bubble({ m }: { m: Msg }) {
             {ia ? "⚡ Agente IA" : "Atendente"}
           </span>
         )}
-        <div className="whitespace-pre-wrap break-words">{m.texto}</div>
+        {m.midia?.storage_path ? <MediaAttachment m={m} /> : null}
+        {m.texto ? <div className="whitespace-pre-wrap break-words">{m.texto}</div> : null}
         <div className={`text-[10.5px] mt-1 ${isOut ? "opacity-70" : "text-muted-foreground"}`}>
           {new Date(m.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
         </div>
