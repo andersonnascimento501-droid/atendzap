@@ -2736,7 +2736,12 @@ export type Database = {
         | "pausada"
         | "concluida"
         | "cancelada"
-      campaign_target_status: "pendente" | "enviado" | "falhou" | "pulado"
+      campaign_target_status:
+        | "pendente"
+        | "enviado"
+        | "falhou"
+        | "pulado"
+        | "enviando"
       fin_forma:
         | "pix"
         | "boleto"
@@ -2884,7 +2889,13 @@ export const Constants = {
         "concluida",
         "cancelada",
       ],
-      campaign_target_status: ["pendente", "enviado", "falhou", "pulado"],
+      campaign_target_status: [
+        "pendente",
+        "enviado",
+        "falhou",
+        "pulado",
+        "enviando",
+      ],
       fin_forma: [
         "pix",
         "boleto",
