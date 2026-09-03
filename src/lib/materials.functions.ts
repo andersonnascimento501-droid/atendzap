@@ -104,7 +104,7 @@ export const saveMaterial = createServerFn({ method: "POST" })
           .eq("company_id", companyId)
           .maybeSingle();
         storagePath = (prev as any)?.storage_path ?? null;
-        mimeType = mimeType || (prev as any)?.mime_type ?? null;
+        mimeType = mimeType || ((prev as any)?.mime_type ?? null);
       }
       if (!storagePath) throw new Error("Envie o arquivo deste material.");
       const info = await assertStoredFile(supabaseAdmin, companyId, storagePath);
