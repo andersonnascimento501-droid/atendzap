@@ -943,7 +943,10 @@ export type Database = {
           enviado_em: string | null
           erro: string | null
           id: string
+          locked_at: string | null
+          locked_by: string | null
           status: Database["public"]["Enums"]["campaign_target_status"]
+          tentativas: number
         }
         Insert: {
           campaign_id: string
@@ -954,7 +957,10 @@ export type Database = {
           enviado_em?: string | null
           erro?: string | null
           id?: string
+          locked_at?: string | null
+          locked_by?: string | null
           status?: Database["public"]["Enums"]["campaign_target_status"]
+          tentativas?: number
         }
         Update: {
           campaign_id?: string
@@ -965,7 +971,10 @@ export type Database = {
           enviado_em?: string | null
           erro?: string | null
           id?: string
+          locked_at?: string | null
+          locked_by?: string | null
           status?: Database["public"]["Enums"]["campaign_target_status"]
+          tentativas?: number
         }
         Relationships: [
           {
@@ -2629,6 +2638,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      campaign_claim_targets: {
+        Args: { _campaign_id: string; _limit?: number; _worker?: string }
+        Returns: {
+          campaign_id: string
+          company_id: string
+          contato_nome: string | null
+          contato_numero: string
+          created_at: string
+          enviado_em: string | null
+          erro: string | null
+          id: string
+          locked_at: string | null
+          locked_by: string | null
+          status: Database["public"]["Enums"]["campaign_target_status"]
+          tentativas: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "campaign_target"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      campaign_pending_count: {
+        Args: { _campaign_id: string }
+        Returns: number
+      }
       claim_super_admin_if_empty: { Args: never; Returns: undefined }
       consume_ai_credit: {
         Args: { _company_id: string; _ref?: string }
@@ -2678,6 +2714,10 @@ export type Database = {
         Args: { _company_id: string; _roles: string[] }
         Returns: boolean
       }
+      is_company_operational: {
+        Args: { _company_id: string }
+        Returns: boolean
+      }
       is_super_admin: { Args: never; Returns: boolean }
       mq_claim_due: {
         Args: { _limit?: number; _worker?: string }
@@ -2723,7 +2763,12 @@ export type Database = {
         | "pausada"
         | "concluida"
         | "cancelada"
-      campaign_target_status: "pendente" | "enviado" | "falhou" | "pulado"
+      campaign_target_status:
+        | "pendente"
+        | "enviado"
+        | "falhou"
+        | "pulado"
+        | "enviando"
       fin_forma:
         | "pix"
         | "boleto"
@@ -2871,7 +2916,13 @@ export const Constants = {
         "concluida",
         "cancelada",
       ],
-      campaign_target_status: ["pendente", "enviado", "falhou", "pulado"],
+      campaign_target_status: [
+        "pendente",
+        "enviado",
+        "falhou",
+        "pulado",
+        "enviando",
+      ],
       fin_forma: [
         "pix",
         "boleto",

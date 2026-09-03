@@ -1,0 +1,1 @@
+ALTER TYPE public.campaign_target_status ADD VALUE IF NOT EXISTS 'enviando';
