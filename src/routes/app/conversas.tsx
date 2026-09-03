@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/config/brand";
-import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign } from "lucide-react";
+import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign, Paperclip, FolderOpen, Loader2, Download } from "lucide-react";
 import { sendCsat } from "@/lib/csat.functions";
 import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -15,6 +15,8 @@ import { sendChannelMessage } from "@/lib/instagram.functions";
 import { channelOf, contactDisplayId, type Channel } from "@/lib/channels";
 import { LeadDrawer, type LeadCard, type Stage, type Member } from "@/components/crm/lead-drawer";
 import { listTemplates, type MessageTemplate } from "@/lib/templates.functions";
+import { listMaterials, sendMaterialToContact, sendMediaToContact, type Material } from "@/lib/materials.functions";
+import { uploadMaterialFile, tipoIcon } from "@/components/agent-materials-panel";
 
 export const Route = createFileRoute("/app/conversas")({
   head: () => ({ meta: [{ title: `${brand.name} — Conversas` }] }),
@@ -25,6 +27,7 @@ interface Msg {
   id: string; numero: string; contato_nome: string | null;
   direcao: "entrada" | "saida"; autor: "ia" | "humano" | "contato";
   texto: string; created_at: string; user_id: string | null; channel?: string | null;
+  tipo?: string | null; midia?: any;
 }
 
 type Filter = "todas" | "nao_lidas" | "minhas" | "ia_ativa" | "resolvidas";
@@ -49,6 +52,13 @@ function ConversasPage() {
   const toggleIaFn = useServerFn(setContactIaActive);
   const fetchTemplates = useServerFn(listTemplates);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const fetchMaterials = useServerFn(listMaterials);
+  const sendMaterialFn = useServerFn(sendMaterialToContact);
+  const sendMediaFn = useServerFn(sendMediaToContact);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [showMaterialPicker, setShowMaterialPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const composerRef = useRef<HTMLInputElement>(null);
 
@@ -112,6 +122,7 @@ function ConversasPage() {
   useEffect(() => {
     void (async () => {
       try { setTemplates(await fetchTemplates()); } catch {}
+      try { setMaterials((await fetchMaterials({})).filter((m) => m.ativo)); } catch {}
     })();
     // eslint-disable-next-line
   }, []);
@@ -147,6 +158,48 @@ function ConversasPage() {
     (cf ?? []).forEach((r: any) => { fl[r.key] = r.label || r.key; });
     setFieldLabels(fl);
     await loadPauses(cid);
+  }
+
+  async function enviarMaterial(m: Material) {
+    if (!active) return;
+    setShowMaterialPicker(false);
+    try {
+      await sendMaterialFn({ data: { numero: active, materialId: m.id, contatoNome: activeConvName() } });
+      toast.success(`${m.nome} enviado`);
+      if (companyId) await load(companyId);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível enviar o material");
+    }
+  }
+
+  async function enviarArquivo(file: File | null) {
+    if (!file || !active || !companyId) return;
+    if (file.size > 25 * 1024 * 1024) return toast.error("Arquivo muito grande. O limite é 25 MB.");
+    const mime = file.type || "";
+    const tipo = mime.startsWith("image/") ? "image" : mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : "document";
+    setUploading(true);
+    try {
+      const path = await uploadMaterialFile(companyId, file);
+      await sendMediaFn({
+        data: {
+          numero: active,
+          storagePath: path,
+          tipo: tipo as any,
+          mimeType: mime,
+          fileName: file.name,
+          caption: composer.trim() || null,
+          contatoNome: activeConvName(),
+          clientKey: path,
+        },
+      });
+      setComposer("");
+      toast.success("Arquivo enviado");
+      if (companyId) await load(companyId);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível enviar o arquivo");
+    }
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   const conversations = useMemo(() => {
