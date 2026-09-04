@@ -8,15 +8,9 @@ export const Route = createFileRoute("/api/public/hooks/process-followups")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = (request.headers.get("apikey") || "").trim();
-        const accepted = [process.env["SUPABASE_ANON_KEY"], process.env["SUPABASE_PUBLISHABLE_KEY"]].filter(
-          (k): k is string => !!k && k.length > 20,
-        );
-        if (!apikey || !accepted.includes(apikey)) {
-          const { authenticateCronRequest } = await import("@/integrations/supabase/cron-auth");
-          const denied = await authenticateCronRequest(request);
-          if (denied) return denied;
-        }
+        const { authenticateWorkerRequest } = await import("@/lib/worker-auth.server");
+        const denied = await authenticateWorkerRequest(request);
+        if (denied) return denied;
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { processDueFollowups } = await import("@/lib/followup.server");
@@ -30,7 +24,17 @@ export const Route = createFileRoute("/api/public/hooks/process-followups")({
             console.error("[agenda.lembretes]", e?.message);
             lembretes = { sent: 0, skipped: 0, error: String(e?.message ?? e) };
           }
-          return Response.json({ ok: true, ...out, lembretes });
+          // Campanhas no MESMO worker (nenhum cron novo).
+          let campanhas: any = { processed: [] };
+          try {
+            const { processDueCampaigns } = await import("@/lib/campaigns.server");
+            campanhas = await processDueCampaigns(supabaseAdmin, 10);
+          } catch (e: any) {
+            console.error("[campanhas.worker]", e?.message);
+            campanhas = { processed: [], error: String(e?.message ?? e) };
+          }
+          return Response.json({ ok: true, ...out, lembretes, campanhas });
+
         } catch (e: any) {
           console.error("[process-followups]", e?.message);
           return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
