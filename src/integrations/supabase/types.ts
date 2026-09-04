@@ -2633,6 +2633,27 @@ export type Database = {
         }
         Relationships: []
       }
+      worker_auth: {
+        Row: {
+          created_at: string
+          id: boolean
+          secret: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: boolean
+          secret: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: boolean
+          secret?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
