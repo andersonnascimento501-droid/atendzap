@@ -37,8 +37,29 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
       POST: async ({ request }) => {
         const t0 = Date.now();
         try {
-          const payload: any = await request.json().catch(() => ({}));
+          const raw = await request.text();
+          // Assinatura da Meta: obrigatória quando META_APP_SECRET está configurado.
+          const appSecret = (process.env["META_APP_SECRET"] || "").trim();
+          if (appSecret) {
+            const header = (request.headers.get("x-hub-signature-256") || "").trim();
+            const provided = header.startsWith("sha256=") ? header.slice(7) : "";
+            const { createHmac, timingSafeEqual } = await import("node:crypto");
+            const expected = createHmac("sha256", appSecret).update(raw, "utf8").digest("hex");
+            const a = Buffer.from(provided, "utf8");
+            const b = Buffer.from(expected, "utf8");
+            if (a.length !== b.length || !timingSafeEqual(a, b)) {
+              console.warn("[instagram-webhook] assinatura inválida");
+              return new Response("invalid signature", { status: 401 });
+            }
+          }
+          let payload: any = {};
+          try {
+            payload = raw ? JSON.parse(raw) : {};
+          } catch {
+            payload = {};
+          }
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
 
           const entries: any[] = Array.isArray(payload?.entry) ? payload.entry : [];
           if (!entries.length) return new Response("ok", { status: 200 });

@@ -421,8 +421,19 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   // ---- Créditos: 1 por interação, nunca 2 por causa de retry.
   const { getCompanyPlan } = await import("@/lib/plan-limits.server");
   const { allowsProvider } = await import("@/lib/plan-features");
+  // Empresa suspensa/inadimplente: IA não responde e nenhum crédito é consumido.
+  {
+    const { isCompanyOperational } = await import("@/lib/billing-guard.server");
+    if (!(await isCompanyOperational(admin, companyId))) {
+      await markProcessed(admin, ids);
+      await upsertCard(admin, companyId, userId, number, pushName, lastText, stages);
+      console.warn("[billing] empresa sem assinatura ativa — IA não respondeu", companyId);
+      return { status: "skipped", reason: "company_not_operational" };
+    }
+  }
   if (!job.credit_consumed) {
     const { data: hasCredit } = await admin.rpc("consume_ai_credit", { _company_id: companyId, _ref: number });
+
     if (!hasCredit) {
       await markProcessed(admin, ids);
       await upsertCard(admin, companyId, userId, number, pushName, lastText, stages);
