@@ -223,11 +223,13 @@ Gere o JSON do agente.`;
       { provider: "gemini", model: "google/gemini-2.5-flash" },
     );
 
-    const parsed = extractJson(raw) as Partial<GeneratedAgentConfig>;
+    const { toReadableText } = await import("./structured-text");
+
+    const parsed = extractJson(raw) as Record<string, unknown>;
     const config = {} as GeneratedAgentConfig;
     for (const k of FIELDS) {
       const v = parsed?.[k];
-      (config as any)[k] = typeof v === "string" ? v : v == null ? "" : String(v);
+      (config as any)[k] = typeof v === "string" ? v.trim() : toReadableText(v);
     }
 
     const promptPreview = buildSystemPrompt(config as any, {
