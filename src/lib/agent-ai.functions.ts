@@ -193,17 +193,21 @@ DIRETRIZES (siga à risca):
 - "estilo_comunicacao": tom específico pro segmento (ex: padaria de bairro = caloroso e direto; clínica = cordial e seguro).
 - "apresentacao": 1ª mensagem real que o agente envia. Curta, humana, 1 emoji só se combinar. Nada de "Olá! Como posso ajudá-lo hoje?".
 - "sobre_empresa": parágrafo curto que o agente pode usar quando o cliente perguntar "quem é vocês".
-- "produtos_servicos": liste itens com preço/faixa SEMPRE que o dono informou. Se não informou, use categorias e marque "(consultar)". NUNCA invente preço.
-- "como_vender": passo a passo NUMERADO (3-6 passos) específico desse negócio — não genérico. Ex: "1. Pergunte se é retirada ou entrega. 2. Se entrega, peça CEP..."
-- "objecoes": 3-5 objeções REAIS daquele segmento + resposta curta cada. Ex: "Tá caro" → resposta concreta.
-- "faq": 4-6 perguntas que clientes daquele segmento REALMENTE fazem + resposta direta.
-- "politicas": troca, cancelamento, garantia, prazo — coerentes com o segmento. Se o dono não falou, escreva uma política padrão razoável e marcada como "(confirmar com o time)".
-- "posvenda_msg": mensagem curta de pós-venda alinhada ao tom.
+- "produtos_servicos": TEXTO corrido/linhas legíveis, um item por bloco, com nome em destaque e, em linhas seguintes, duração, valor, condições e link — exatamente como o dono informou. NUNCA invente preço. NUNCA devolva objeto/array.
+- "como_vender": passo a passo NUMERADO (3-6 passos) baseado NAS INSTRUÇÕES DO DONO. Se ele descreveu o fluxo comercial dele, PRESERVE esse fluxo; não substitua por funil genérico.
+- "objecoes": 3-5 objeções REAIS daquele segmento, em linhas "Objeção: ... / Resposta: ...". Ex: "Tá caro" → resposta concreta.
+- "faq": 4-6 perguntas que clientes daquele segmento REALMENTE fazem, em linhas "Pergunta: ... / Resposta: ...".
+- "politicas": troca, cancelamento, garantia, prazo — coerentes com o segmento e com o modelo de negócio. Se o dono não falou, escreva uma política padrão razoável e marcada como "(confirmar com o time)".
+- "posvenda_msg": mensagem curta de pós-venda alinhada ao tom. NUNCA garanta resultado, ganho, cura ou retorno financeiro — só ofereça acompanhamento e suporte.
 - "pode_fazer": lista (1 por linha) do que o agente pode prometer/fazer.
-- "nao_pode_fazer": lista (1 por linha) do que NÃO pode — inclua sempre "Não inventar preço, prazo ou política que não esteja aqui" e "Não fechar venda sem confirmar dado essencial (endereço, horário, forma de pagamento)".
+- "nao_pode_fazer": lista (1 por linha) do que NÃO pode — inclua sempre "Não inventar preço, prazo ou política que não esteja aqui", "Não tratar comprovante enviado como pagamento confirmado" e "Não fechar venda sem confirmar os dados essenciais DESTE negócio".
 - "ofertas": só preencha se o dono mencionou promoção/cupom. Senão, "".
-- "formas_pagamento": só o que o dono disse (ou "(consultar)").
-- Use "" (string vazia) quando faltar info — NUNCA omita chaves.
+- "formas_pagamento": copie LITERALMENTE valores, número máximo de parcelas, links, chave/valor do Pix e nomes informados. Não resuma, não arredonde, não remova nada. Se o dono não disse, "(consultar)".
+- Use "" (string vazia) quando faltar info — NUNCA omita chaves. NUNCA crie seção vazia com texto de enchimento.
+- TODAS as chaves são STRINGS de texto legível. É PROIBIDO devolver objeto, array ou JSON aninhado em qualquer chave.
+- Regras precisam CABER no negócio: se for serviço 100% online, não exija endereço/CEP/entrega; se for presencial, não fale de link de acesso.
+- Nunca cite nomes de etapas de CRM, funis ou status internos: quem define isso é o sistema.
+- Nunca escreva horários específicos de atendimento/agenda que o dono não informou.
 - NÃO invente: preço, endereço, horário, telefone, prazo, estoque. Se faltar, deixe vazio ou marque "(consultar)".
 
 Retorne SÓ o JSON.`;
@@ -223,11 +227,13 @@ Gere o JSON do agente.`;
       { provider: "gemini", model: "google/gemini-2.5-flash" },
     );
 
-    const parsed = extractJson(raw) as Partial<GeneratedAgentConfig>;
+    const { toReadableText } = await import("./structured-text");
+
+    const parsed = extractJson(raw) as Record<string, unknown>;
     const config = {} as GeneratedAgentConfig;
     for (const k of FIELDS) {
       const v = parsed?.[k];
-      (config as any)[k] = typeof v === "string" ? v : v == null ? "" : String(v);
+      (config as any)[k] = typeof v === "string" ? v.trim() : toReadableText(v);
     }
 
     const promptPreview = buildSystemPrompt(config as any, {
