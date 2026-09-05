@@ -14,15 +14,10 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = (request.headers.get("apikey") || "").trim();
-        const accepted = [process.env["SUPABASE_ANON_KEY"], process.env["SUPABASE_PUBLISHABLE_KEY"]].filter(
-          (k): k is string => !!k && k.length > 20,
-        );
-        if (!apikey || !accepted.includes(apikey)) {
-          const { authenticateCronRequest } = await import("@/integrations/supabase/cron-auth");
-          const denied = await authenticateCronRequest(request);
-          if (denied) return denied;
-        }
+        const { authenticateWorkerRequest } = await import("@/lib/worker-auth.server");
+        const denied = await authenticateWorkerRequest(request);
+        if (denied) return denied;
+
 
         const started = Date.now();
         let claimed = 0;
