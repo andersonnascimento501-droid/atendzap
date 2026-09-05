@@ -463,8 +463,30 @@ export async function createAgendamento(
 
   const { data: created, error } = await admin.from("agendamento").insert(payload).select("*").maybeSingle();
   if (error) {
+    // 23P01 = restrição de exclusão (sobreposição real de intervalo) no banco
+    if (String(error.code) === "23P01" || /exclus/i.test(String(error.message))) {
+      const { data: existing } = await admin
+        .from("agendamento")
+        .select("*")
+        .eq("company_id", params.companyId)
+        .eq("status", "agendado")
+        .lt("inicio", check.fim)
+        .gt("fim", check.inicio)
+        .limit(1)
+        .maybeSingle();
+      if (existing && params.numero && existing.numero === params.numero && existing.inicio === check.inicio) {
+        return { status: "created", agendamento: existing as Agendamento, timezone: check.timezone, googleSynced: !!existing.google_event_id, googleError: null };
+      }
+      const altEx = await computeAvailability(admin, params.companyId, {
+        days: 7,
+        serviceId: check.service?.id ?? null,
+        limit: 6,
+      });
+      return { status: "conflict", message: "Esse horário já está ocupado.", alternatives: altEx.slots, timezone: check.timezone };
+    }
     // índice único parcial (company_id, inicio) where status='agendado' → idempotência/concorrência
     if (String(error.code) === "23505" || /duplicate key/i.test(String(error.message))) {
+
       const { data: existing } = await admin
         .from("agendamento")
         .select("*")
