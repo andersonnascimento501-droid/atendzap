@@ -435,9 +435,14 @@ async function buildAiMessage(admin: any, seq: SequenceRow, state: StateRow, ste
     (step.message_template || "").trim() ||
     "Retome a conversa de forma curta e natural, considerando o histórico.";
 
+  // Empresa suspensa/inadimplente: follow-up com IA não roda.
+  const { isCompanyOperational } = await import("@/lib/billing-guard.server");
+  if (!(await isCompanyOperational(admin, seq.company_id))) return "";
+
   // Crédito: follow-up com IA consome como qualquer resposta da IA.
   const { data: hasCredit } = await admin.rpc("consume_ai_credit", { _company_id: seq.company_id, _ref: state.numero });
   if (!hasCredit) return "";
+
 
   const raw = await lovableAiChat(
     [
