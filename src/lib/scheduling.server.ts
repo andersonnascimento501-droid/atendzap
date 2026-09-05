@@ -682,7 +682,12 @@ export async function processAppointmentReminders(admin: any, limit = 50) {
     else if (minsLeft <= 2 * 60 && minsLeft > 15 && !ag.lembrete_2h_em) kind = "2h";
     if (!kind) { skipped++; continue; }
 
+    // Empresa suspensa/inadimplente: não envia lembrete.
+    const { isCompanyOperational } = await import("@/lib/billing-guard.server");
+    if (!(await isCompanyOperational(admin, ag.company_id))) { skipped++; continue; }
+
     const col = kind === "24h" ? "lembrete_24h_em" : "lembrete_2h_em";
+
     // claim antes de enviar (idempotência sob concorrência)
     const { data: claimed } = await admin
       .from("agendamento")
