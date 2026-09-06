@@ -85,12 +85,16 @@ export interface AgentConfig {
 
 export const PART_SEPARATOR = "|||";
 
-const DEFAULT_STAGES: StageBrief[] = [
-  { nome: "Conversas", tipo: "normal" },
-  { nome: "Negociando", tipo: "normal" },
-  { nome: "Ganho", tipo: "ganho" },
-  { nome: "Perda", tipo: "perda" },
-];
+/**
+ * Texto seguro para o prompt: nunca gera "[object Object]".
+ * Valores estruturados (objeto/array) são convertidos em texto legível.
+ */
+function txt(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return toReadableText(v);
+}
 
 function describeTom(tom?: number | null) {
   const n = typeof tom === "number" ? tom : 70;
