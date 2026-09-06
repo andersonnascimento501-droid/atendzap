@@ -333,15 +333,17 @@ A primeira data é o início, a segunda é o fim (use ${c.duracao_padrao || "30 
   }
 
 
-  blocos.push(
-    `AO FINAL DA RESPOSTA, em uma nova linha, escreva exatamente:
+  if (stages.length) {
+    blocos.push(
+      `AO FINAL DA RESPOSTA, em uma nova linha, escreva exatamente:
 [ESTAGIO: ${stageNames}]
-Escolha 1 entre as etapas reais do CRM da empresa listadas acima. ` +
-      (stagesFinaisNomes.length
-        ? `Use uma etapa final (${stagesFinaisNomes.join(" / ")}) APENAS se o cliente confirmou (ganho) ou recusou claramente (perda). `
-        : "") +
-      `Esse marcador é interno, NÃO aparece pro cliente.`,
-  );
+Escolha 1 entre as etapas reais do CRM da empresa listadas acima — nunca crie ou adapte nomes de etapa. ` +
+        (stagesFinaisNomes.length
+          ? `Use uma etapa final (${stagesFinaisNomes.join(" / ")}) APENAS se o cliente confirmou (ganho) ou recusou claramente (perda). `
+          : "") +
+        `Esse marcador é interno, NÃO aparece pro cliente.`,
+    );
+  }
 
   return blocos.filter(Boolean).join("\n\n");
 }
