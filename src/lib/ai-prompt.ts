@@ -1,3 +1,5 @@
+import { toReadableText } from "./structured-text";
+
 export interface ProdutoBrief {
   nome: string;
   preco?: number | string | null;
