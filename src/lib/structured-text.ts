@@ -89,14 +89,15 @@ function valueToText(value: unknown, indent = ""): string {
   if (isEmptyValue(value)) return "";
   if (typeof value !== "object") return `${indent}${scalarToText(value)}`;
   if (Array.isArray(value)) {
-    return value
+    const parts = value
       .filter((v) => !isEmptyValue(v))
       .map((v) => {
         if (v !== null && typeof v === "object") return objectToText(v as any, indent);
         return `${indent}- ${scalarToText(v)}`;
       })
-      .filter(Boolean)
-      .join("\n\n");
+      .filter(Boolean);
+    const multiline = parts.some((p) => p.includes("\n"));
+    return parts.join(multiline ? "\n\n" : "\n");
   }
   return objectToText(value as Record<string, unknown>, indent);
 }

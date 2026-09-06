@@ -1,3 +1,5 @@
+import { toReadableText } from "./structured-text";
+
 export interface ProdutoBrief {
   nome: string;
   preco?: number | string | null;
@@ -85,12 +87,16 @@ export interface AgentConfig {
 
 export const PART_SEPARATOR = "|||";
 
-const DEFAULT_STAGES: StageBrief[] = [
-  { nome: "Conversas", tipo: "normal" },
-  { nome: "Negociando", tipo: "normal" },
-  { nome: "Ganho", tipo: "ganho" },
-  { nome: "Perda", tipo: "perda" },
-];
+/**
+ * Texto seguro para o prompt: nunca gera "[object Object]".
+ * Valores estruturados (objeto/array) são convertidos em texto legível.
+ */
+function txt(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return toReadableText(v);
+}
 
 function describeTom(tom?: number | null) {
   const n = typeof tom === "number" ? tom : 70;
@@ -194,7 +200,7 @@ export function buildSystemPrompt(
   },
 ): string {
   const partes = opts?.responderEmPartes ?? c.responder_em_partes ?? true;
-  const stages = (opts?.stages && opts.stages.length > 0) ? opts.stages : DEFAULT_STAGES;
+  const stages = (opts?.stages && opts.stages.length > 0) ? opts.stages : [];
   const produtos = opts?.produtos ?? [];
 
   const personalidade = montaPersonalidade(c);
@@ -203,9 +209,11 @@ export function buildSystemPrompt(
     ? "PRODUTOS / SERVIÇOS (catálogo real — use SOMENTE estes preços/itens):\n" +
       produtos
         .map((p) => {
-          const preco = p.preco !== undefined && p.preco !== null && p.preco !== "" ? ` — R$ ${p.preco}` : "";
-          const desc = p.descricao ? ` (${p.descricao})` : "";
-          return `• ${p.nome}${preco}${desc}`;
+          const precoTxt = txt(p.preco);
+          const preco = precoTxt ? ` — R$ ${precoTxt}` : "";
+          const descTxt = txt(p.descricao);
+          const desc = descTxt ? ` (${descTxt})` : "";
+          return `• ${txt(p.nome)}${preco}${desc}`;
         })
         .join("\n")
     : "";
@@ -213,48 +221,66 @@ export function buildSystemPrompt(
   const stageNames = stages.map((s) => s.nome).join(" | ");
   const stagesFinaisNomes = stages.filter((s) => s.tipo === "ganho" || s.tipo === "perda").map((s) => s.nome);
 
+  const sec = (titulo: string, valor: unknown, sufixo = "") => {
+    const t = txt(valor);
+    if (!t) return "";
+    return `${titulo}${t.includes("\n") ? ":\n" : ": "}${t}${sufixo}`;
+  };
+
+  const agendaReal = !!(c.agendamento_ativo && opts?.agendaTools);
+
   const blocos = [
-    `Você é ${c.nome_agente || "um atendente virtual"}, atendendo no WhatsApp da empresa ${c.nome_empresa || "(empresa)"}.`,
-    c.apresentacao ? `Como se apresenta na primeira mensagem: ${c.apresentacao}` : "",
-    `Objetivo: ${c.papel_objetivo || "atender clientes com cordialidade, descobrir o que precisam e ajudar a fechar a venda."}`,
+    `Você é ${txt(c.nome_agente) || "um atendente virtual"}, atendendo no WhatsApp da empresa ${txt(c.nome_empresa) || "(empresa)"}.`,
+    sec("Como se apresenta na primeira mensagem", c.apresentacao),
+    `Objetivo: ${txt(c.papel_objetivo) || "atender clientes com cordialidade, descobrir o que precisam e ajudar a fechar a venda."}`,
     describeFoco(c.foco_atendimento),
     `Personalidade: ${personalidade}.`,
-    c.evitar_palavras ? `PALAVRAS / EXPRESSÕES PROIBIDAS (nunca use): ${c.evitar_palavras}` : "",
-    c.assinar_mensagens ? `Assine a primeira mensagem do dia com "— ${c.nome_agente || "Atendente"}".` : "",
-    c.estilo_comunicacao ? `Estilo de comunicação extra: ${c.estilo_comunicacao}` : "",
+    sec("PALAVRAS / EXPRESSÕES PROIBIDAS (nunca use)", c.evitar_palavras),
+    c.assinar_mensagens ? `Assine a primeira mensagem do dia com "— ${txt(c.nome_agente) || "Atendente"}".` : "",
+    sec("Estilo de comunicação extra", c.estilo_comunicacao),
 
-    c.segmento ? `Segmento da empresa: ${c.segmento}.` : "",
-    c.sobre_empresa ? `Sobre a empresa:\n${c.sobre_empresa}` : "",
-    c.descricao_negocio ? `Descrição do negócio:\n${c.descricao_negocio}` : "",
-    c.diferenciais ? `Diferenciais:\n${c.diferenciais}` : "",
-    c.publico_alvo ? `Público-alvo: ${c.publico_alvo}` : "",
-    c.regiao_horario ? `Região / horário de atendimento: ${c.regiao_horario}` : "",
-    c.produtos_servicos ? `Produtos/serviços (descrição livre):\n${c.produtos_servicos}` : "",
+    sec("Segmento da empresa", c.segmento),
+    sec("Sobre a empresa", c.sobre_empresa),
+    sec("Descrição do negócio", c.descricao_negocio),
+    sec("Diferenciais", c.diferenciais),
+    sec("Público-alvo", c.publico_alvo),
+    sec("Região / horário de atendimento", c.regiao_horario),
+    sec("PRODUTOS / SERVIÇOS (informados pela empresa)", c.produtos_servicos),
     produtosBloco,
-    c.ofertas ? `OFERTAS ATIVAS:\n${c.ofertas}` : "",
-    c.cupom ? `Cupom disponível: ${c.cupom} (só ofereça quando fizer sentido pra fechar)` : "",
-    c.formas_pagamento ? `Formas de pagamento aceitas: ${c.formas_pagamento}` : "",
-    c.ticket_medio ? `Ticket médio de referência: ${c.ticket_medio}` : "",
-    c.como_vender ? `COMO VENDER (passo a passo de vendas da empresa):\n${c.como_vender}` : "",
-    c.objecoes ? `OBJEÇÕES COMUNS E COMO RESPONDER:\n${c.objecoes}` : "",
-    c.faq ? `FAQ:\n${c.faq}` : "",
-    c.politicas ? `POLÍTICAS (troca/cancelamento/garantia):\n${c.politicas}` : "",
-    c.posvenda_msg ? `Mensagem padrão de pós-venda: ${c.posvenda_msg}` : "",
+    sec("OFERTAS ATIVAS", c.ofertas),
+    sec("Cupom disponível", c.cupom, " (só ofereça quando fizer sentido pra fechar)"),
+    sec(
+      "FORMAS DE PAGAMENTO (repita EXATAMENTE como está aqui — valores, parcelas, links e chaves)",
+      c.formas_pagamento,
+    ),
+    sec("Ticket médio de referência", c.ticket_medio),
+    sec(
+      "FLUXO COMERCIAL DEFINIDO PELA EMPRESA (siga estes passos; eles têm prioridade sobre qualquer método genérico)",
+      c.como_vender,
+    ),
+    sec("OBJEÇÕES COMUNS E COMO RESPONDER", c.objecoes),
+    sec("FAQ", c.faq),
+    sec("POLÍTICAS (troca/cancelamento/garantia)", c.politicas),
+    sec("Mensagem padrão de pós-venda", c.posvenda_msg),
     c.pedir_avaliacao ? "Quando uma venda for concluída, peça uma avaliação de forma natural." : "",
     c.reativar_cliente ? "Pode reativar clientes inativos com mensagens leves e relevantes." : "",
-    c.pode_fazer ? `O QUE VOCÊ PODE FAZER:\n${c.pode_fazer}` : "",
-    c.nao_pode_fazer ? `O QUE VOCÊ NÃO PODE FAZER:\n${c.nao_pode_fazer}` : "",
-    c.agendamento_ativo
-      ? `AGENDAMENTO ATIVO: você pode propor horários para ${c.servicos_agendaveis || "os serviços agendáveis"}. ` +
-        `Duração padrão: ${c.duracao_padrao || "30 min"}. ` +
-        `Janelas disponíveis: ${c.horarios_disponiveis || "(não informado)"}. ` +
-        `Antecedência mínima: ${c.antecedencia_min || "2 horas"}. ` +
-        `Sempre confirme nome e o melhor horário antes de fechar o agendamento.`
+    sec("O QUE VOCÊ PODE FAZER", c.pode_fazer),
+    sec("O QUE VOCÊ NÃO PODE FAZER", c.nao_pode_fazer),
+    `PAGAMENTO E COMPROVANTE:
+- Nunca resuma, arredonde ou omita valores, número de parcelas, links ou dados de Pix: repita exatamente o que está acima.
+- Comprovante enviado NÃO é pagamento confirmado. Ao receber comprovante, diga que recebeu e que a confirmação será feita pelo time; só trate como pago quando houver confirmação explícita.
+- Nunca peça dados que este negócio não precisa (ex.: endereço/CEP em serviço 100% online).`,
+    c.agendamento_ativo && !agendaReal
+      ? `AGENDAMENTO ATIVO: você pode conduzir o agendamento de ${txt(c.servicos_agendaveis) || "os serviços agendáveis"}.` +
+        (txt(c.duracao_padrao) ? ` Duração padrão: ${txt(c.duracao_padrao)}.` : "") +
+        (txt(c.horarios_disponiveis) ? ` Janelas informadas pela empresa: ${txt(c.horarios_disponiveis)}.` : "") +
+        (txt(c.antecedencia_min) ? ` Antecedência mínima: ${txt(c.antecedencia_min)}.` : "") +
+        ` Nunca invente horários: confirme com o time o que não estiver aqui.`
       : "",
-    c.telefone_transferencia
-      ? `Se o cliente pedir atendimento humano, reclamar de algo sensível, ou precisar de algo fora do seu escopo, oriente a falar com ${c.telefone_transferencia} e diga que vai transferir.`
+    txt(c.telefone_transferencia)
+      ? `Se o cliente pedir atendimento humano, reclamar de algo sensível, ou precisar de algo fora do seu escopo, oriente a falar com ${txt(c.telefone_transferencia)} e diga que vai transferir.`
       : "Se o cliente pedir atendimento humano ou for algo sensível, diga educadamente que vai chamar alguém do time.",
-    opts?.resumoContato ? `Contexto do contato: ${opts.resumoContato}` : "",
+    sec("Contexto do contato", opts?.resumoContato),
     opts?.estagioAtual ? `Estágio atual no CRM: ${opts.estagioAtual}.` : "",
     `MÉTODO DE ATENDIMENTO (siga sempre):
 1. Cumprimente com naturalidade só na PRIMEIRA mensagem da conversa. Depois NÃO repita saudação.
@@ -307,15 +333,17 @@ A primeira data é o início, a segunda é o fim (use ${c.duracao_padrao || "30 
   }
 
 
-  blocos.push(
-    `AO FINAL DA RESPOSTA, em uma nova linha, escreva exatamente:
+  if (stages.length) {
+    blocos.push(
+      `AO FINAL DA RESPOSTA, em uma nova linha, escreva exatamente:
 [ESTAGIO: ${stageNames}]
-Escolha 1 entre as etapas reais do CRM da empresa listadas acima. ` +
-      (stagesFinaisNomes.length
-        ? `Use uma etapa final (${stagesFinaisNomes.join(" / ")}) APENAS se o cliente confirmou (ganho) ou recusou claramente (perda). `
-        : "") +
-      `Esse marcador é interno, NÃO aparece pro cliente.`,
-  );
+Escolha 1 entre as etapas reais do CRM da empresa listadas acima — nunca crie ou adapte nomes de etapa. ` +
+        (stagesFinaisNomes.length
+          ? `Use uma etapa final (${stagesFinaisNomes.join(" / ")}) APENAS se o cliente confirmou (ganho) ou recusou claramente (perda). `
+          : "") +
+        `Esse marcador é interno, NÃO aparece pro cliente.`,
+    );
+  }
 
   return blocos.filter(Boolean).join("\n\n");
 }
