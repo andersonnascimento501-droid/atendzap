@@ -67,11 +67,11 @@ function objectToText(obj: Record<string, unknown>, indent: string): string {
 
   // Título do bloco: primeira chave "identificadora" disponível.
   const titleKey = ["nome", "titulo", "item", "produto", "servico", "pergunta", "objecao", "forma", "politica"].find(
-    (k) => typeof obj[k] === "string" && String(obj[k]).trim(),
+    (k) => typeof obj[k] === "string" && scalarToText(obj[k]),
   );
 
   const lines: string[] = [];
-  if (titleKey) lines.push(`${indent}${String(obj[titleKey]).trim()}`);
+  if (titleKey) lines.push(`${indent}${scalarToText(obj[titleKey])}`);
 
   for (const [k, v] of entries) {
     if (k === titleKey) continue;
@@ -80,7 +80,8 @@ function objectToText(obj: Record<string, unknown>, indent: string): string {
       const nested = valueToText(v, `${childIndent}  `);
       if (nested) lines.push(`${childIndent}${labelOf(k)}:\n${nested}`);
     } else {
-      lines.push(`${childIndent}${labelOf(k)}: ${scalarToText(v)}`);
+      const scalar = scalarToText(v);
+      if (scalar) lines.push(`${childIndent}${labelOf(k)}: ${scalar}`);
     }
   }
   return lines.filter(Boolean).join("\n");
