@@ -1,4 +1,4 @@
-import { toReadableText } from "./structured-text";
+import { assertNoObjectCoercion, toReadableText } from "./structured-text";
 
 export interface ProdutoBrief {
   nome: string;
@@ -93,7 +93,10 @@ export const PART_SEPARATOR = "|||";
  */
 function txt(v: unknown): string {
   if (v === null || v === undefined) return "";
-  if (typeof v === "string") return v.trim();
+  if (typeof v === "string") {
+    const text = v.trim();
+    return text === "[object Object]" ? "" : text;
+  }
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return toReadableText(v);
 }
@@ -268,7 +271,7 @@ export function buildSystemPrompt(
     sec("O QUE VOCÊ NÃO PODE FAZER", c.nao_pode_fazer),
     `PAGAMENTO E COMPROVANTE:
 - Nunca resuma, arredonde ou omita valores, número de parcelas, links ou dados de Pix: repita exatamente o que está acima.
-- Comprovante enviado NÃO é pagamento confirmado. Ao receber comprovante, diga que recebeu e que a confirmação será feita pelo time; só trate como pago quando houver confirmação explícita.
+- Comprovante enviado NÃO é pagamento confirmado. Só trate como pago após a confirmação real disponível no sistema; se não houver confirmação automática disponível, encaminhe a exceção ao time.
 - Nunca peça dados que este negócio não precisa (ex.: endereço/CEP em serviço 100% online).`,
     c.agendamento_ativo && !agendaReal
       ? `AGENDAMENTO ATIVO: você pode conduzir o agendamento de ${txt(c.servicos_agendaveis) || "os serviços agendáveis"}.` +
@@ -285,7 +288,7 @@ export function buildSystemPrompt(
     `MÉTODO DE ATENDIMENTO (siga sempre):
 1. Cumprimente com naturalidade só na PRIMEIRA mensagem da conversa. Depois NÃO repita saudação.
 2. Antes de oferecer qualquer coisa, ENTENDA a necessidade do cliente. Faça UMA pergunta por vez (nunca várias juntas).
-3. Qualifique aos poucos: nome (se não souber), o que precisa, para quando, contexto/urgência.
+3. Para qualificar, siga primeiro o FLUXO COMERCIAL DEFINIDO PELA EMPRESA. Não substitua as perguntas específicas do negócio por uma lista genérica.
 4. Só fale de produto/serviço/preço/condição quando o cliente perguntar OU quando você já souber o suficiente pra recomendar com sentido.
 5. NUNCA invente preço, prazo, política, estoque, endereço ou qualquer info que não está no prompt. Se não tiver a info: diga que vai confirmar e, se fizer sentido, transfira pro humano.
 6. Conduza pro próximo passo concreto: agendar, enviar proposta, confirmar pedido, marcar visita, etc.
@@ -316,8 +319,10 @@ Se uma frase só já resolve, use UMA parte e pronto (sem o marcador). Nunca mai
     blocos.push(
       `AGENDA REAL (motor de agendamento ativo):
 Agora é ${nowIso} (UTC). Você NÃO tem acesso direto à agenda: use SEMPRE as ferramentas de agenda.
+Você pode consultar horários, criar, consultar, reagendar e cancelar usando, respectivamente: consultar_disponibilidade, criar_agendamento, consultar_agendamento, reagendar_agendamento e cancelar_agendamento.
 Nunca invente, estime ou repita horários de memória. Antes de qualquer proposta de horário, consulte a disponibilidade.
-Ao criar, remarcar ou cancelar, use a ferramenta correspondente e siga o resultado retornado pelo servidor (inclusive quando vier conflito).`,
+Ao criar, remarcar ou cancelar, use a ferramenta correspondente e siga o resultado retornado pelo servidor (inclusive quando vier conflito).
+Não transfira para humano para operações normais de agenda. Chame o time somente se uma ferramenta retornar erro sem solução ou surgir uma exceção que exija análise humana.`,
     );
   } else if (c.agendamento_ativo && opts?.googleConectado) {
     const nowIso = new Date().toISOString();
@@ -345,7 +350,7 @@ Escolha 1 entre as etapas reais do CRM da empresa listadas acima — nunca crie 
     );
   }
 
-  return blocos.filter(Boolean).join("\n\n");
+  return assertNoObjectCoercion(blocos.filter(Boolean).join("\n\n"));
 }
 
 export interface AgendarBrief { inicio: string; fim: string; titulo: string; }

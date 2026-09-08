@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Bot, Loader2, Save, Send, Sparkles, Wand2, ChevronDown, Settings2, RefreshCcw, HelpCircle, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { brand } from "@/config/brand";
 import { buildSystemPrompt } from "@/lib/ai-prompt";
+import { toReadableText } from "@/lib/structured-text";
 import { testAiReply } from "@/lib/evolution.functions";
 import { generateAgentConfig, analyzeBusinessBrief, type BriefQuestion } from "@/lib/agent-ai.functions";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -440,12 +441,13 @@ function Section({ title, icon, children }: { title?: string; icon?: React.React
   );
 }
 
-function SummaryRow({ label, value, multiline }: { label: string; value?: string; multiline?: boolean }) {
-  if (!value || !value.trim()) return null;
+function SummaryRow({ label, value, multiline }: { label: string; value?: unknown; multiline?: boolean }) {
+  const text = toReadableText(value);
+  if (!text) return null;
   return (
     <div className="space-y-1">
       <div className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`text-sm ${multiline ? "whitespace-pre-wrap leading-relaxed" : ""}`}>{value}</div>
+      <div className={`text-sm ${multiline ? "whitespace-pre-wrap leading-relaxed" : ""}`}>{text}</div>
     </div>
   );
 }

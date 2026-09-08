@@ -104,5 +104,14 @@ function valueToText(value: unknown, indent = ""): string {
 
 /** Texto legível de qualquer valor. Retorna "" quando não há conteúdo real. */
 export function toReadableText(value: unknown): string {
-  return valueToText(value, "").replace(/\n{3,}/g, "\n\n").trim();
+  const text = valueToText(value, "").replace(/\n{3,}/g, "\n\n").trim();
+  return text === "[object Object]" ? "" : text;
+}
+
+/** Impede que qualquer prompt seja entregue com coerção implícita de objeto. */
+export function assertNoObjectCoercion(text: string, label = "Prompt final"): string {
+  if (text.includes("[object Object]")) {
+    throw new Error(`${label} contém dados estruturados inválidos. Gere novamente.`);
+  }
+  return text;
 }
