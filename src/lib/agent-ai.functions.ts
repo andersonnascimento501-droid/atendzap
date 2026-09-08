@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertNoObjectCoercion, toReadableText } from "./structured-text";
 
 export type GeneratedAgentConfig = {
   nome_agente: string;
@@ -40,6 +41,14 @@ function extractJson(raw: string): any {
   throw new Error("A IA não retornou JSON válido. Tente novamente.");
 }
 
+function answersToText(respostas: Record<string, unknown>): string {
+  return Object.entries(respostas)
+    .map(([key, value]) => [key, toReadableText(value)] as const)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `- ${key}: ${value}`)
+    .join("\n");
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // ANALISADOR PRD: olha o que o usuário escreveu, identifica lacunas críticas
 // e gera perguntas guiadas (com exemplos) para o leigo conseguir responder.
@@ -74,10 +83,7 @@ export const analyzeBusinessBrief = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { lovableAiChat } = await import("./lovable-ai.server");
 
-    const respostasTxt = Object.entries(data.respostas)
-      .filter(([, v]) => v && String(v).trim())
-      .map(([k, v]) => `- ${k}: ${v}`)
-      .join("\n");
+    const respostasTxt = answersToText(data.respostas);
 
     const system = `Você é um Product Manager sênior + consultor de vendas, especialista em montar agentes de WhatsApp para pequenos negócios brasileiros (donos leigos, topo de funil).
 
@@ -170,14 +176,11 @@ export const generateAgentConfig = createServerFn({ method: "POST" })
       respostas: d?.respostas && typeof d.respostas === "object" ? d.respostas : {},
     };
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const { lovableAiChat } = await import("./lovable-ai.server");
     const { buildSystemPrompt } = await import("./ai-prompt");
 
-    const respostasTxt = Object.entries(data.respostas)
-      .filter(([, v]) => v && String(v).trim())
-      .map(([k, v]) => `- ${k}: ${v}`)
-      .join("\n");
+    const respostasTxt = answersToText(data.respostas);
 
     const system = `Você é um Product Manager sênior + copywriter de vendas, montando um AGENTE DE WHATSAPP para um pequeno negócio brasileiro.
 
@@ -200,7 +203,7 @@ DIRETRIZES (siga à risca):
 - "politicas": troca, cancelamento, garantia, prazo — coerentes com o segmento e com o modelo de negócio. Se o dono não falou, escreva uma política padrão razoável e marcada como "(confirmar com o time)".
 - "posvenda_msg": mensagem curta de pós-venda alinhada ao tom. NUNCA garanta resultado, ganho, cura ou retorno financeiro — só ofereça acompanhamento e suporte.
 - "pode_fazer": lista (1 por linha) do que o agente pode prometer/fazer.
-- "nao_pode_fazer": lista (1 por linha) do que NÃO pode — inclua sempre "Não inventar preço, prazo ou política que não esteja aqui", "Não tratar comprovante enviado como pagamento confirmado" e "Não fechar venda sem confirmar os dados essenciais DESTE negócio".
+- "nao_pode_fazer": lista (1 por linha) do que NÃO pode — inclua sempre "Não inventar preço, prazo ou política que não esteja aqui", "Não tratar comprovante enviado como pagamento confirmado" e "Não fechar venda sem confirmar os dados essenciais DESTE negócio". Se houver confirmação automática real, use-a; encaminhe ao humano somente quando não houver confirmação disponível ou houver divergência.
 - "ofertas": só preencha se o dono mencionou promoção/cupom. Senão, "".
 - "formas_pagamento": copie LITERALMENTE valores, número máximo de parcelas, links, chave/valor do Pix e nomes informados. Não resuma, não arredonde, não remova nada. Se o dono não disse, "(consultar)".
 - Use "" (string vazia) quando faltar info — NUNCA omita chaves. NUNCA crie seção vazia com texto de enchimento.
@@ -227,19 +230,42 @@ Gere o JSON do agente.`;
       { provider: "gemini", model: "google/gemini-2.5-flash" },
     );
 
-    const { toReadableText } = await import("./structured-text");
-
     const parsed = extractJson(raw) as Record<string, unknown>;
     const config = {} as GeneratedAgentConfig;
     for (const k of FIELDS) {
       const v = parsed?.[k];
-      (config as any)[k] = typeof v === "string" ? v.trim() : toReadableText(v);
+      (config as any)[k] = toReadableText(v);
     }
 
-    const promptPreview = buildSystemPrompt(config as any, {
-      responderEmPartes: true,
-      produtos: [],
-    });
+    const { supabase, userId } = context;
+    const { data: membership } = await supabase
+      .from("company_user")
+      .select("company_id")
+      .eq("user_id", userId)
+      .eq("ativo", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!membership?.company_id) throw new Error("Sem empresa ativa.");
 
-    return { config, promptPreview };
+    const companyId = membership.company_id;
+    const [{ data: current }, { data: stageRows }, { data: productRows }] = await Promise.all([
+      supabase.from("agent_config").select("*").eq("company_id", companyId).order("is_default", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("crm_stage").select("nome,tipo,ordem").eq("company_id", companyId).order("ordem", { ascending: true }),
+      supabase.from("produto").select("nome,preco,descricao,ordem").eq("company_id", companyId).eq("ativo", true).order("ordem", { ascending: true }),
+    ]);
+    const mergedConfig = { ...(current ?? {}), ...config };
+    const agendaTools = !!mergedConfig.agendamento_ativo;
+    const promptPreview = assertNoObjectCoercion(buildSystemPrompt(mergedConfig as any, {
+      responderEmPartes: mergedConfig.responder_em_partes ?? true,
+      produtos: (productRows ?? []).map((p: any) => ({ nome: p.nome, preco: p.preco, descricao: p.descricao })),
+      stages: (stageRows ?? []).map((s: any) => ({ nome: s.nome, tipo: s.tipo })),
+      agendaTools,
+    }), "Prompt final gerado");
+
+    return {
+      config,
+      promptPreview,
+      promptHasObjectCoercion: promptPreview.includes("[object Object]"),
+    };
   });

@@ -57,7 +57,8 @@ function isEmptyValue(v: unknown): boolean {
 
 function scalarToText(v: unknown): string {
   if (typeof v === "boolean") return v ? "sim" : "não";
-  return String(v).trim();
+  const text = String(v).trim();
+  return text === "[object Object]" ? "" : text;
 }
 
 function objectToText(obj: Record<string, unknown>, indent: string): string {
@@ -66,11 +67,11 @@ function objectToText(obj: Record<string, unknown>, indent: string): string {
 
   // Título do bloco: primeira chave "identificadora" disponível.
   const titleKey = ["nome", "titulo", "item", "produto", "servico", "pergunta", "objecao", "forma", "politica"].find(
-    (k) => typeof obj[k] === "string" && String(obj[k]).trim(),
+    (k) => typeof obj[k] === "string" && scalarToText(obj[k]),
   );
 
   const lines: string[] = [];
-  if (titleKey) lines.push(`${indent}${String(obj[titleKey]).trim()}`);
+  if (titleKey) lines.push(`${indent}${scalarToText(obj[titleKey])}`);
 
   for (const [k, v] of entries) {
     if (k === titleKey) continue;
@@ -79,7 +80,8 @@ function objectToText(obj: Record<string, unknown>, indent: string): string {
       const nested = valueToText(v, `${childIndent}  `);
       if (nested) lines.push(`${childIndent}${labelOf(k)}:\n${nested}`);
     } else {
-      lines.push(`${childIndent}${labelOf(k)}: ${scalarToText(v)}`);
+      const scalar = scalarToText(v);
+      if (scalar) lines.push(`${childIndent}${labelOf(k)}: ${scalar}`);
     }
   }
   return lines.filter(Boolean).join("\n");
@@ -104,5 +106,14 @@ function valueToText(value: unknown, indent = ""): string {
 
 /** Texto legível de qualquer valor. Retorna "" quando não há conteúdo real. */
 export function toReadableText(value: unknown): string {
-  return valueToText(value, "").replace(/\n{3,}/g, "\n\n").trim();
+  const text = valueToText(value, "").replace(/\n{3,}/g, "\n\n").trim();
+  return text === "[object Object]" ? "" : text;
+}
+
+/** Impede que qualquer prompt seja entregue com coerção implícita de objeto. */
+export function assertNoObjectCoercion(text: string, label = "Prompt final"): string {
+  if (text.includes("[object Object]")) {
+    throw new Error(`${label} contém dados estruturados inválidos. Gere novamente.`);
+  }
+  return text;
 }

@@ -293,6 +293,7 @@ export const testAiReply = createServerFn({ method: "POST" })
       responderEmPartes: cfg?.responder_em_partes ?? true,
       stages,
       produtos,
+      agendaTools: !!cfg?.agendamento_ativo,
     });
 
     // Enforcement: provider precisa estar liberado no plano (Starter = Gemini)
