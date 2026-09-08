@@ -57,7 +57,8 @@ function isEmptyValue(v: unknown): boolean {
 
 function scalarToText(v: unknown): string {
   if (typeof v === "boolean") return v ? "sim" : "não";
-  return String(v).trim();
+  const text = String(v).trim();
+  return text === "[object Object]" ? "" : text;
 }
 
 function objectToText(obj: Record<string, unknown>, indent: string): string {
