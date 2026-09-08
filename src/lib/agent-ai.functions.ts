@@ -176,7 +176,7 @@ export const generateAgentConfig = createServerFn({ method: "POST" })
       respostas: d?.respostas && typeof d.respostas === "object" ? d.respostas : {},
     };
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const { lovableAiChat } = await import("./lovable-ai.server");
     const { buildSystemPrompt } = await import("./ai-prompt");
 
