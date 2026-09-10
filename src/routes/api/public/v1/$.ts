@@ -49,6 +49,11 @@ async function handle(request: Request) {
       const { data: inst } = await (supabaseAdmin as any).from("whatsapp_instances")
         .select("instance_name, status").eq("company_id", companyId).maybeSingle();
       if (!inst || inst.status !== "open") return new Response(JSON.stringify({ error: "WhatsApp não conectado" }), { status: 400 });
+      // Empresa suspensa/inadimplente/trial expirado não envia outbound pela API pública.
+      const { isCompanyOperational } = await import("@/lib/billing-guard.server");
+      if (!(await isCompanyOperational(supabaseAdmin, companyId))) {
+        return new Response(JSON.stringify({ error: "Assinatura inativa" }), { status: 402 });
+      }
       if (!userId) return new Response(JSON.stringify({ error: "Token sem owner; recrie o token." }), { status: 400 });
       try {
         const { evoSendText } = await import("@/lib/evolution.server");

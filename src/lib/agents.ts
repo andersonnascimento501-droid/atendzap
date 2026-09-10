@@ -13,6 +13,17 @@ export type AgentRow = Record<string, any> & {
   is_default: boolean;
 };
 
+// Colunas seguras de agent_config para clientes (navegador/servidor autenticado).
+// As credenciais openai_api_key/anthropic_api_key NUNCA saem do servidor
+// (privilégio revogado no banco para anon/authenticated).
+export const AGENT_SAFE_COLUMNS = "user_id,nome_agente,nome_empresa,papel_objetivo,estilo_comunicacao,sobre_empresa,produtos_servicos,pode_fazer,nao_pode_fazer,telefone_transferencia,palavra_pausar,palavra_despausar,updated_at,company_id,segundos_buffer,responder_em_partes,segmento,descricao_negocio,diferenciais,publico_alvo,regiao_horario,ofertas,cupom,como_vender,objecoes,formas_pagamento,ticket_medio,faq,politicas,posvenda_msg,pedir_avaliacao,reativar_cliente,tom,formalidade,usar_emojis,tamanho_resposta,apresentacao,agendamento_ativo,servicos_agendaveis,duracao_padrao,horarios_disponiveis,antecedencia_min,ai_provider,ai_model,horarios_atendimento,mensagem_fora_horario,personalidade,foco_atendimento,emoji_intensidade,usar_girias,chamar_por_nome,perguntar_uma_por_vez,pode_brincar,assinar_mensagens,proatividade,velocidade_resposta,evitar_palavras,idioma,id,slug,descricao,ativo,prioridade,is_default,created_at,allowed_tools,source_template_id,channels";
+
+/** Remove credenciais privadas de qualquer payload vindo do cliente. */
+export function stripAgentSecrets<T extends Record<string, any>>(payload: T): T {
+  const { openai_api_key: _o, anthropic_api_key: _a, ...rest } = payload as any;
+  return rest as T;
+}
+
 export function agentSlugify(s: string): string {
   return (
     (s || "")
@@ -29,7 +40,7 @@ export function agentSlugify(s: string): string {
 export async function fetchActiveAgents(client: any, companyId: string): Promise<AgentRow[]> {
   const { data } = await client
     .from("agent_config")
-    .select("*")
+    .select(AGENT_SAFE_COLUMNS)
     .eq("company_id", companyId)
     .eq("ativo", true)
     .order("is_default", { ascending: false })
@@ -47,7 +58,7 @@ export function pickDefaultAgent(agents: AgentRow[]): AgentRow | null {
 export async function fetchDefaultAgent(client: any, companyId: string): Promise<AgentRow | null> {
   const { data } = await client
     .from("agent_config")
-    .select("*")
+    .select(AGENT_SAFE_COLUMNS)
     .eq("company_id", companyId)
     .order("is_default", { ascending: false })
     .order("prioridade", { ascending: true })
@@ -68,7 +79,8 @@ export async function saveDefaultAgentConfig(
   userId: string,
   payload: Record<string, any>,
 ): Promise<{ error: { message: string } | null }> {
-  const { id: _id, company_id: _c, user_id: _u, updated_at: _ua, created_at: _ca, ...rest } = payload;
+  const { id: _id, company_id: _c, user_id: _u, updated_at: _ua, created_at: _ca, ...rest0 } = payload;
+  const rest = stripAgentSecrets(rest0);
   const existing = await fetchDefaultAgent(client, companyId);
   if (existing) {
     const { error } = await client

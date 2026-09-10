@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertNoObjectCoercion, toReadableText } from "./structured-text";
+import { AGENT_SAFE_COLUMNS } from "./agents";
 
 export type GeneratedAgentConfig = {
   nome_agente: string;
@@ -250,7 +251,7 @@ Gere o JSON do agente.`;
 
     const companyId = membership.company_id;
     const [{ data: current }, { data: stageRows }, { data: productRows }] = await Promise.all([
-      supabase.from("agent_config").select("*").eq("company_id", companyId).order("is_default", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("agent_config").select(AGENT_SAFE_COLUMNS).eq("company_id", companyId).order("is_default", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("crm_stage").select("nome,tipo,ordem").eq("company_id", companyId).order("ordem", { ascending: true }),
       supabase.from("produto").select("nome,preco,descricao,ordem").eq("company_id", companyId).eq("ativo", true).order("ordem", { ascending: true }),
     ]);

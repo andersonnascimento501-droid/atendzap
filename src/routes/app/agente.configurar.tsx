@@ -76,7 +76,8 @@ function ConfigurarPage() {
     if (!companyId) return;
     setLoading(true);
     if (id) {
-      const { data } = await supabase.from("agent_config").select("*").eq("id", id).maybeSingle();
+      const { AGENT_SAFE_COLUMNS } = await import("@/lib/agents");
+      const { data } = await supabase.from("agent_config").select(AGENT_SAFE_COLUMNS).eq("id", id).eq("company_id", companyId).maybeSingle();
       setCfg(data ?? null);
     } else {
       const { fetchDefaultAgent } = await import("@/lib/agents");
