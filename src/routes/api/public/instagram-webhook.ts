@@ -38,9 +38,14 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
         const t0 = Date.now();
         try {
           const raw = await request.text();
-          // Assinatura da Meta: obrigatória quando META_APP_SECRET está configurado.
+          // Assinatura da Meta: SEMPRE obrigatória. Sem META_APP_SECRET o webhook
+          // permaneceria aberto silenciosamente, então falhamos fechado.
           const appSecret = (process.env["META_APP_SECRET"] || "").trim();
-          if (appSecret) {
+          if (!appSecret) {
+            console.error("[instagram-webhook] META_APP_SECRET ausente — webhook recusado (fail-closed)");
+            return new Response("webhook signature not configured", { status: 503 });
+          }
+          {
             const header = (request.headers.get("x-hub-signature-256") || "").trim();
             const provided = header.startsWith("sha256=") ? header.slice(7) : "";
             const { createHmac, timingSafeEqual } = await import("node:crypto");
