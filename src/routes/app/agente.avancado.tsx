@@ -33,7 +33,6 @@ export const Route = createFileRoute("/app/agente/avancado")({
 
 const DEFAULTS: any = {
   ai_provider: "gemini", ai_model: "google/gemini-2.5-flash",
-  openai_api_key: "", anthropic_api_key: "",
   nome_agente: "Atendente Virtual", nome_empresa: "",
   papel_objetivo: "Atender clientes, descobrir o que precisam, recomendar com sentido e ajudar a fechar a venda.",
   estilo_comunicacao: "Humano, simpático, consultivo e direto.",
@@ -261,19 +260,10 @@ function AgentePage() {
                   </Select>
                 </div>
 
-                {cfg.ai_provider === "openai" && (
-                  <div className="space-y-1.5">
-                    <Label>Chave OpenAI (sk-...)</Label>
-                    <Input type="password" value={cfg.openai_api_key} onChange={(e) => up("openai_api_key", e.target.value)} placeholder="sk-..." />
-                    <p className="text-xs text-muted-foreground">Pegue em platform.openai.com → API Keys. A chave fica salva apenas para sua empresa.</p>
-                  </div>
-                )}
-                {cfg.ai_provider === "anthropic" && (
-                  <div className="space-y-1.5">
-                    <Label>Chave Anthropic (sk-ant-...)</Label>
-                    <Input type="password" value={cfg.anthropic_api_key} onChange={(e) => up("anthropic_api_key", e.target.value)} placeholder="sk-ant-..." />
-                    <p className="text-xs text-muted-foreground">Pegue em console.anthropic.com → API Keys.</p>
-                  </div>
+                {(cfg.ai_provider === "openai" || cfg.ai_provider === "anthropic") && (
+                  <p className="text-xs text-muted-foreground">
+                    As chaves privadas deste provedor ficam guardadas apenas no servidor. Fale com o suporte para configurá-las.
+                  </p>
                 )}
 
                 <div className="space-y-2 pt-2">
