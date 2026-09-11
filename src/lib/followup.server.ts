@@ -462,8 +462,9 @@ async function buildAiMessage(admin: any, seq: SequenceRow, state: StateRow, ste
     {
       provider: cfg.ai_provider || "gemini",
       model: cfg.ai_model || "google/gemini-2.5-flash",
-      openaiKey: cfg.openai_api_key || "",
-      anthropicKey: cfg.anthropic_api_key || "",
+      ...(String(cfg.ai_provider || "gemini") === "gemini"
+        ? {}
+        : await (await import("./agents")).fetchAgentProviderKeys(seq.company_id, cfg.id ?? null)),
     },
   );
   const { parts } = parseAiOutput(raw, []);

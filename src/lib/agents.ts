@@ -102,3 +102,16 @@ export async function saveDefaultAgentConfig(
   });
   return { error };
 }
+
+/** Lê as credenciais privadas do provedor — SOMENTE server-side (service_role). */
+export async function fetchAgentProviderKeys(companyId: string, agentId?: string | null) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  let q = (supabaseAdmin as any).from("agent_config").select("openai_api_key, anthropic_api_key").eq("company_id", companyId);
+  if (agentId) q = q.eq("id", agentId);
+  else q = q.order("is_default", { ascending: false });
+  const { data } = await q.limit(1).maybeSingle();
+  return {
+    openaiKey: String(data?.openai_api_key ?? "").trim(),
+    anthropicKey: String(data?.anthropic_api_key ?? "").trim(),
+  };
+}

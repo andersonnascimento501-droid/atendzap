@@ -316,8 +316,9 @@ export const testAiReply = createServerFn({ method: "POST" })
       {
         provider,
         model,
-        openaiKey: (cfg as any)?.openai_api_key || "",
-        anthropicKey: (cfg as any)?.anthropic_api_key || "",
+        ...(provider === "gemini"
+          ? {}
+          : await (await import("./agents")).fetchAgentProviderKeys(companyId, (cfg as any)?.id ?? null)),
       },
     );
     const { parts, stage } = parseAiOutput(raw, stages);
