@@ -10,7 +10,7 @@
 --
 -- Estratégia segura (não destrutiva): gerar um arquivo de BASELINE idempotente
 -- a partir do banco atual e commitá-lo como a migration mais antiga. Nada é
--- apagado, resetado ou recriado — todo o DDL gerado usa IF NOT EXISTS / DO блок
+-- apagado, resetado ou recriado — todo o DDL gerado usa IF NOT EXISTS / DO
 -- condicional, portanto é no-op no banco em produção.
 --
 -- Como usar:
