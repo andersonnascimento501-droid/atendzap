@@ -278,6 +278,7 @@ export type Database = {
           prioridade: number
           proatividade: number | null
           produtos_servicos: string
+          prompt_custom: string
           publico_alvo: string
           reativar_cliente: boolean
           regiao_horario: string
@@ -350,6 +351,7 @@ export type Database = {
           prioridade?: number
           proatividade?: number | null
           produtos_servicos?: string
+          prompt_custom?: string
           publico_alvo?: string
           reativar_cliente?: boolean
           regiao_horario?: string
@@ -422,6 +424,7 @@ export type Database = {
           prioridade?: number
           proatividade?: number | null
           produtos_servicos?: string
+          prompt_custom?: string
           publico_alvo?: string
           reativar_cliente?: boolean
           regiao_horario?: string
