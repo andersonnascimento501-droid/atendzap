@@ -19,6 +19,13 @@ export interface AgentConfig {
   anthropic_api_key?: string;
 
 
+  /**
+   * Prompt escrito manualmente pelo cliente (modo avançado).
+   * Quando preenchido, substitui os blocos gerados automaticamente,
+   * mas os protocolos técnicos (formato, agenda real, estágio) continuam sendo anexados.
+   */
+  prompt_custom?: string;
+
   // Identidade
   nome_agente: string;
   nome_empresa: string;
