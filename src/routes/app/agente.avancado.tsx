@@ -11,6 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AgentToolsPanel } from "@/components/agent-tools-panel";
 import { AgentFollowupPanel } from "@/components/agent-followup-panel";
+import { AgentMaterialsPanel } from "@/components/agent-materials-panel";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Bot, Loader2, Save, Send, Sparkles, Plus, Trash2, Calendar, CheckCircle2, AlertCircle, LinkIcon } from "lucide-react";
@@ -50,6 +51,7 @@ const DEFAULTS: any = {
   velocidade_resposta: "humana", evitar_palavras: "", idioma: "pt-BR",
   agendamento_ativo: false, servicos_agendaveis: "", duracao_padrao: "30 min",
   horarios_disponiveis: "", antecedencia_min: "2 horas",
+  prompt_custom: "",
 };
 
 
@@ -220,7 +222,8 @@ function AgentePage() {
             <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0 mb-4">
               {[["modelo","Modelo IA"],["negocio","Negócio"],["produtos","Produtos"],["ofertas","Ofertas"],["vendas","Vendas"],
                 ["suporte","Suporte"],["posvenda","Pós-venda"],["personalidade","Personalidade"],
-                ["agendamento","Agendamento"],["tools","Tools e Campos"],["followup","Follow-up"],["regras","Regras"]].map(([k,l]) => (
+                ["agendamento","Agendamento"],["tools","Tools e Campos"],["followup","Follow-up"],["regras","Regras"],
+                ["prompt","Prompt manual"]].map(([k,l]) => (
                 <TabsTrigger key={k} value={k} className="text-sm">{l}</TabsTrigger>
               ))}
             </TabsList>
@@ -560,6 +563,48 @@ function AgentePage() {
                 </div>
                 <SliderRow label="Esperar antes de responder (segundos)" v={cfg.segundos_buffer} max={20} on={(v) => up("segundos_buffer", v)} unit="s" />
                 <Toggle label="Responder em partes (1-3 bolhas)" v={cfg.responder_em_partes} on={(v) => up("responder_em_partes", v)} />
+              </Section>
+            </TabsContent>
+
+            <TabsContent value="prompt" className="space-y-3">
+              <Section title="Prompt manual" icon={<Bot className="size-3.5" />}>
+                <p className="text-sm text-muted-foreground">
+                  Aqui você escreve as instruções do atendente com suas palavras. Enquanto este campo estiver
+                  em branco, valem as informações preenchidas nas outras abas. Se você escrever algo aqui,
+                  este texto passa a valer no lugar delas — nada do que você já preencheu é apagado, então
+                  basta esvaziar este campo para voltar ao texto automático.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => up("prompt_custom", promptPreview)}
+                  >
+                    Usar o texto automático como base
+                  </Button>
+                  {String(cfg.prompt_custom ?? "").trim() ? (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => up("prompt_custom", "")}>
+                      Voltar para o texto automático
+                    </Button>
+                  ) : null}
+                </div>
+                <Textarea
+                  value={cfg.prompt_custom ?? ""}
+                  onChange={(e) => up("prompt_custom", e.target.value)}
+                  rows={18}
+                  className="font-mono text-[12px] leading-relaxed"
+                  placeholder="Escreva aqui como o atendente deve se comportar, o que pode e o que não pode fazer…"
+                />
+                {String(cfg.prompt_custom ?? "").trim() ? (
+                  <p className="text-xs text-[var(--brand-text)]">
+                    Este texto está valendo. Clique em Salvar para publicar.
+                  </p>
+                ) : null}
+              </Section>
+
+              <Section title="Materiais da empresa" icon={<Sparkles className="size-3.5" />}>
+                <AgentMaterialsPanel companyId={companyId} agentId={cfg.id} />
               </Section>
             </TabsContent>
           </Tabs>

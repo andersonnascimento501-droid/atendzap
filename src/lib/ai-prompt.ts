@@ -19,6 +19,13 @@ export interface AgentConfig {
   anthropic_api_key?: string;
 
 
+  /**
+   * Prompt escrito manualmente pelo cliente (modo avançado).
+   * Quando preenchido, substitui os blocos gerados automaticamente,
+   * mas os protocolos técnicos (formato, agenda real, estágio) continuam sendo anexados.
+   */
+  prompt_custom?: string;
+
   // Identidade
   nome_agente: string;
   nome_empresa: string;
@@ -232,7 +239,7 @@ export function buildSystemPrompt(
 
   const agendaReal = !!(c.agendamento_ativo && opts?.agendaTools);
 
-  const blocos = [
+  const autoBlocos = [
     `Você é ${txt(c.nome_agente) || "um atendente virtual"}, atendendo no WhatsApp da empresa ${txt(c.nome_empresa) || "(empresa)"}.`,
     sec("Como se apresenta na primeira mensagem", c.apresentacao),
     `Objetivo: ${txt(c.papel_objetivo) || "atender clientes com cordialidade, descobrir o que precisam e ajudar a fechar a venda."}`,
@@ -301,6 +308,11 @@ ESTILO DE MENSAGEM (WhatsApp humano):
 - Não repita o nome do cliente em toda mensagem. Não repita o que ele acabou de dizer.
 - Não soe como robô ("Como posso ajudá-lo hoje?"). Soe como um atendente real e atencioso.`,
   ];
+
+  // Prompt manual do cliente (edição avançada) tem prioridade sobre os blocos gerados.
+  // Os protocolos técnicos abaixo continuam sendo anexados para o motor não quebrar.
+  const promptManual = txt(c.prompt_custom);
+  const blocos: string[] = promptManual ? [promptManual] : autoBlocos;
 
   if (partes) {
     blocos.push(
