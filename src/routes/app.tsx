@@ -75,12 +75,13 @@ export const Route = createFileRoute("/app")({
       throw redirect({ to: "/app/checkout" });
     }
 
-    // Empresa criada mas onboarding não finalizado → força wizard (apenas se já tem acesso)
+    // Empresa criada mas onboarding não finalizado → força wizard (apenas se já tem acesso).
+    // /app/conexao fica liberado porque o próprio wizard manda o cliente conectar o WhatsApp lá.
+    const onboardingAllowed = ["/app/onboarding", "/app/checkout", "/app/conexao"];
     if (
       !needsPayment &&
       !company.onboarding_completed &&
-      location.pathname !== "/app/onboarding" &&
-      location.pathname !== "/app/checkout"
+      !onboardingAllowed.includes(location.pathname)
     ) {
       throw redirect({ to: "/app/onboarding" });
     }

@@ -212,6 +212,14 @@ export const createCompanyWithOwner = createServerFn({ method: "POST" })
     }
     const trialMs = data.trialDays * 86400000;
     const trialEnd = new Date(Date.now() + trialMs).toISOString();
+
+    // Plano escolhido pelo master fica registrado na empresa (o checkout só entra em cena no fim do trial).
+    let planSlug: string | null = null;
+    if (data.planId) {
+      const { data: pl } = await supabaseAdmin.from("plan").select("slug").eq("id", data.planId).maybeSingle();
+      planSlug = pl?.slug ?? null;
+    }
+
     const { data: comp, error: cErr } = await supabaseAdmin
       .from("company")
       .insert({
@@ -220,6 +228,9 @@ export const createCompanyWithOwner = createServerFn({ method: "POST" })
         created_by: ownerId,
         status_cobranca: data.trialDays > 0 ? "trial" : "ativo",
         trial_ate: trialEnd,
+        selected_plan_slug: planSlug,
+        onboarding_completed: false,
+        onboarding_step: 0,
       })
       .select("id")
       .single();
