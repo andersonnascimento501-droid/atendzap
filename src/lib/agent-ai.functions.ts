@@ -170,7 +170,7 @@ Analise e devolva o JSON.`;
     const perguntas = filterAnsweredQuestions(perguntasBrutas, data.preenchidos, data.respostas);
 
     const analysis: BriefAnalysis = {
-      pronto: !!parsed?.pronto && perguntas.filter((p) => p.obrigatoria).length === 0,
+      pronto: (!!parsed?.pronto || perguntas.length === 0) && perguntas.filter((p) => p.obrigatoria).length === 0,
       resumo: String(parsed?.resumo || "").slice(0, 400),
       cobertura: Math.max(0, Math.min(100, Number(parsed?.cobertura) || 0)),
       perguntas,
@@ -202,8 +202,9 @@ export const generateAgentConfig = createServerFn({ method: "POST" })
 
     const system = `Você é um Product Manager sênior + copywriter de vendas, montando um AGENTE DE WHATSAPP para um pequeno negócio brasileiro.
 
-Você recebe: (1) descrição livre do dono (leigo) e (2) respostas dele para perguntas específicas.
-Sua tarefa: gerar a configuração COMPLETA do agente, no padrão de um PRD enxuto e ACIONÁVEL — nada genérico, nada "blá-blá de IA".
+Você recebe: (1) descrição livre do dono (leigo), (2) respostas dele para perguntas específicas e (3) a configuração já salva.
+Sua tarefa: ESTRUTURAR o que o dono informou. O dono é o dono das informações: você NUNCA inventa, resume, substitui ou apaga informação confirmada.
+Se uma informação não foi fornecida pelo dono, devolva exatamente "[PENDENTE]" (ou "" quando o campo for opcional). Nunca preencha com suposição.
 
 Responda APENAS com JSON válido (sem markdown), com EXATAMENTE estas chaves (todas strings, PT-BR):
 ${FIELDS.map((f) => `- ${f}`).join("\n")}
