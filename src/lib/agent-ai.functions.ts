@@ -217,20 +217,23 @@ DIRETRIZES (siga à risca):
 - "sobre_empresa": parágrafo curto que o agente pode usar quando o cliente perguntar "quem é vocês".
 - "produtos_servicos": TEXTO corrido/linhas legíveis, um item por bloco, com nome em destaque e, em linhas seguintes, duração, valor, condições e link — exatamente como o dono informou. NUNCA invente preço. NUNCA devolva objeto/array.
 - "como_vender": passo a passo NUMERADO (3-6 passos) baseado NAS INSTRUÇÕES DO DONO. Se ele descreveu o fluxo comercial dele, PRESERVE esse fluxo; não substitua por funil genérico.
-- "objecoes": 3-5 objeções REAIS daquele segmento, em linhas "Objeção: ... / Resposta: ...". Ex: "Tá caro" → resposta concreta.
-- "faq": 4-6 perguntas que clientes daquele segmento REALMENTE fazem, em linhas "Pergunta: ... / Resposta: ...".
-- "politicas": troca, cancelamento, garantia, prazo — coerentes com o segmento e com o modelo de negócio. Se o dono não falou, escreva uma política padrão razoável e marcada como "(confirmar com o time)".
+- "objecoes": SOMENTE objeções e respostas que o dono informou, com as palavras dele. Se ele não informou, devolva "[PENDENTE]". É PROIBIDO criar objeção ou resposta como se fosse fato do negócio.
+- "faq": SOMENTE perguntas e respostas apoiadas no que o dono informou. Se não houver base, devolva "[PENDENTE]". Nunca invente resposta.
+- "politicas": copie a política informada pelo dono. Se ele não informou, devolva exatamente "[PENDENTE]". É PROIBIDO escrever política padrão, razoável ou de mercado.
 - "posvenda_msg": mensagem curta de pós-venda alinhada ao tom. NUNCA garanta resultado, ganho, cura ou retorno financeiro — só ofereça acompanhamento e suporte.
 - "pode_fazer": lista (1 por linha) do que o agente pode prometer/fazer.
 - "nao_pode_fazer": lista (1 por linha) do que NÃO pode — inclua sempre "Não inventar preço, prazo ou política que não esteja aqui", "Não tratar comprovante enviado como pagamento confirmado" e "Não fechar venda sem confirmar os dados essenciais DESTE negócio". Se houver confirmação automática real, use-a; encaminhe ao humano somente quando não houver confirmação disponível ou houver divergência.
 - "ofertas": só preencha se o dono mencionou promoção/cupom. Senão, "".
-- "formas_pagamento": copie LITERALMENTE valores, número máximo de parcelas, links, chave/valor do Pix e nomes informados. Não resuma, não arredonde, não remova nada. Se o dono não disse, "(consultar)".
-- Use "" (string vazia) quando faltar info — NUNCA omita chaves. NUNCA crie seção vazia com texto de enchimento.
+- "como_vender": se o dono não descreveu o fluxo comercial dele, devolva "[PENDENTE]". Não monte funil genérico.
+- "formas_pagamento": copie LITERALMENTE valores, número máximo de parcelas, links, chave/valor do Pix e nomes informados. Não resuma, não arredonde, não remova nada. Se o dono não disse, "[PENDENTE]".
+- PRESERVE LITERALMENTE todo número, preço, porcentagem, parcela, URL, telefone e chave Pix informados: copie caractere por caractere.
+- Use "[PENDENTE]" quando a informação for necessária e não foi informada, e "" quando o campo for opcional — NUNCA omita chaves.
 - TODAS as chaves são STRINGS de texto legível. É PROIBIDO devolver objeto, array ou JSON aninhado em qualquer chave.
 - Regras precisam CABER no negócio: se for serviço 100% online, não exija endereço/CEP/entrega; se for presencial, não fale de link de acesso.
-- Nunca cite nomes de etapas de CRM, funis ou status internos: quem define isso é o sistema.
+- Nunca cite nomes de etapas de CRM, funis, status internos ou processos internos: quem define isso é o sistema/o dono.
 - Nunca escreva horários específicos de atendimento/agenda que o dono não informou.
-- NÃO invente: preço, endereço, horário, telefone, prazo, estoque. Se faltar, deixe vazio ou marque "(consultar)".
+- NÃO invente: preço, link, Pix, parcelamento, desconto, horário, endereço, telefone, prazo, política, estoque, etapa de CRM ou regra comercial. Se faltar, "[PENDENTE]".
+- Se a configuração já salva e a informação nova estiverem em CONFLITO, não escolha por conta própria: devolva o valor novo apenas se ele preservar os dados literais antigos; caso contrário devolva "[PENDENTE]".
 
 Retorne SÓ o JSON.`;
 
