@@ -200,6 +200,31 @@ export const generateAgentConfig = createServerFn({ method: "POST" })
 
     const respostasTxt = answersToText(data.respostas);
 
+    const { supabase, userId } = context;
+    const { data: membership } = await supabase
+      .from("company_user")
+      .select("company_id")
+      .eq("user_id", userId)
+      .eq("ativo", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!membership?.company_id) throw new Error("Sem empresa ativa.");
+
+    const companyId = membership.company_id;
+    const [{ data: current }, { data: stageRows }, { data: productRows }] = await Promise.all([
+      supabase.from("agent_config").select(AGENT_SAFE_COLUMNS).eq("company_id", companyId).order("is_default", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("crm_stage").select("nome,tipo,ordem").eq("company_id", companyId).order("ordem", { ascending: true }),
+      supabase.from("produto").select("nome,preco,descricao,ordem").eq("company_id", companyId).eq("ativo", true).order("ordem", { ascending: true }),
+    ]);
+
+    const atualTxt = FIELDS
+      .map((f) => [f, toReadableText((current as any)?.[f])] as const)
+      .filter(([, v]) => v)
+      .map(([f, v]) => `- ${f}: ${v}`)
+      .join("\n");
+
+
     const system = `Você é um Product Manager sênior + copywriter de vendas, montando um AGENTE DE WHATSAPP para um pequeno negócio brasileiro.
 
 Você recebe: (1) descrição livre do dono (leigo), (2) respostas dele para perguntas específicas e (3) a configuração já salva.
