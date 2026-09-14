@@ -135,10 +135,14 @@ Responda APENAS JSON válido neste formato:
   ]
 }`;
 
+    const preenchidosTxt = describeFilledFields(data.preenchidos);
+
     const user = `DESCRIÇÃO DO NEGÓCIO:
 ${data.descricao}
 
 ${respostasTxt ? `RESPOSTAS JÁ DADAS PELO DONO:\n${respostasTxt}` : ""}
+
+${preenchidosTxt ? `CAMPOS JÁ SALVOS NA CONFIGURAÇÃO (NUNCA pergunte sobre estes):\n${preenchidosTxt}` : ""}
 
 Analise e devolva o JSON.`;
 
