@@ -155,7 +155,7 @@ Analise e devolva o JSON.`;
     );
 
     const parsed = extractJson(raw);
-    const perguntas: BriefQuestion[] = Array.isArray(parsed?.perguntas)
+    const perguntasBrutas: BriefQuestion[] = Array.isArray(parsed?.perguntas)
       ? parsed.perguntas.slice(0, 6).map((q: any, i: number) => ({
           id: String(q?.id || `q_${i}`).slice(0, 60),
           pergunta: String(q?.pergunta || "").slice(0, 240),
