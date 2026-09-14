@@ -166,6 +166,9 @@ Analise e devolva o JSON.`;
         })).filter((q: BriefQuestion) => q.pergunta)
       : [];
 
+    // Nunca perguntar de novo algo já preenchido/respondido.
+    const perguntas = filterAnsweredQuestions(perguntasBrutas, data.preenchidos, data.respostas);
+
     const analysis: BriefAnalysis = {
       pronto: !!parsed?.pronto && perguntas.filter((p) => p.obrigatoria).length === 0,
       resumo: String(parsed?.resumo || "").slice(0, 400),
