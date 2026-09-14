@@ -78,12 +78,17 @@ export type BriefAnalysis = {
 
 export const analyzeBusinessBrief = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { descricao: string; respostas?: Record<string, string> }) => {
+  .inputValidator((d: {
+    descricao: string;
+    respostas?: Record<string, string>;
+    preenchidos?: Record<string, string>;
+  }) => {
     const desc = (d?.descricao || "").trim();
     if (desc.length < 10) throw new Error("Conte um pouco mais sobre o negócio.");
     return {
       descricao: desc.slice(0, 8000),
       respostas: d?.respostas && typeof d.respostas === "object" ? d.respostas : {},
+      preenchidos: d?.preenchidos && typeof d.preenchidos === "object" ? d.preenchidos : {},
     };
   })
   .handler(async ({ data }) => {
