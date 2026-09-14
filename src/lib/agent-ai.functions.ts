@@ -2,6 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertNoObjectCoercion, toReadableText } from "./structured-text";
 import { AGENT_SAFE_COLUMNS } from "./agents";
+import {
+  describeFilledFields,
+  filterAnsweredQuestions,
+  mergeGeneratedConfig,
+} from "./agent-generation";
 
 export type GeneratedAgentConfig = {
   nome_agente: string;
@@ -73,12 +78,17 @@ export type BriefAnalysis = {
 
 export const analyzeBusinessBrief = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { descricao: string; respostas?: Record<string, string> }) => {
+  .inputValidator((d: {
+    descricao: string;
+    respostas?: Record<string, string>;
+    preenchidos?: Record<string, string>;
+  }) => {
     const desc = (d?.descricao || "").trim();
     if (desc.length < 10) throw new Error("Conte um pouco mais sobre o negócio.");
     return {
       descricao: desc.slice(0, 8000),
       respostas: d?.respostas && typeof d.respostas === "object" ? d.respostas : {},
+      preenchidos: d?.preenchidos && typeof d.preenchidos === "object" ? d.preenchidos : {},
     };
   })
   .handler(async ({ data }) => {
@@ -125,10 +135,14 @@ Responda APENAS JSON válido neste formato:
   ]
 }`;
 
+    const preenchidosTxt = describeFilledFields(data.preenchidos);
+
     const user = `DESCRIÇÃO DO NEGÓCIO:
 ${data.descricao}
 
 ${respostasTxt ? `RESPOSTAS JÁ DADAS PELO DONO:\n${respostasTxt}` : ""}
+
+${preenchidosTxt ? `CAMPOS JÁ SALVOS NA CONFIGURAÇÃO (NUNCA pergunte sobre estes):\n${preenchidosTxt}` : ""}
 
 Analise e devolva o JSON.`;
 
@@ -141,7 +155,7 @@ Analise e devolva o JSON.`;
     );
 
     const parsed = extractJson(raw);
-    const perguntas: BriefQuestion[] = Array.isArray(parsed?.perguntas)
+    const perguntasBrutas: BriefQuestion[] = Array.isArray(parsed?.perguntas)
       ? parsed.perguntas.slice(0, 6).map((q: any, i: number) => ({
           id: String(q?.id || `q_${i}`).slice(0, 60),
           pergunta: String(q?.pergunta || "").slice(0, 240),
@@ -152,8 +166,11 @@ Analise e devolva o JSON.`;
         })).filter((q: BriefQuestion) => q.pergunta)
       : [];
 
+    // Nunca perguntar de novo algo já preenchido/respondido.
+    const perguntas = filterAnsweredQuestions(perguntasBrutas, data.preenchidos, data.respostas);
+
     const analysis: BriefAnalysis = {
-      pronto: !!parsed?.pronto && perguntas.filter((p) => p.obrigatoria).length === 0,
+      pronto: (!!parsed?.pronto || perguntas.length === 0) && perguntas.filter((p) => p.obrigatoria).length === 0,
       resumo: String(parsed?.resumo || "").slice(0, 400),
       cobertura: Math.max(0, Math.min(100, Number(parsed?.cobertura) || 0)),
       perguntas,
@@ -183,10 +200,36 @@ export const generateAgentConfig = createServerFn({ method: "POST" })
 
     const respostasTxt = answersToText(data.respostas);
 
+    const { supabase, userId } = context;
+    const { data: membership } = await supabase
+      .from("company_user")
+      .select("company_id")
+      .eq("user_id", userId)
+      .eq("ativo", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!membership?.company_id) throw new Error("Sem empresa ativa.");
+
+    const companyId = membership.company_id;
+    const [{ data: current }, { data: stageRows }, { data: productRows }] = await Promise.all([
+      supabase.from("agent_config").select(AGENT_SAFE_COLUMNS).eq("company_id", companyId).order("is_default", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("crm_stage").select("nome,tipo,ordem").eq("company_id", companyId).order("ordem", { ascending: true }),
+      supabase.from("produto").select("nome,preco,descricao,ordem").eq("company_id", companyId).eq("ativo", true).order("ordem", { ascending: true }),
+    ]);
+
+    const atualTxt = FIELDS
+      .map((f) => [f, toReadableText((current as any)?.[f])] as const)
+      .filter(([, v]) => v)
+      .map(([f, v]) => `- ${f}: ${v}`)
+      .join("\n");
+
+
     const system = `Você é um Product Manager sênior + copywriter de vendas, montando um AGENTE DE WHATSAPP para um pequeno negócio brasileiro.
 
-Você recebe: (1) descrição livre do dono (leigo) e (2) respostas dele para perguntas específicas.
-Sua tarefa: gerar a configuração COMPLETA do agente, no padrão de um PRD enxuto e ACIONÁVEL — nada genérico, nada "blá-blá de IA".
+Você recebe: (1) descrição livre do dono (leigo), (2) respostas dele para perguntas específicas e (3) a configuração já salva.
+Sua tarefa: ESTRUTURAR o que o dono informou. O dono é o dono das informações: você NUNCA inventa, resume, substitui ou apaga informação confirmada.
+Se uma informação não foi fornecida pelo dono, devolva exatamente "[PENDENTE]" (ou "" quando o campo for opcional). Nunca preencha com suposição.
 
 Responda APENAS com JSON válido (sem markdown), com EXATAMENTE estas chaves (todas strings, PT-BR):
 ${FIELDS.map((f) => `- ${f}`).join("\n")}
@@ -199,20 +242,23 @@ DIRETRIZES (siga à risca):
 - "sobre_empresa": parágrafo curto que o agente pode usar quando o cliente perguntar "quem é vocês".
 - "produtos_servicos": TEXTO corrido/linhas legíveis, um item por bloco, com nome em destaque e, em linhas seguintes, duração, valor, condições e link — exatamente como o dono informou. NUNCA invente preço. NUNCA devolva objeto/array.
 - "como_vender": passo a passo NUMERADO (3-6 passos) baseado NAS INSTRUÇÕES DO DONO. Se ele descreveu o fluxo comercial dele, PRESERVE esse fluxo; não substitua por funil genérico.
-- "objecoes": 3-5 objeções REAIS daquele segmento, em linhas "Objeção: ... / Resposta: ...". Ex: "Tá caro" → resposta concreta.
-- "faq": 4-6 perguntas que clientes daquele segmento REALMENTE fazem, em linhas "Pergunta: ... / Resposta: ...".
-- "politicas": troca, cancelamento, garantia, prazo — coerentes com o segmento e com o modelo de negócio. Se o dono não falou, escreva uma política padrão razoável e marcada como "(confirmar com o time)".
+- "objecoes": SOMENTE objeções e respostas que o dono informou, com as palavras dele. Se ele não informou, devolva "[PENDENTE]". É PROIBIDO criar objeção ou resposta como se fosse fato do negócio.
+- "faq": SOMENTE perguntas e respostas apoiadas no que o dono informou. Se não houver base, devolva "[PENDENTE]". Nunca invente resposta.
+- "politicas": copie a política informada pelo dono. Se ele não informou, devolva exatamente "[PENDENTE]". É PROIBIDO escrever política padrão, razoável ou de mercado.
 - "posvenda_msg": mensagem curta de pós-venda alinhada ao tom. NUNCA garanta resultado, ganho, cura ou retorno financeiro — só ofereça acompanhamento e suporte.
 - "pode_fazer": lista (1 por linha) do que o agente pode prometer/fazer.
 - "nao_pode_fazer": lista (1 por linha) do que NÃO pode — inclua sempre "Não inventar preço, prazo ou política que não esteja aqui", "Não tratar comprovante enviado como pagamento confirmado" e "Não fechar venda sem confirmar os dados essenciais DESTE negócio". Se houver confirmação automática real, use-a; encaminhe ao humano somente quando não houver confirmação disponível ou houver divergência.
 - "ofertas": só preencha se o dono mencionou promoção/cupom. Senão, "".
-- "formas_pagamento": copie LITERALMENTE valores, número máximo de parcelas, links, chave/valor do Pix e nomes informados. Não resuma, não arredonde, não remova nada. Se o dono não disse, "(consultar)".
-- Use "" (string vazia) quando faltar info — NUNCA omita chaves. NUNCA crie seção vazia com texto de enchimento.
+- "como_vender": se o dono não descreveu o fluxo comercial dele, devolva "[PENDENTE]". Não monte funil genérico.
+- "formas_pagamento": copie LITERALMENTE valores, número máximo de parcelas, links, chave/valor do Pix e nomes informados. Não resuma, não arredonde, não remova nada. Se o dono não disse, "[PENDENTE]".
+- PRESERVE LITERALMENTE todo número, preço, porcentagem, parcela, URL, telefone e chave Pix informados: copie caractere por caractere.
+- Use "[PENDENTE]" quando a informação for necessária e não foi informada, e "" quando o campo for opcional — NUNCA omita chaves.
 - TODAS as chaves são STRINGS de texto legível. É PROIBIDO devolver objeto, array ou JSON aninhado em qualquer chave.
 - Regras precisam CABER no negócio: se for serviço 100% online, não exija endereço/CEP/entrega; se for presencial, não fale de link de acesso.
-- Nunca cite nomes de etapas de CRM, funis ou status internos: quem define isso é o sistema.
+- Nunca cite nomes de etapas de CRM, funis, status internos ou processos internos: quem define isso é o sistema/o dono.
 - Nunca escreva horários específicos de atendimento/agenda que o dono não informou.
-- NÃO invente: preço, endereço, horário, telefone, prazo, estoque. Se faltar, deixe vazio ou marque "(consultar)".
+- NÃO invente: preço, link, Pix, parcelamento, desconto, horário, endereço, telefone, prazo, política, estoque, etapa de CRM ou regra comercial. Se faltar, "[PENDENTE]".
+- Se a configuração já salva e a informação nova estiverem em CONFLITO, não escolha por conta própria: devolva o valor novo apenas se ele preservar os dados literais antigos; caso contrário devolva "[PENDENTE]".
 
 Retorne SÓ o JSON.`;
 
