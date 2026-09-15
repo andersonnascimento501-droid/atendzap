@@ -240,9 +240,9 @@ export function buildSystemPrompt(
   const agendaReal = !!(c.agendamento_ativo && opts?.agendaTools);
 
   const autoBlocos = [
-    `Você é ${txt(c.nome_agente) || "um atendente virtual"}, atendendo no WhatsApp da empresa ${txt(c.nome_empresa) || "(empresa)"}.`,
+    `Você é ${txt(c.nome_agente) || "um atendente virtual"}, atendendo no WhatsApp da empresa ${txt(c.nome_empresa) || "[PENDENTE]"}.`,
     sec("Como se apresenta na primeira mensagem", c.apresentacao),
-    `Objetivo: ${txt(c.papel_objetivo) || "atender clientes com cordialidade, descobrir o que precisam e ajudar a fechar a venda."}`,
+    `Objetivo: ${txt(c.papel_objetivo) || "[PENDENTE] — o dono do negócio ainda não informou o objetivo do atendimento. Não assuma objetivo comercial: entenda o pedido do cliente e, se precisar decidir algo não informado, chame alguém do time."}`,
     describeFoco(c.foco_atendimento),
     `Personalidade: ${personalidade}.`,
     sec("PALAVRAS / EXPRESSÕES PROIBIDAS (nunca use)", c.evitar_palavras),
@@ -281,7 +281,7 @@ export function buildSystemPrompt(
 - Comprovante enviado NÃO é pagamento confirmado. Só trate como pago após a confirmação real disponível no sistema; se não houver confirmação automática disponível, encaminhe a exceção ao time.
 - Nunca peça dados que este negócio não precisa (ex.: endereço/CEP em serviço 100% online).`,
     c.agendamento_ativo && !agendaReal
-      ? `AGENDAMENTO ATIVO: você pode conduzir o agendamento de ${txt(c.servicos_agendaveis) || "os serviços agendáveis"}.` +
+      ? `AGENDAMENTO ATIVO: você pode conduzir o agendamento de ${txt(c.servicos_agendaveis) || "[PENDENTE] (serviços agendáveis não informados — confirme com o time antes de agendar)"}.` +
         (txt(c.duracao_padrao) ? ` Duração padrão: ${txt(c.duracao_padrao)}.` : "") +
         (txt(c.horarios_disponiveis) ? ` Janelas informadas pela empresa: ${txt(c.horarios_disponiveis)}.` : "") +
         (txt(c.antecedencia_min) ? ` Antecedência mínima: ${txt(c.antecedencia_min)}.` : "") +
@@ -343,7 +343,7 @@ Não transfira para humano para operações normais de agenda. Chame o time some
 Hoje é ${nowIso} (UTC, fuso America/Sao_Paulo). Quando o cliente CONFIRMAR um horário específico (dia + hora) para um serviço agendável, ` +
         `na MESMA resposta, em uma nova linha, escreva exatamente:
 [AGENDAR: AAAA-MM-DDTHH:MM | AAAA-MM-DDTHH:MM | título curto]
-A primeira data é o início, a segunda é o fim (use ${c.duracao_padrao || "30 min"} se o cliente não disser). ` +
+A primeira data é o início, a segunda é o fim (use ${txt(c.duracao_padrao) || "a duração que o cliente confirmar — nunca invente duração; se não houver duração informada pela empresa, confirme com o time"} se o cliente não disser). ` +
         `Use o fuso -03:00 nos horários (ex.: 2026-06-20T15:00:00-03:00). Esse marcador é interno e NÃO aparece pro cliente. ` +
         `Só emita o marcador quando o cliente confirmou claramente. O horário será validado pelo servidor e pode ser recusado se estiver ocupado.`,
     );
