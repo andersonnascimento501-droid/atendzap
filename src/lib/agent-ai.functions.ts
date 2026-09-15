@@ -281,29 +281,20 @@ Gere o JSON do agente.`;
     );
 
     const parsed = extractJson(raw) as Record<string, unknown>;
-    const config = {} as GeneratedAgentConfig;
+    const gerado = {} as GeneratedAgentConfig;
     for (const k of FIELDS) {
       const v = parsed?.[k];
-      (config as any)[k] = toReadableText(v);
+      (gerado as any)[k] = toReadableText(v);
     }
 
-    const { supabase, userId } = context;
-    const { data: membership } = await supabase
-      .from("company_user")
-      .select("company_id")
-      .eq("user_id", userId)
-      .eq("ativo", true)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (!membership?.company_id) throw new Error("Sem empresa ativa.");
+    // Geração NÃO destrutiva: nada que o dono já confirmou é apagado, resumido
+    // ou substituído em silêncio. Conflitos ficam pendentes de confirmação.
+    const { config, conflitos } = mergeGeneratedConfig<Record<string, string>>(
+      (current ?? {}) as any,
+      gerado as any,
+      FIELDS as string[],
+    );
 
-    const companyId = membership.company_id;
-    const [{ data: current }, { data: stageRows }, { data: productRows }] = await Promise.all([
-      supabase.from("agent_config").select(AGENT_SAFE_COLUMNS).eq("company_id", companyId).order("is_default", { ascending: false }).limit(1).maybeSingle(),
-      supabase.from("crm_stage").select("nome,tipo,ordem").eq("company_id", companyId).order("ordem", { ascending: true }),
-      supabase.from("produto").select("nome,preco,descricao,ordem").eq("company_id", companyId).eq("ativo", true).order("ordem", { ascending: true }),
-    ]);
     const mergedConfig = { ...(current ?? {}), ...config };
     const agendaTools = !!mergedConfig.agendamento_ativo;
     const promptPreview = assertNoObjectCoercion(buildSystemPrompt(mergedConfig as any, {
