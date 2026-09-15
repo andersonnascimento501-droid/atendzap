@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Bot, Loader2, Save, Send, Sparkles, Plus, Trash2, Calendar, CheckCircle2, AlertCircle, LinkIcon } from "lucide-react";
 import { brand } from "@/config/brand";
 import { buildSystemPrompt } from "@/lib/ai-prompt";
+import { MANUAL_OVERRIDE_CONFIRM_MESSAGE, requiresManualOverrideConfirm } from "@/lib/agent-generation";
 import { testAiReply } from "@/lib/evolution.functions";
 import { startGoogleOAuth, disconnectGoogle } from "@/lib/google.functions";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -212,7 +213,7 @@ function AgentePage() {
           <p className="text-sm text-muted-foreground">Configure como sua IA conversa e vende.</p>
         </div>
         <Button onClick={save} disabled={saving}>
-          {saving ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Save className="size-4 mr-1.5" />} Salvar
+          {saving ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Save className="size-4 mr-1.5" />} Salvar alterações
         </Button>
       </header>
 
@@ -612,7 +613,7 @@ function AgentePage() {
                 />
                 {String(cfg.prompt_custom ?? "").trim() ? (
                   <p className="text-xs text-[var(--brand-text)]">
-                    Este texto está valendo. Clique em Salvar para publicar.
+                    Este texto está valendo. Clique em Salvar alterações.
                   </p>
                 ) : null}
               </Section>
