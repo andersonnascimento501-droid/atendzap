@@ -305,7 +305,8 @@ Gere o JSON do agente.`;
     }), "Prompt final gerado");
 
     return {
-      config,
+      config: config as unknown as GeneratedAgentConfig,
+      conflitos,
       promptPreview,
       promptHasObjectCoercion: promptPreview.includes("[object Object]"),
     };
