@@ -267,7 +267,10 @@ ${data.descricao}
 
 ${respostasTxt ? `RESPOSTAS ESPECÍFICAS DO DONO:\n${respostasTxt}` : ""}
 
+${atualTxt ? `CONFIGURAÇÃO JÁ CONFIRMADA PELO DONO (preserve literalmente; só altere o que as informações novas mudarem):\n${atualTxt}` : ""}
+
 Gere o JSON do agente.`;
+
 
     const raw = await lovableAiChat(
       [
