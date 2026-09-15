@@ -92,7 +92,8 @@ function AgentePage() {
     }
     setAnalyzing(true);
     try {
-      const a: any = await analyze({ data: { descricao, respostas: {} } });
+      // Não perguntar de novo o que já está salvo na configuração.
+      const a: any = await analyze({ data: { descricao, respostas, preenchidos: preenchidosAtuais() } });
       setResumoIA(a.resumo || "");
       setCobertura(a.cobertura || 0);
       setPerguntas(a.perguntas || []);
@@ -109,15 +110,34 @@ function AgentePage() {
     }
   }
 
+  /** Campos já confirmados pelo dono — a IA não deve perguntar nem sobrescrever. */
+  function preenchidosAtuais(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(cfg || {})) {
+      if (typeof v === "string" && v.trim()) out[k] = v;
+    }
+    return out;
+  }
+
   async function runGenerate(extraRespostas: Record<string, string>) {
+    // MODO MANUAL: só regenera com confirmação explícita do usuário.
+    if (requiresManualOverrideConfirm(cfg?.prompt_custom) && !window.confirm(MANUAL_OVERRIDE_CONFIRM_MESSAGE)) {
+      return;
+    }
     setGenerating(true);
     try {
       const merged = { ...respostas, ...extraRespostas };
       const r: any = await generate({ data: { descricao, respostas: merged } });
-      setCfg((prev: any) => ({ ...(prev || {}), ...r.config }));
+      // prompt_custom (texto do usuário) nunca é tocado pela geração.
+      setCfg((prev: any) => ({ ...(prev || {}), ...r.config, prompt_custom: prev?.prompt_custom ?? "" }));
       setPromptPreview(r.promptPreview);
       setHasConfig(true);
       setStep("pronto");
+      if (Array.isArray(r.conflitos) && r.conflitos.length) {
+        toast.warning(
+          `Mantive o que você já tinha em: ${r.conflitos.join(", ")}. Confirme manualmente se quiser mudar.`,
+        );
+      }
       toast.success("Pronto! Sua IA foi montada com base no seu negócio.");
     } catch (e: any) {
       toast.error(e?.message || "Falha ao gerar configuração");
