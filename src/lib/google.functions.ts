@@ -12,8 +12,8 @@ async function buildOrigin() {
 export const startGoogleOAuth = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId || !process.env.GOOGLE_CLIENT_SECRET) {
+    const clientId = (process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID);
+    if (!clientId || !(process.env.GOOGLE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET)) {
       return { ok: false as const, error: "Google OAuth não configurado. Peça ao administrador para definir GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET." };
     }
     const { supabase, userId } = context;
@@ -85,8 +85,8 @@ export const createGoogleCalendarEvent = createServerFn({ method: "POST" })
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          client_id: process.env.GOOGLE_CLIENT_ID!,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+          client_id: (process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID)!,
+          client_secret: (process.env.GOOGLE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET)!,
           refresh_token: gi.refresh_token as string,
           grant_type: "refresh_token",
         }),

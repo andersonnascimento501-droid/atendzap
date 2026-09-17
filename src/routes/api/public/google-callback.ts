@@ -12,8 +12,8 @@ export const Route = createFileRoute("/api/public/google-callback")({
         const v = verifyState(state);
         if (!v) return new Response("invalid state", { status: 400 });
 
-        const clientId = process.env.GOOGLE_CLIENT_ID;
-        const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+        const clientId = (process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID);
+        const clientSecret = (process.env.GOOGLE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET);
         if (!clientId || !clientSecret) return new Response("oauth not configured", { status: 500 });
 
         const redirectUri = `${url.protocol}//${url.host}/api/public/google-callback`;
