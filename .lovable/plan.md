@@ -1,44 +1,56 @@
-# Módulo de Agenda — do parcial ao completo
+# Aproximar o AtendZap do sistema de referência — 3 blocos
 
-Objetivo: a IA poder consultar horários reais, agendar, remarcar e cancelar; e a empresa poder ver e gerenciar a agenda no painel. Nada de planos, checkout, CRM, tenancy ou fluxo de texto atual é alterado.
+Objetivo: cobrir as três lacunas que você escolheu, reaproveitando as telas e tabelas que já existem. Nada de marca própria, nada de trocar arquitetura, nada de mexer em campanhas, WhatsApp, Instagram, financeiro ou cobrança.
 
-## Etapa 1 — Estrutura de disponibilidade (banco)
-- `agenda_servico`: empresa, nome, duração em minutos, intervalo entre atendimentos, antecedência mínima, ativo.
-- `agenda_recurso` (profissional/sala): empresa, nome, ativo (opcional na criação; agenda única se não usado).
-- `agenda_janela`: empresa, recurso, dia da semana, hora início, hora fim.
-- `agenda_bloqueio`: empresa, recurso, início, fim, motivo (férias, feriado, almoço extra).
-- `agendamento`: acrescentar serviço, recurso, telefone/canal do cliente, status `agendado | remarcado | cancelado | concluido`, e versionar a tabela em uma migration própria.
-- RLS por empresa em todas, com GRANTs para authenticated e service_role.
+## Bloco A — Caixa de entrada e times (Conversas)
 
-## Etapa 2 — Motor de disponibilidade (servidor)
-- Novo `src/lib/agenda.server.ts`: gera slots a partir de janelas − bloqueios − agendamentos existentes, respeitando duração, intervalo, antecedência e timezone da empresa.
-- Se o Google Agenda estiver conectado, também consulta `freeBusy` do calendário para descartar horários ocupados fora do sistema.
-- Trava de conflito na criação (verificação transacional) para não gerar dois agendamentos no mesmo slot.
+Hoje a tela de Conversas já mostra o responsável do lead e tem respostas rápidas por atalho. Falta o trabalho em time.
 
-## Etapa 3 — Google Agenda completo
-- Reaproveita o OAuth e o refresh de token existentes.
-- Acrescenta consulta de evento, atualização (remarcar) e remoção (cancelar), mantendo `google_event_id` sincronizado com o registro interno.
+- Filas por situação: "Não atribuídas", "Minhas", "Do time", "Aguardando cliente", "Resolvidas" — com contagem em cada aba.
+- Atribuir e transferir a conversa para alguém da equipe, direto do cabeçalho, com registro de quem passou para quem.
+- Marcar conversa como resolvida ou reabrir, sem apagar o histórico.
+- Notas internas na conversa (só o time vê, o cliente nunca recebe).
+- Etiquetas na conversa, separadas das etiquetas de lead.
+- Aviso na lista quando o cliente está esperando há muito tempo.
 
-## Etapa 4 — Tools de IA
-- Novas tools no runtime já existente: `consultar_disponibilidade`, `criar_agendamento`, `remarcar_agendamento`, `cancelar_agendamento`.
-- Substitui o mecanismo atual de texto `[[AGENDAR: ...]]` por tool-calling, mantendo o bloco antigo funcionando por compatibilidade.
-- Prompt passa a instruir a IA a nunca inventar horário: sempre consultar antes de oferecer.
-- Supervisor ganha reconhecimento de intenção de agendamento para rotear ao agente com agenda habilitada.
+## Bloco B — Conhecimento da IA
 
-## Etapa 5 — Painel
-- Nova página "Agenda" no menu: visão de dia/semana, lista de próximos atendimentos, criar/editar/remarcar/cancelar manualmente.
-- Configuração simples de horários dentro do Atendente IA: serviços, duração, dias e horários de atendimento, bloqueios — substituindo os campos de texto livre atuais (os textos existentes são migrados como referência).
-- Mobile first: lista por dia com chips de data em vez de grade horizontal.
+Hoje a empresa cadastra materiais (fotos, PDFs, links) e a IA consegue enviá-los, mas não consegue ler o conteúdo para responder dúvidas.
 
-## Etapa 6 — Lembretes
-- Reaproveita o motor de follow-up para lembrete antes do horário e pedido de confirmação, sem criar novo cron.
+- Base de conhecimento: a empresa envia documentos, cola textos ou aponta links; o sistema quebra em trechos e guarda para busca.
+- Nova ação da IA: "procurar na base" — antes de responder dúvida, ela consulta e cita o trecho; se não achar, diz que vai confirmar com uma pessoa em vez de inventar.
+- Memória da empresa: fatos aprendidos nas conversas ficam salvos e revisáveis pelo dono (aprovar/descartar), evitando que a IA repita informação errada.
+- Tela de conhecimento dentro do Atendente IA, com status de cada material (pronto / processando / falhou).
+- Registro de uso: quais perguntas a IA não soube responder, para o dono completar a base.
+
+## Bloco C — Tarefas e atividades
+
+- Tarefas com título, responsável, prazo e ligação com o lead e/ou a conversa.
+- Tela "Tarefas" com hoje, atrasadas e próximas; marcar como concluída.
+- Tarefas aparecem na ficha do lead e na conversa.
+- Linha do tempo do lead reunindo mensagens, mudanças de etapa, agendamentos, notas e tarefas.
+- Nova ação da IA: criar tarefa para o time quando prometer um retorno.
+
+## Ordem de entrega
+
+1. Bloco A (é o que muda o dia a dia de quem atende).
+2. Bloco C (rápido e se encaixa no CRM que já existe).
+3. Bloco B (maior, envolve processamento de arquivos).
+
+Cada bloco entra numa etapa própria, com o sistema funcionando ao fim de cada uma.
 
 ## Detalhes técnicos
-- Tabelas novas via migration única por etapa, com GRANT + RLS por `company_id` usando `has_company_access`.
-- Slots calculados no servidor (nunca no cliente) para evitar divergência de timezone.
-- Tools registradas em `src/lib/agent-tools.server.ts` e executadas pelo loop de `src/lib/agent-runtime.server.ts`.
-- Google Calendar via `src/lib/google.server.ts`, com fallback: se não conectado, agenda apenas interna.
-- Gating de plano mantido: Google Agenda continua Pro/Business; agenda interna disponível a todos (a definir se deve seguir a mesma regra).
 
-## Sugestão de ordem de entrega
-Etapas 1+2 primeiro (base sem a qual nada é confiável), depois 3+4 (IA agendando de verdade), depois 5+6 (painel e lembretes).
+- Novas tabelas, todas com `company_id`, RLS por `has_company_access` e GRANT para `authenticated` + `service_role`:
+  - `conversation_state` (fila, responsável, resolvido, última espera), `conversation_note`, `conversation_tag`, `conversation_assignment_event`.
+  - `knowledge_source`, `knowledge_chunk` (com embedding via `pgvector`), `knowledge_query_log`, `org_memory_entry` (com status pendente/aprovado).
+  - `crm_task` (+ índice por responsável e prazo).
+- Conversas: estado lido junto da lista atual em `src/routes/app/conversas.tsx`; novas funções de servidor em `src/lib/inbox.functions.ts`. Sem reescrever a tela — só cabeçalho, abas e painel lateral.
+- Conhecimento: extração de texto e embeddings via Lovable AI (não usar biblioteca nativa, o runtime é Worker); ingestão assíncrona pela fila já existente (`message_processing_queue` serve de modelo; nova `knowledge_ingest_queue` com o mesmo padrão de lock/tentativas).
+- Novas tools registradas em `src/lib/agent-tools.server.ts` (`buscar_conhecimento`, `criar_tarefa`), executadas pelo loop de `src/lib/agent-runtime.server.ts`; gating por `allowed_tools` como as atuais.
+- Prompt em `src/lib/ai-prompt.ts` ganha a regra de sempre consultar a base antes de responder dúvida factual.
+- Mobile first mantido: filas como chips, tarefas em lista.
+
+## Fora deste plano (do outro sistema)
+
+WhatsApp oficial (Meta Cloud), anúncios Meta/Google com conversões, loja/Nuvemshop, extensões, chamadas de voz, LGPD, incidentes, marca própria, 2FA e notificações push. Ficam para depois, se você quiser.
