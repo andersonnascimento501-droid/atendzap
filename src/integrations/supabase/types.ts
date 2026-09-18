@@ -1306,6 +1306,173 @@ export type Database = {
           },
         ]
       }
+      conversation_assignment_event: {
+        Row: {
+          company_id: string
+          created_at: string
+          de_user_id: string | null
+          id: string
+          motivo: string
+          numero: string
+          para_user_id: string | null
+          por_user_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          de_user_id?: string | null
+          id?: string
+          motivo?: string
+          numero: string
+          para_user_id?: string | null
+          por_user_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          de_user_id?: string | null
+          id?: string
+          motivo?: string
+          numero?: string
+          para_user_id?: string | null
+          por_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_assignment_event_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_note: {
+        Row: {
+          autor_id: string | null
+          company_id: string
+          created_at: string
+          id: string
+          numero: string
+          texto: string
+        }
+        Insert: {
+          autor_id?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          numero: string
+          texto: string
+        }
+        Update: {
+          autor_id?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          numero?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_note_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_state: {
+        Row: {
+          channel: string
+          company_id: string
+          created_at: string
+          fila: string
+          id: string
+          numero: string
+          owner_id: string | null
+          resolvido_em: string | null
+          resolvido_por: string | null
+          tags: string[]
+          ultima_entrada_em: string | null
+          ultima_saida_em: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel?: string
+          company_id: string
+          created_at?: string
+          fila?: string
+          id?: string
+          numero: string
+          owner_id?: string | null
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          tags?: string[]
+          ultima_entrada_em?: string | null
+          ultima_saida_em?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          company_id?: string
+          created_at?: string
+          fila?: string
+          id?: string
+          numero?: string
+          owner_id?: string | null
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          tags?: string[]
+          ultima_entrada_em?: string | null
+          ultima_saida_em?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_state_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_tag: {
+        Row: {
+          ativo: boolean
+          company_id: string
+          cor: string
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          company_id: string
+          cor?: string
+          created_at?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          company_id?: string
+          cor?: string
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_tag_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_ledger: {
         Row: {
           company_id: string
