@@ -36,6 +36,13 @@
       "when": 1789772930021,
       "tag": "0004_crm_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789772967356,
+      "tag": "0005_conversation_state_trigger",
+      "breakpoints": true
     }
   ]
 }
