@@ -1635,6 +1635,72 @@ export type Database = {
           },
         ]
       }
+      crm_task: {
+        Row: {
+          card_id: string | null
+          company_id: string
+          concluido_em: string | null
+          created_at: string
+          criado_por: string | null
+          descricao: string
+          id: string
+          numero: string | null
+          origem: string
+          prazo: string | null
+          responsavel_id: string | null
+          status: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          card_id?: string | null
+          company_id: string
+          concluido_em?: string | null
+          created_at?: string
+          criado_por?: string | null
+          descricao?: string
+          id?: string
+          numero?: string | null
+          origem?: string
+          prazo?: string | null
+          responsavel_id?: string | null
+          status?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          card_id?: string | null
+          company_id?: string
+          concluido_em?: string | null
+          created_at?: string
+          criado_por?: string | null
+          descricao?: string
+          id?: string
+          numero?: string | null
+          origem?: string
+          prazo?: string | null
+          responsavel_id?: string | null
+          status?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_task_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "crm_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_task_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       csat_response: {
         Row: {
           comentario: string | null
