@@ -334,22 +334,44 @@ function ConversasPage() {
       list = list.filter((c) => (c.nome ?? "").toLowerCase().includes(q) || c.numero.includes(q));
     }
     if (channelFilter !== "todos") list = list.filter((c) => channelOf(c.numero) === channelFilter);
-    // Filtros
-    list = list.filter((c) => {
-      const card = cards[c.numero];
-      const iaAtiva = !(pauses[c.numero] ?? false);
-      const tipo = card?.stage_id ? stages.find((s) => s.id === card.stage_id)?.tipo : null;
-      const resolvida = tipo === "ganho" || tipo === "perda";
-      switch (filter) {
-        case "nao_lidas": return (unread[c.numero] ?? 0) > 0;
-        case "minhas": return card?.owner_id === userId;
-        case "ia_ativa": return iaAtiva && !resolvida;
-        case "resolvidas": return resolvida;
-        default: return true;
-      }
-    });
+    // Filtros (fila do time + estado do lead)
+    list = list.filter((c) => matchFilter(c.numero, filter));
     return list.sort((a, b) => +new Date(b.last.created_at) - +new Date(a.last.created_at));
-  }, [msgs, search, filter, channelFilter, unread, cards, pauses, stages, userId]);
+    // eslint-disable-next-line
+  }, [msgs, search, filter, channelFilter, unread, cards, pauses, stages, userId, states]);
+
+  function matchFilter(numero: string, f: Filter): boolean {
+    const card = cards[numero];
+    const st = states[numero];
+    const iaAtiva = !(pauses[numero] ?? false);
+    const tipo = card?.stage_id ? stages.find((s) => s.id === card.stage_id)?.tipo : null;
+    const resolvida = st?.fila === "resolvida" || tipo === "ganho" || tipo === "perda";
+    const owner = st?.owner_id ?? card?.owner_id ?? null;
+    switch (f) {
+      case "nao_lidas": return (unread[numero] ?? 0) > 0 && !resolvida;
+      case "nao_atribuidas": return !owner && !resolvida;
+      case "minhas": return owner === userId && !resolvida;
+      case "do_time": return !!owner && owner !== userId && !resolvida;
+      case "aguardando": return !resolvida && esperandoHaMin(st) !== null;
+      case "ia_ativa": return iaAtiva && !resolvida;
+      case "resolvidas": return resolvida;
+      default: return !resolvida;
+    }
+  }
+
+  const filterCounts = useMemo(() => {
+    const numeros = Array.from(new Set(msgs.map((m) => m.numero)));
+    const count = (f: Filter) => numeros.filter((n) => matchFilter(n, f)).length;
+    return {
+      nao_lidas: Object.values(unread).reduce((a, b) => a + b, 0),
+      nao_atribuidas: count("nao_atribuidas"),
+      minhas: count("minhas"),
+      do_time: count("do_time"),
+      aguardando: count("aguardando"),
+      resolvidas: count("resolvidas"),
+    };
+    // eslint-disable-next-line
+  }, [msgs, unread, states, cards, stages, pauses, userId]);
 
   const thread = useMemo(() =>
     [...msgs].filter((m) => m.numero === active).sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at)),
