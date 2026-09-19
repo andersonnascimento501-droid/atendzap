@@ -30,13 +30,12 @@ type Grupo = "atrasadas" | "hoje" | "proximas" | "sem_prazo";
 
 function grupoDe(t: CrmTask): Grupo {
   if (!t.prazo) return "sem_prazo";
-  const prazo = new Date(t.prazo);
-  const hoje = new Date();
-  const fimHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
-  if (prazo.getTime() < Date.now() && prazo.getTime() < fimHoje.getTime() && prazo < hoje) {
-    return prazo < hoje && prazo.getTime() < fimHoje.getTime() && prazo.getTime() < Date.now() && prazo.getTime() < fimHoje.getTime() && prazo.getTime() < hoje.getTime() && prazo.getTime() < fimHoje.getTime() ? (prazo.getTime() < new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime() ? "atrasadas" : "hoje") : "hoje";
-  }
-  if (prazo.getTime() <= fimHoje.getTime()) return "hoje";
+  const prazo = new Date(t.prazo).getTime();
+  const agora = new Date();
+  const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
+  const fimHoje = inicioHoje + 24 * 60 * 60 * 1000 - 1;
+  if (prazo < inicioHoje) return "atrasadas";
+  if (prazo <= fimHoje) return "hoje";
   return "proximas";
 }
 
