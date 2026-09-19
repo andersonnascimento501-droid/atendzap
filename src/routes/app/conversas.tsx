@@ -98,6 +98,23 @@ function ConversasPage() {
   const [sending, setSending] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
 
+  // Trabalho em time: situação da conversa, notas internas e etiquetas.
+  const fetchStates = useServerFn(listConversationStates);
+  const assignFn = useServerFn(assignConversation);
+  const filaFn = useServerFn(setConversationFila);
+  const tagsFn = useServerFn(setConversationTags);
+  const fetchConvTags = useServerFn(listConversationTags);
+  const createConvTag = useServerFn(createConversationTag);
+  const fetchNotes = useServerFn(listConversationNotes);
+  const addNoteFn = useServerFn(addConversationNote);
+  const delNoteFn = useServerFn(deleteConversationNote);
+  const [states, setStates] = useState<Record<string, ConversationState>>({});
+  const [convTags, setConvTags] = useState<ConversationTag[]>([]);
+  const [notes, setNotes] = useState<ConversationNote[]>([]);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [newTag, setNewTag] = useState("");
+
   useEffect(() => {
     if (!companyId) return;
     void load(companyId);
