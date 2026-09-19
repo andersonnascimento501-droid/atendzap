@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/config/brand";
-import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign, Paperclip, FolderOpen, Loader2, Download } from "lucide-react";
+import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign, Paperclip, FolderOpen, Loader2, Download, CheckCheck, StickyNote, Tag, Clock, Trash2, Plus } from "lucide-react";
 import { sendCsat } from "@/lib/csat.functions";
 import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -17,6 +17,11 @@ import { LeadDrawer, type LeadCard, type Stage, type Member } from "@/components
 import { listTemplates, type MessageTemplate } from "@/lib/templates.functions";
 import { listMaterials, sendMaterialToContact, sendMediaToContact, type Material } from "@/lib/materials.functions";
 import { uploadMaterialFile, tipoIcon } from "@/components/agent-materials-panel";
+import {
+  listConversationStates, assignConversation, setConversationFila, setConversationTags,
+  listConversationTags, createConversationTag, listConversationNotes, addConversationNote, deleteConversationNote,
+  type ConversationState, type ConversationNote, type ConversationTag,
+} from "@/lib/inbox.functions";
 
 export const Route = createFileRoute("/app/conversas")({
   head: () => ({ meta: [{ title: `${brand.name} — Conversas` }] }),
