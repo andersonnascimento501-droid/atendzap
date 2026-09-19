@@ -35,7 +35,19 @@ interface Msg {
   tipo?: string | null; midia?: any;
 }
 
-type Filter = "todas" | "nao_lidas" | "minhas" | "ia_ativa" | "resolvidas";
+type Filter =
+  | "todas" | "nao_lidas" | "nao_atribuidas" | "minhas" | "do_time"
+  | "aguardando" | "ia_ativa" | "resolvidas";
+
+const ESPERA_ALERTA_MIN = 30;
+
+function esperandoHaMin(st?: ConversationState): number | null {
+  if (!st?.ultima_entrada_em) return null;
+  const entrada = new Date(st.ultima_entrada_em).getTime();
+  const saida = st.ultima_saida_em ? new Date(st.ultima_saida_em).getTime() : 0;
+  if (saida >= entrada) return null;
+  return Math.floor((Date.now() - entrada) / 60000);
+}
 
 const QUICK_REPLIES = [
   "Olá! Em que posso ajudar?",
