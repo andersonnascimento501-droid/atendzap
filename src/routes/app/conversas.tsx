@@ -157,9 +157,24 @@ function ConversasPage() {
     void (async () => {
       try { setTemplates(await fetchTemplates()); } catch {}
       try { setMaterials((await fetchMaterials({})).filter((m) => m.ativo)); } catch {}
+      try { setConvTags(await fetchConvTags()); } catch {}
     })();
     // eslint-disable-next-line
   }, []);
+
+  // Notas internas da conversa aberta
+  useEffect(() => {
+    if (!active) { setNotes([]); return; }
+    let alive = true;
+    void (async () => {
+      try {
+        const rows = await fetchNotes({ data: { numero: active } });
+        if (alive) setNotes(rows);
+      } catch { if (alive) setNotes([]); }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line
+  }, [active]);
 
   // Keyboard shortcuts attached after `conversations` is declared (see below).
 
