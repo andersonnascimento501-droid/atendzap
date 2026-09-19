@@ -207,10 +207,77 @@ function ConversasPage() {
     (cf ?? []).forEach((r: any) => { fl[r.key] = r.label || r.key; });
     setFieldLabels(fl);
     await loadPauses(cid);
+    await loadStates();
+  }
+
+  async function loadStates() {
+    try {
+      const rows = await fetchStates();
+      const st: Record<string, ConversationState> = {};
+      rows.forEach((r) => { st[r.numero] = r; });
+      setStates(st);
+    } catch {}
   }
 
   function activeConvName(): string | null {
     return active ? (cards[active]?.nome ?? null) : null;
+  }
+
+  function ownerOf(numero: string): string | null {
+    return states[numero]?.owner_id ?? cards[numero]?.owner_id ?? null;
+  }
+
+  async function atribuir(numero: string, ownerId: string | null) {
+    setStates((p) => ({ ...p, [numero]: { ...(p[numero] ?? { numero, channel: "whatsapp", fila: "aberta", tags: [], ultima_entrada_em: null, ultima_saida_em: null, resolvido_em: null, owner_id: null }), owner_id: ownerId } }));
+    try {
+      await assignFn({ data: { numero, ownerId } });
+      toast.success(ownerId ? "Conversa atribuída" : "Responsável removido");
+    } catch (e: any) { toast.error(e?.message ?? "Não foi possível atribuir"); await loadStates(); }
+  }
+
+  async function mudarFila(numero: string, fila: "aberta" | "aguardando" | "resolvida") {
+    setStates((p) => ({ ...p, [numero]: { ...(p[numero] as any), numero, fila } }));
+    try {
+      await filaFn({ data: { numero, fila } });
+      toast.success(fila === "resolvida" ? "Conversa marcada como resolvida" : "Conversa reaberta");
+    } catch (e: any) { toast.error(e?.message ?? "Não foi possível mudar a situação"); await loadStates(); }
+  }
+
+  async function alternarTag(numero: string, nome: string) {
+    const atuais = states[numero]?.tags ?? [];
+    const proximas = atuais.includes(nome) ? atuais.filter((t) => t !== nome) : [...atuais, nome];
+    setStates((p) => ({ ...p, [numero]: { ...(p[numero] as any), numero, tags: proximas } }));
+    try { await tagsFn({ data: { numero, tags: proximas } }); }
+    catch (e: any) { toast.error(e?.message); await loadStates(); }
+  }
+
+  async function criarTag() {
+    const nome = newTag.trim();
+    if (!nome || !active) return;
+    try {
+      const tag = await createConvTag({ data: { nome } });
+      setConvTags((p) => (p.some((t) => t.id === tag.id) ? p : [...p, tag]));
+      setNewTag("");
+      await alternarTag(active, tag.nome);
+    } catch (e: any) { toast.error(e?.message ?? "Não foi possível criar a etiqueta"); }
+  }
+
+  async function salvarNota() {
+    const texto = noteDraft.trim();
+    if (!texto || !active) return;
+    setSavingNote(true);
+    try {
+      const nota = await addNoteFn({ data: { numero: active, texto } });
+      setNotes((p) => [nota, ...p]);
+      setNoteDraft("");
+    } catch (e: any) { toast.error(e?.message ?? "Não foi possível salvar a nota"); }
+    setSavingNote(false);
+  }
+
+  async function removerNota(id: string) {
+    setNotes((p) => p.filter((n) => n.id !== id));
+    try { await delNoteFn({ data: { id } }); }
+    catch (e: any) { toast.error(e?.message ?? "Só quem escreveu pode apagar a nota"); }
   }
 
   async function enviarMaterial(m: Material) {
