@@ -30,7 +30,13 @@ type NavItem = {
 // aparecem como subitens do item principal a que pertencem.
 const mainNav: NavItem[] = [
   { to: "/app/dashboard", label: "Início", icon: Home },
-  { to: "/app/conversas", label: "Conversas", icon: Inbox, badge: true },
+  {
+    to: "/app/conversas",
+    label: "Conversas",
+    icon: Inbox,
+    badge: true,
+    children: [{ to: "/app/tarefas", label: "Tarefas", icon: CheckSquare }],
+  },
   {
     to: "/app/crm",
     label: "Clientes",
