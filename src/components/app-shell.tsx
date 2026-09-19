@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
   Home, Bot, LogOut, Smartphone, Shield, CalendarDays,
-  Inbox, Users, BarChart3, Settings, Contact, Zap, MessageCircle, Megaphone, Webhook, Wallet, Sparkles, Menu,
+  Inbox, Users, BarChart3, Settings, Contact, Zap, MessageCircle, Megaphone, Webhook, Wallet, Sparkles, Menu, CheckSquare,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
