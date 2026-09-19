@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
   Home, Bot, LogOut, Smartphone, Shield, CalendarDays,
-  Inbox, Users, BarChart3, Settings, Contact, Zap, MessageCircle, Megaphone, Webhook, Wallet, Sparkles, Menu,
+  Inbox, Users, BarChart3, Settings, Contact, Zap, MessageCircle, Megaphone, Webhook, Wallet, Sparkles, Menu, CheckSquare,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +30,13 @@ type NavItem = {
 // aparecem como subitens do item principal a que pertencem.
 const mainNav: NavItem[] = [
   { to: "/app/dashboard", label: "Início", icon: Home },
-  { to: "/app/conversas", label: "Conversas", icon: Inbox, badge: true },
+  {
+    to: "/app/conversas",
+    label: "Conversas",
+    icon: Inbox,
+    badge: true,
+    children: [{ to: "/app/tarefas", label: "Tarefas", icon: CheckSquare }],
+  },
   {
     to: "/app/crm",
     label: "Clientes",

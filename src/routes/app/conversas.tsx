@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/config/brand";
-import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign, Paperclip, FolderOpen, Loader2, Download } from "lucide-react";
+import { Hand, MessageSquareText, Send, Sparkles, User, Search, Bot, ExternalLink, Star, Instagram, Phone, ArrowLeft, Info, Undo2, Target, User2, DollarSign, Paperclip, FolderOpen, Loader2, Download, CheckCheck, StickyNote, Tag, Clock, Trash2, Plus } from "lucide-react";
 import { sendCsat } from "@/lib/csat.functions";
 import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -17,6 +17,11 @@ import { LeadDrawer, type LeadCard, type Stage, type Member } from "@/components
 import { listTemplates, type MessageTemplate } from "@/lib/templates.functions";
 import { listMaterials, sendMaterialToContact, sendMediaToContact, type Material } from "@/lib/materials.functions";
 import { uploadMaterialFile, tipoIcon } from "@/components/agent-materials-panel";
+import {
+  listConversationStates, assignConversation, setConversationFila, setConversationTags,
+  listConversationTags, createConversationTag, listConversationNotes, addConversationNote, deleteConversationNote,
+  type ConversationState, type ConversationNote, type ConversationTag,
+} from "@/lib/inbox.functions";
 
 export const Route = createFileRoute("/app/conversas")({
   head: () => ({ meta: [{ title: `${brand.name} — Conversas` }] }),
@@ -30,7 +35,19 @@ interface Msg {
   tipo?: string | null; midia?: any;
 }
 
-type Filter = "todas" | "nao_lidas" | "minhas" | "ia_ativa" | "resolvidas";
+type Filter =
+  | "todas" | "nao_lidas" | "nao_atribuidas" | "minhas" | "do_time"
+  | "aguardando" | "ia_ativa" | "resolvidas";
+
+const ESPERA_ALERTA_MIN = 30;
+
+function esperandoHaMin(st?: ConversationState): number | null {
+  if (!st?.ultima_entrada_em) return null;
+  const entrada = new Date(st.ultima_entrada_em).getTime();
+  const saida = st.ultima_saida_em ? new Date(st.ultima_saida_em).getTime() : 0;
+  if (saida >= entrada) return null;
+  return Math.floor((Date.now() - entrada) / 60000);
+}
 
 const QUICK_REPLIES = [
   "Olá! Em que posso ajudar?",
@@ -81,6 +98,23 @@ function ConversasPage() {
   const [sending, setSending] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
 
+  // Trabalho em time: situação da conversa, notas internas e etiquetas.
+  const fetchStates = useServerFn(listConversationStates);
+  const assignFn = useServerFn(assignConversation);
+  const filaFn = useServerFn(setConversationFila);
+  const tagsFn = useServerFn(setConversationTags);
+  const fetchConvTags = useServerFn(listConversationTags);
+  const createConvTag = useServerFn(createConversationTag);
+  const fetchNotes = useServerFn(listConversationNotes);
+  const addNoteFn = useServerFn(addConversationNote);
+  const delNoteFn = useServerFn(deleteConversationNote);
+  const [states, setStates] = useState<Record<string, ConversationState>>({});
+  const [convTags, setConvTags] = useState<ConversationTag[]>([]);
+  const [notes, setNotes] = useState<ConversationNote[]>([]);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [newTag, setNewTag] = useState("");
+
   useEffect(() => {
     if (!companyId) return;
     void load(companyId);
@@ -123,9 +157,24 @@ function ConversasPage() {
     void (async () => {
       try { setTemplates(await fetchTemplates()); } catch {}
       try { setMaterials((await fetchMaterials({})).filter((m) => m.ativo)); } catch {}
+      try { setConvTags(await fetchConvTags()); } catch {}
     })();
     // eslint-disable-next-line
   }, []);
+
+  // Notas internas da conversa aberta
+  useEffect(() => {
+    if (!active) { setNotes([]); return; }
+    let alive = true;
+    void (async () => {
+      try {
+        const rows = await fetchNotes({ data: { numero: active } });
+        if (alive) setNotes(rows);
+      } catch { if (alive) setNotes([]); }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line
+  }, [active]);
 
   // Keyboard shortcuts attached after `conversations` is declared (see below).
 
@@ -158,10 +207,77 @@ function ConversasPage() {
     (cf ?? []).forEach((r: any) => { fl[r.key] = r.label || r.key; });
     setFieldLabels(fl);
     await loadPauses(cid);
+    await loadStates();
+  }
+
+  async function loadStates() {
+    try {
+      const rows = await fetchStates();
+      const st: Record<string, ConversationState> = {};
+      rows.forEach((r) => { st[r.numero] = r; });
+      setStates(st);
+    } catch {}
   }
 
   function activeConvName(): string | null {
     return active ? (cards[active]?.nome ?? null) : null;
+  }
+
+  function ownerOf(numero: string): string | null {
+    return states[numero]?.owner_id ?? cards[numero]?.owner_id ?? null;
+  }
+
+  async function atribuir(numero: string, ownerId: string | null) {
+    setStates((p) => ({ ...p, [numero]: { ...(p[numero] ?? { numero, channel: "whatsapp", fila: "aberta", tags: [], ultima_entrada_em: null, ultima_saida_em: null, resolvido_em: null, owner_id: null }), owner_id: ownerId } }));
+    try {
+      await assignFn({ data: { numero, ownerId } });
+      toast.success(ownerId ? "Conversa atribuída" : "Responsável removido");
+    } catch (e: any) { toast.error(e?.message ?? "Não foi possível atribuir"); await loadStates(); }
+  }
+
+  async function mudarFila(numero: string, fila: "aberta" | "aguardando" | "resolvida") {
+    setStates((p) => ({ ...p, [numero]: { ...(p[numero] as any), numero, fila } }));
+    try {
+      await filaFn({ data: { numero, fila } });
+      toast.success(fila === "resolvida" ? "Conversa marcada como resolvida" : "Conversa reaberta");
+    } catch (e: any) { toast.error(e?.message ?? "Não foi possível mudar a situação"); await loadStates(); }
+  }
+
+  async function alternarTag(numero: string, nome: string) {
+    const atuais = states[numero]?.tags ?? [];
+    const proximas = atuais.includes(nome) ? atuais.filter((t) => t !== nome) : [...atuais, nome];
+    setStates((p) => ({ ...p, [numero]: { ...(p[numero] as any), numero, tags: proximas } }));
+    try { await tagsFn({ data: { numero, tags: proximas } }); }
+    catch (e: any) { toast.error(e?.message); await loadStates(); }
+  }
+
+  async function criarTag() {
+    const nome = newTag.trim();
+    if (!nome || !active) return;
+    try {
+      const tag = await createConvTag({ data: { nome } });
+      setConvTags((p) => (p.some((t) => t.id === tag.id) ? p : [...p, tag]));
+      setNewTag("");
+      await alternarTag(active, tag.nome);
+    } catch (e: any) { toast.error(e?.message ?? "Não foi possível criar a etiqueta"); }
+  }
+
+  async function salvarNota() {
+    const texto = noteDraft.trim();
+    if (!texto || !active) return;
+    setSavingNote(true);
+    try {
+      const nota = await addNoteFn({ data: { numero: active, texto } });
+      setNotes((p) => [nota, ...p]);
+      setNoteDraft("");
+    } catch (e: any) { toast.error(e?.message ?? "Não foi possível salvar a nota"); }
+    setSavingNote(false);
+  }
+
+  async function removerNota(id: string) {
+    setNotes((p) => p.filter((n) => n.id !== id));
+    try { await delNoteFn({ data: { id } }); }
+    catch (e: any) { toast.error(e?.message ?? "Só quem escreveu pode apagar a nota"); }
   }
 
   async function enviarMaterial(m: Material) {
@@ -218,22 +334,44 @@ function ConversasPage() {
       list = list.filter((c) => (c.nome ?? "").toLowerCase().includes(q) || c.numero.includes(q));
     }
     if (channelFilter !== "todos") list = list.filter((c) => channelOf(c.numero) === channelFilter);
-    // Filtros
-    list = list.filter((c) => {
-      const card = cards[c.numero];
-      const iaAtiva = !(pauses[c.numero] ?? false);
-      const tipo = card?.stage_id ? stages.find((s) => s.id === card.stage_id)?.tipo : null;
-      const resolvida = tipo === "ganho" || tipo === "perda";
-      switch (filter) {
-        case "nao_lidas": return (unread[c.numero] ?? 0) > 0;
-        case "minhas": return card?.owner_id === userId;
-        case "ia_ativa": return iaAtiva && !resolvida;
-        case "resolvidas": return resolvida;
-        default: return true;
-      }
-    });
+    // Filtros (fila do time + estado do lead)
+    list = list.filter((c) => matchFilter(c.numero, filter));
     return list.sort((a, b) => +new Date(b.last.created_at) - +new Date(a.last.created_at));
-  }, [msgs, search, filter, channelFilter, unread, cards, pauses, stages, userId]);
+    // eslint-disable-next-line
+  }, [msgs, search, filter, channelFilter, unread, cards, pauses, stages, userId, states]);
+
+  function matchFilter(numero: string, f: Filter): boolean {
+    const card = cards[numero];
+    const st = states[numero];
+    const iaAtiva = !(pauses[numero] ?? false);
+    const tipo = card?.stage_id ? stages.find((s) => s.id === card.stage_id)?.tipo : null;
+    const resolvida = st?.fila === "resolvida" || tipo === "ganho" || tipo === "perda";
+    const owner = st?.owner_id ?? card?.owner_id ?? null;
+    switch (f) {
+      case "nao_lidas": return (unread[numero] ?? 0) > 0 && !resolvida;
+      case "nao_atribuidas": return !owner && !resolvida;
+      case "minhas": return owner === userId && !resolvida;
+      case "do_time": return !!owner && owner !== userId && !resolvida;
+      case "aguardando": return !resolvida && esperandoHaMin(st) !== null;
+      case "ia_ativa": return iaAtiva && !resolvida;
+      case "resolvidas": return resolvida;
+      default: return !resolvida;
+    }
+  }
+
+  const filterCounts = useMemo(() => {
+    const numeros = Array.from(new Set(msgs.map((m) => m.numero)));
+    const count = (f: Filter) => numeros.filter((n) => matchFilter(n, f)).length;
+    return {
+      nao_lidas: Object.values(unread).reduce((a, b) => a + b, 0),
+      nao_atribuidas: count("nao_atribuidas"),
+      minhas: count("minhas"),
+      do_time: count("do_time"),
+      aguardando: count("aguardando"),
+      resolvidas: count("resolvidas"),
+    };
+    // eslint-disable-next-line
+  }, [msgs, unread, states, cards, stages, pauses, userId]);
 
   const thread = useMemo(() =>
     [...msgs].filter((m) => m.numero === active).sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at)),

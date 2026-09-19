@@ -42,6 +42,7 @@ import { Route as DemoConexaoRouteImport } from './routes/demo/conexao'
 import { Route as DemoCampanhasRouteImport } from './routes/demo/campanhas'
 import { Route as DemoAgenteRouteImport } from './routes/demo/agente'
 import { Route as CsatTokenRouteImport } from './routes/csat.$token'
+import { Route as AppTarefasRouteImport } from './routes/app/tarefas'
 import { Route as AppRelatoriosRouteImport } from './routes/app/relatorios'
 import { Route as AppOnboardingRouteImport } from './routes/app/onboarding'
 import { Route as AppIntegracoesRouteImport } from './routes/app/integracoes'
@@ -234,6 +235,11 @@ const CsatTokenRoute = CsatTokenRouteImport.update({
   path: '/csat/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppTarefasRoute = AppTarefasRouteImport.update({
+  id: '/tarefas',
+  path: '/tarefas',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
@@ -398,6 +404,7 @@ export interface FileRoutesByFullPath {
   '/app/integracoes': typeof AppIntegracoesRoute
   '/app/onboarding': typeof AppOnboardingRoute
   '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/tarefas': typeof AppTarefasRoute
   '/csat/$token': typeof CsatTokenRoute
   '/demo/agente': typeof DemoAgenteRoute
   '/demo/campanhas': typeof DemoCampanhasRoute
@@ -457,6 +464,7 @@ export interface FileRoutesByTo {
   '/app/integracoes': typeof AppIntegracoesRoute
   '/app/onboarding': typeof AppOnboardingRoute
   '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/tarefas': typeof AppTarefasRoute
   '/csat/$token': typeof CsatTokenRoute
   '/demo/agente': typeof DemoAgenteRoute
   '/demo/campanhas': typeof DemoCampanhasRoute
@@ -519,6 +527,7 @@ export interface FileRoutesById {
   '/app/integracoes': typeof AppIntegracoesRoute
   '/app/onboarding': typeof AppOnboardingRoute
   '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/tarefas': typeof AppTarefasRoute
   '/csat/$token': typeof CsatTokenRoute
   '/demo/agente': typeof DemoAgenteRoute
   '/demo/campanhas': typeof DemoCampanhasRoute
@@ -582,6 +591,7 @@ export interface FileRouteTypes {
     | '/app/integracoes'
     | '/app/onboarding'
     | '/app/relatorios'
+    | '/app/tarefas'
     | '/csat/$token'
     | '/demo/agente'
     | '/demo/campanhas'
@@ -641,6 +651,7 @@ export interface FileRouteTypes {
     | '/app/integracoes'
     | '/app/onboarding'
     | '/app/relatorios'
+    | '/app/tarefas'
     | '/csat/$token'
     | '/demo/agente'
     | '/demo/campanhas'
@@ -702,6 +713,7 @@ export interface FileRouteTypes {
     | '/app/integracoes'
     | '/app/onboarding'
     | '/app/relatorios'
+    | '/app/tarefas'
     | '/csat/$token'
     | '/demo/agente'
     | '/demo/campanhas'
@@ -992,6 +1004,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CsatTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/tarefas': {
+      id: '/app/tarefas'
+      path: '/tarefas'
+      fullPath: '/app/tarefas'
+      preLoaderRoute: typeof AppTarefasRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/relatorios': {
       id: '/app/relatorios'
       path: '/relatorios'
@@ -1208,6 +1227,7 @@ interface AppRouteChildren {
   AppIntegracoesRoute: typeof AppIntegracoesRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
+  AppTarefasRoute: typeof AppTarefasRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -1227,6 +1247,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIntegracoesRoute: AppIntegracoesRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
+  AppTarefasRoute: AppTarefasRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
