@@ -36,6 +36,8 @@ export interface AgentConfig {
   pode_fazer: string;
   nao_pode_fazer: string;
   telefone_transferencia: string;
+  /** Regra afirmativa definida pelo cliente: em que situações chamar uma pessoa do time. */
+  quando_transferir?: string;
   palavra_pausar: string;
   palavra_despausar: string;
 
@@ -287,9 +289,7 @@ export function buildSystemPrompt(
         (txt(c.antecedencia_min) ? ` Antecedência mínima: ${txt(c.antecedencia_min)}.` : "") +
         ` Nunca invente horários: confirme com o time o que não estiver aqui.`
       : "",
-    txt(c.telefone_transferencia)
-      ? `Se o cliente pedir atendimento humano, reclamar de algo sensível, ou precisar de algo fora do seu escopo, oriente a falar com ${txt(c.telefone_transferencia)} e diga que vai transferir.`
-      : "Se o cliente pedir atendimento humano ou for algo sensível, diga educadamente que vai chamar alguém do time.",
+    "",
     sec("Contexto do contato", opts?.resumoContato),
     opts?.estagioAtual ? `Estágio atual no CRM: ${opts.estagioAtual}.` : "",
     `MÉTODO DE ATENDIMENTO (siga sempre):
