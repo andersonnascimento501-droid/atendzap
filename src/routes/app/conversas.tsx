@@ -778,6 +778,72 @@ function ConversasPage() {
                   <ExternalLink className="size-3.5 mr-1.5" /> Ver cliente
                 </Button>
               )}
+
+              {/* Etiquetas da conversa (separadas das tags do lead) */}
+              <div className="pt-3 border-t border-[color:var(--hairline)]">
+                <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold flex items-center gap-1.5">
+                  <Tag className="size-3" /> Etiquetas da conversa
+                </div>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {convTags.length === 0 && <span className="text-[11.5px] text-muted-foreground">Nenhuma etiqueta criada ainda.</span>}
+                  {convTags.map((t) => {
+                    const on = (states[active]?.tags ?? []).includes(t.nome);
+                    return (
+                      <button key={t.id} onClick={() => void alternarTag(active, t.nome)}
+                        className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                          on ? "text-primary-foreground" : "bg-[color:var(--panel-2)] text-muted-foreground border-[color:var(--hairline)]"
+                        }`}
+                        style={on ? { background: t.cor, borderColor: t.cor } : undefined}>
+                        {t.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-1.5">
+                  <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder="Nova etiqueta…"
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void criarTag(); } }}
+                    className="h-8 text-[12.5px]" />
+                  <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => void criarTag()} aria-label="Criar etiqueta">
+                    <Plus className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Notas internas — o cliente nunca recebe */}
+              <div className="pt-3 border-t border-[color:var(--hairline)]">
+                <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold flex items-center gap-1.5">
+                  <StickyNote className="size-3" /> Notas internas
+                  <HelpTip text="Só o seu time vê. O cliente nunca recebe essas anotações." />
+                </div>
+                <textarea
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  placeholder="Anotar algo para o time…"
+                  rows={2}
+                  className="w-full rounded-md border border-[color:var(--hairline)] bg-[color:var(--panel-2)] px-2.5 py-2 text-[12.5px] resize-y"
+                />
+                <Button size="sm" className="mt-1.5 w-full" disabled={savingNote || !noteDraft.trim()} onClick={() => void salvarNota()}>
+                  {savingNote ? <Loader2 className="size-3.5 animate-spin" /> : "Salvar nota"}
+                </Button>
+                <ul className="mt-2 space-y-1.5">
+                  {notes.map((n) => (
+                    <li key={n.id} className="rounded-lg bg-[color:var(--panel-2)] border border-[color:var(--hairline)] px-2.5 py-2">
+                      <div className="flex items-start gap-2">
+                        <p className="text-[12.5px] whitespace-pre-wrap flex-1 break-words">{n.texto}</p>
+                        {n.autor_id === userId && (
+                          <button onClick={() => void removerNota(n.id)} aria-label="Apagar nota" className="text-muted-foreground hover:text-red-600">
+                            <Trash2 className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[10.5px] text-muted-foreground mt-1">
+                        {new Date(n.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
               <div className="mt-auto pt-3 border-t border-[color:var(--hairline)] text-[11.5px] text-muted-foreground flex items-center gap-1.5">
                 <User className="size-3" /> {thread.length} mensagens nesta conversa
               </div>
