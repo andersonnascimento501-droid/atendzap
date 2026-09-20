@@ -509,6 +509,16 @@ function ConversasPage() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-[12.5px] text-muted-foreground truncate flex-1">{c.last.texto}</p>
+                        {(() => {
+                          const esperaMin = esperandoHaMin(states[c.numero]);
+                          if (esperaMin === null || esperaMin < ESPERA_ALERTA_MIN) return null;
+                          const txt = esperaMin >= 60 ? `${Math.floor(esperaMin / 60)}h` : `${esperaMin}m`;
+                          return (
+                            <span title={`Cliente esperando há ${txt}`} className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold text-amber-600">
+                              <Clock className="size-3" />{txt}
+                            </span>
+                          );
+                        })()}
                         {iaAtiva ? (
                           <span title="Atendente IA ativo" className="text-[color:var(--brand-text)]"><Bot className="size-3.5" /></span>
                         ) : (
