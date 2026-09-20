@@ -857,13 +857,21 @@ function ChannelTabs({ value, onChange }: { value: "todos" | Channel; onChange: 
   );
 }
 
-function FilterTabs({ value, onChange, counts }: { value: Filter; onChange: (f: Filter) => void; counts: { nao_lidas: number } }) {
+type FilterCounts = {
+  nao_lidas: number; nao_atribuidas: number; minhas: number;
+  do_time: number; aguardando: number; resolvidas: number;
+};
+
+function FilterTabs({ value, onChange, counts }: { value: Filter; onChange: (f: Filter) => void; counts: FilterCounts }) {
   const opts: { v: Filter; label: string; badge?: number }[] = [
     { v: "todas", label: "Todas" },
     { v: "nao_lidas", label: "Não lidas", badge: counts.nao_lidas },
-    { v: "minhas", label: "Atribuídas a mim" },
+    { v: "nao_atribuidas", label: "Não atribuídas", badge: counts.nao_atribuidas },
+    { v: "minhas", label: "Minhas", badge: counts.minhas },
+    { v: "do_time", label: "Do time", badge: counts.do_time },
+    { v: "aguardando", label: "Aguardando cliente", badge: counts.aguardando },
     { v: "ia_ativa", label: "IA ativa" },
-    { v: "resolvidas", label: "Resolvidas" },
+    { v: "resolvidas", label: "Resolvidas", badge: counts.resolvidas },
   ];
   return (
     <div className="inline-flex flex-wrap rounded-lg border border-[color:var(--hairline)] bg-[color:var(--panel)] p-1">
