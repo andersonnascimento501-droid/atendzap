@@ -280,6 +280,7 @@ function ConfigurarPage() {
           <Group title="Limites do atendente">
             <Area label="O que ele PODE fazer" value={cfg.pode_fazer} onChange={(v) => up("pode_fazer", v)} rows={3} />
             <Area label="O que ele NÃO pode fazer" value={cfg.nao_pode_fazer} onChange={(v) => up("nao_pode_fazer", v)} rows={3} />
+            <Area label="Quando chamar uma pessoa do time" value={(cfg as any).quando_transferir} onChange={(v) => up("quando_transferir" as any, v)} rows={3} />
             <Field label="Telefone para transferir atendimento" value={cfg.telefone_transferencia} onChange={(v) => up("telefone_transferencia", v)} />
           </Group>
 
