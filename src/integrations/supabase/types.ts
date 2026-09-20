@@ -280,6 +280,7 @@ export type Database = {
           produtos_servicos: string
           prompt_custom: string
           publico_alvo: string
+          quando_transferir: string
           reativar_cliente: boolean
           regiao_horario: string
           responder_em_partes: boolean
@@ -353,6 +354,7 @@ export type Database = {
           produtos_servicos?: string
           prompt_custom?: string
           publico_alvo?: string
+          quando_transferir?: string
           reativar_cliente?: boolean
           regiao_horario?: string
           responder_em_partes?: boolean
@@ -426,6 +428,7 @@ export type Database = {
           produtos_servicos?: string
           prompt_custom?: string
           publico_alvo?: string
+          quando_transferir?: string
           reativar_cliente?: boolean
           regiao_horario?: string
           responder_em_partes?: boolean
