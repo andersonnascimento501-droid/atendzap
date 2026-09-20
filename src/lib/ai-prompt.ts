@@ -314,6 +314,31 @@ ESTILO DE MENSAGEM (WhatsApp humano):
   const promptManual = txt(c.prompt_custom);
   const blocos: string[] = promptManual ? [promptManual] : autoBlocos;
 
+  // PROTOCOLO DE HANDOFF — sempre anexado (também quando há prompt manual).
+  // A regra do cliente entra de forma AFIRMATIVA, nunca dentro de "não pode fazer".
+  {
+    const regra = txt(c.quando_transferir);
+    const linhas = [
+      "QUANDO CHAMAR UMA PESSOA DO TIME (regra obrigatória):",
+      regra
+        ? `Situações definidas pela empresa em que você DEVE transferir: ${regra}`
+        : "Transfira quando o cliente pedir para falar com uma pessoa, quando houver reclamação séria ou quando o pedido estiver fora do que você sabe responder.",
+      "Transferir é PERMITIDO e esperado nessas situações — nunca trate isso como algo proibido.",
+      "Para transferir de verdade, use a ferramenta transferir_humano (com um resumo do atendimento). Dizer que vai transferir sem chamar a ferramenta NÃO transfere ninguém.",
+      "Só afirme ao cliente que alguém vai continuar o atendimento DEPOIS de a ferramenta retornar sucesso.",
+    ];
+    if (txt(c.telefone_transferencia)) {
+      linhas.push(
+        `Se precisar indicar um contato direto, use somente ${txt(c.telefone_transferencia)}. Nunca invente telefone, nome de atendente ou prazo de retorno.`,
+      );
+    } else {
+      linhas.push("Nunca invente telefone, nome de atendente ou prazo de retorno.");
+    }
+    blocos.push(linhas.join("\n"));
+  }
+
+
+
   if (partes) {
     blocos.push(
       `FORMATO DA RESPOSTA (OBRIGATÓRIO):
