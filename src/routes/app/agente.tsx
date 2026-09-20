@@ -360,6 +360,7 @@ function AgentePage() {
             <SummaryRow label="Como vende" value={cfg?.como_vender} multiline />
             <SummaryRow label="Pode fazer" value={cfg?.pode_fazer} multiline />
             <SummaryRow label="Não pode fazer" value={cfg?.nao_pode_fazer} multiline />
+            <SummaryRow label="Quando chamar uma pessoa do time" value={(cfg as any)?.quando_transferir} multiline />
           </Section>
 
           <Collapsible>
