@@ -552,6 +552,29 @@ function ConversasPage() {
                   </div>
                 </div>
                 <div className="ml-auto flex items-center gap-2">
+                  <select
+                    aria-label="Responsável pela conversa"
+                    value={ownerOf(active) ?? ""}
+                    onChange={(e) => void atribuir(active, e.target.value || null)}
+                    className="hidden sm:block max-w-[160px] rounded-md border border-[color:var(--hairline)] bg-[color:var(--panel-2)] px-2 py-1.5 text-[12.5px]"
+                  >
+                    <option value="">Sem responsável</option>
+                    {members.map((m) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.user_id === userId ? "Eu" : (m.nome || m.email)}
+                      </option>
+                    ))}
+                  </select>
+                  {states[active]?.fila === "resolvida" ? (
+                    <Button size="sm" variant="outline" onClick={() => void mudarFila(active, "aberta")}>
+                      <Undo2 className="size-3.5 sm:mr-1.5" /> <span className="hidden lg:inline">Reabrir</span>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => void mudarFila(active, "resolvida")}>
+                      <CheckCheck className="size-3.5 sm:mr-1.5" /> <span className="hidden lg:inline">Resolver</span>
+                    </Button>
+                  )}
+
                   {iaAtivaAqui ? (
                     <Button size="sm" onClick={() => void assumir()}>
                       <Hand className="size-3.5 mr-1.5" /> <span className="hidden sm:inline">Assumir conversa</span><span className="sm:hidden">Assumir</span>
