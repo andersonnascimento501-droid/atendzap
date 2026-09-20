@@ -463,9 +463,8 @@ function ConversasPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <ChannelTabs value={channelFilter} onChange={setChannelFilter} />
-          <FilterTabs value={filter} onChange={setFilter} counts={{
-            nao_lidas: Object.values(unread).reduce((a, b) => a + b, 0),
-          }} />
+          <FilterTabs value={filter} onChange={setFilter} counts={filterCounts} />
+
         </div>
       </header>
 
