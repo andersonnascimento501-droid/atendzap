@@ -557,6 +557,12 @@ function AgentePage() {
                   <Area label="O que PODE fazer" value={cfg.pode_fazer} onChange={(v) => up("pode_fazer", v)} rows={4} />
                   <Area label="O que NÃO pode fazer" value={cfg.nao_pode_fazer} onChange={(v) => up("nao_pode_fazer", v)} rows={4} />
                 </div>
+                <Area
+                  label="Quando chamar uma pessoa do time"
+                  value={(cfg as any).quando_transferir}
+                  onChange={(v) => up("quando_transferir" as any, v)}
+                  rows={3}
+                />
                 <div className="grid sm:grid-cols-3 gap-3">
                   <Field label="Telefone p/ transferência" value={cfg.telefone_transferencia} onChange={(v) => up("telefone_transferencia", v)} />
                   <Field label="Palavra para pausar" value={cfg.palavra_pausar} onChange={(v) => up("palavra_pausar", v)} />

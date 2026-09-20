@@ -36,6 +36,8 @@ export interface AgentConfig {
   pode_fazer: string;
   nao_pode_fazer: string;
   telefone_transferencia: string;
+  /** Regra afirmativa definida pelo cliente: em que situações chamar uma pessoa do time. */
+  quando_transferir?: string;
   palavra_pausar: string;
   palavra_despausar: string;
 
@@ -287,9 +289,7 @@ export function buildSystemPrompt(
         (txt(c.antecedencia_min) ? ` Antecedência mínima: ${txt(c.antecedencia_min)}.` : "") +
         ` Nunca invente horários: confirme com o time o que não estiver aqui.`
       : "",
-    txt(c.telefone_transferencia)
-      ? `Se o cliente pedir atendimento humano, reclamar de algo sensível, ou precisar de algo fora do seu escopo, oriente a falar com ${txt(c.telefone_transferencia)} e diga que vai transferir.`
-      : "Se o cliente pedir atendimento humano ou for algo sensível, diga educadamente que vai chamar alguém do time.",
+    "",
     sec("Contexto do contato", opts?.resumoContato),
     opts?.estagioAtual ? `Estágio atual no CRM: ${opts.estagioAtual}.` : "",
     `MÉTODO DE ATENDIMENTO (siga sempre):
@@ -313,6 +313,31 @@ ESTILO DE MENSAGEM (WhatsApp humano):
   // Os protocolos técnicos abaixo continuam sendo anexados para o motor não quebrar.
   const promptManual = txt(c.prompt_custom);
   const blocos: string[] = promptManual ? [promptManual] : autoBlocos;
+
+  // PROTOCOLO DE HANDOFF — sempre anexado (também quando há prompt manual).
+  // A regra do cliente entra de forma AFIRMATIVA, nunca dentro de "não pode fazer".
+  {
+    const regra = txt(c.quando_transferir);
+    const linhas = [
+      "QUANDO CHAMAR UMA PESSOA DO TIME (regra obrigatória):",
+      regra
+        ? `Situações definidas pela empresa em que você DEVE transferir: ${regra}`
+        : "Transfira quando o cliente pedir para falar com uma pessoa, quando houver reclamação séria ou quando o pedido estiver fora do que você sabe responder.",
+      "Transferir é PERMITIDO e esperado nessas situações — nunca trate isso como algo proibido.",
+      "Para transferir de verdade, use a ferramenta transferir_humano (com um resumo do atendimento). Dizer que vai transferir sem chamar a ferramenta NÃO transfere ninguém.",
+      "Só afirme ao cliente que alguém vai continuar o atendimento DEPOIS de a ferramenta retornar sucesso.",
+    ];
+    if (txt(c.telefone_transferencia)) {
+      linhas.push(
+        `Se precisar indicar um contato direto, use somente ${txt(c.telefone_transferencia)}. Nunca invente telefone, nome de atendente ou prazo de retorno.`,
+      );
+    } else {
+      linhas.push("Nunca invente telefone, nome de atendente ou prazo de retorno.");
+    }
+    blocos.push(linhas.join("\n"));
+  }
+
+
 
   if (partes) {
     blocos.push(

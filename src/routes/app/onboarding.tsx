@@ -241,9 +241,7 @@ function Onboarding() {
       ...agente,
       allowed_tools: allowedTools,
       telefone_transferencia: telefoneTransferencia,
-      nao_pode_fazer: quandoTransferir
-        ? `Transferir para uma pessoa do time nas seguintes situações: ${quandoTransferir}`
-        : "",
+      quando_transferir: quandoTransferir || "",
     } as any);
     if (error) throw new Error(error.message);
     const a: any = await fetchDefaultAgent(supabase, companyId);

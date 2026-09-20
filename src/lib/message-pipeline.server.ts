@@ -468,6 +468,8 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   };
   const { lovableAiChat } = await import("@/lib/lovable-ai.server");
   let rawReply = "";
+  let toolsExecutadas = false;
+  let transferiuParaHumano = false;
   if (allowedTools.length) {
     const { runAgentTurn } = await import("@/lib/agent-runtime.server");
     const turn = await runAgentTurn(admin, {
@@ -477,10 +479,17 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
       stageNames: stages.map((s) => s.nome),
     });
     rawReply = turn.text;
+    toolsExecutadas = turn.toolResults.length > 0;
+    transferiuParaHumano = turn.pausedByTool;
   } else {
     rawReply = await lovableAiChat(messages, aiConfig);
   }
-  if (!rawReply.trim()) rawReply = await lovableAiChat(messages, aiConfig); // uma tentativa simples; falha => retry do job
+  // Retry simples só quando NENHUMA tool rodou: repetir sem tools depois de uma ação
+  // executada faria o modelo responder como se a ação não tivesse acontecido.
+  if (!rawReply.trim() && !toolsExecutadas) rawReply = await lovableAiChat(messages, aiConfig);
+  if (!rawReply.trim() && transferiuParaHumano) {
+    rawReply = "Já chamei alguém do time pra continuar seu atendimento por aqui.";
+  }
 
   const { parts, stage, agendar } = parseAiOutput(rawReply, stages.map((s) => ({ nome: s.nome, tipo: s.tipo })));
   const finalParts = sanitizeAiParts(responderEmPartes ? parts : [parts.join(" ")]);
