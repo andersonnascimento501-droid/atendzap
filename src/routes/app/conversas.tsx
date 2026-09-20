@@ -463,9 +463,8 @@ function ConversasPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <ChannelTabs value={channelFilter} onChange={setChannelFilter} />
-          <FilterTabs value={filter} onChange={setFilter} counts={{
-            nao_lidas: Object.values(unread).reduce((a, b) => a + b, 0),
-          }} />
+          <FilterTabs value={filter} onChange={setFilter} counts={filterCounts} />
+
         </div>
       </header>
 
@@ -510,6 +509,16 @@ function ConversasPage() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <p className="text-[12.5px] text-muted-foreground truncate flex-1">{c.last.texto}</p>
+                        {(() => {
+                          const esperaMin = esperandoHaMin(states[c.numero]);
+                          if (esperaMin === null || esperaMin < ESPERA_ALERTA_MIN) return null;
+                          const txt = esperaMin >= 60 ? `${Math.floor(esperaMin / 60)}h` : `${esperaMin}m`;
+                          return (
+                            <span title={`Cliente esperando há ${txt}`} className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold text-amber-600">
+                              <Clock className="size-3" />{txt}
+                            </span>
+                          );
+                        })()}
                         {iaAtiva ? (
                           <span title="Atendente IA ativo" className="text-[color:var(--brand-text)]"><Bot className="size-3.5" /></span>
                         ) : (
@@ -553,6 +562,29 @@ function ConversasPage() {
                   </div>
                 </div>
                 <div className="ml-auto flex items-center gap-2">
+                  <select
+                    aria-label="Responsável pela conversa"
+                    value={ownerOf(active) ?? ""}
+                    onChange={(e) => void atribuir(active, e.target.value || null)}
+                    className="hidden sm:block max-w-[160px] rounded-md border border-[color:var(--hairline)] bg-[color:var(--panel-2)] px-2 py-1.5 text-[12.5px]"
+                  >
+                    <option value="">Sem responsável</option>
+                    {members.map((m) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.user_id === userId ? "Eu" : (m.nome || m.email)}
+                      </option>
+                    ))}
+                  </select>
+                  {states[active]?.fila === "resolvida" ? (
+                    <Button size="sm" variant="outline" onClick={() => void mudarFila(active, "aberta")}>
+                      <Undo2 className="size-3.5 sm:mr-1.5" /> <span className="hidden lg:inline">Reabrir</span>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => void mudarFila(active, "resolvida")}>
+                      <CheckCheck className="size-3.5 sm:mr-1.5" /> <span className="hidden lg:inline">Resolver</span>
+                    </Button>
+                  )}
+
                   {iaAtivaAqui ? (
                     <Button size="sm" onClick={() => void assumir()}>
                       <Hand className="size-3.5 mr-1.5" /> <span className="hidden sm:inline">Assumir conversa</span><span className="sm:hidden">Assumir</span>
@@ -746,6 +778,72 @@ function ConversasPage() {
                   <ExternalLink className="size-3.5 mr-1.5" /> Ver cliente
                 </Button>
               )}
+
+              {/* Etiquetas da conversa (separadas das tags do lead) */}
+              <div className="pt-3 border-t border-[color:var(--hairline)]">
+                <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold flex items-center gap-1.5">
+                  <Tag className="size-3" /> Etiquetas da conversa
+                </div>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {convTags.length === 0 && <span className="text-[11.5px] text-muted-foreground">Nenhuma etiqueta criada ainda.</span>}
+                  {convTags.map((t) => {
+                    const on = (states[active]?.tags ?? []).includes(t.nome);
+                    return (
+                      <button key={t.id} onClick={() => void alternarTag(active, t.nome)}
+                        className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                          on ? "text-primary-foreground" : "bg-[color:var(--panel-2)] text-muted-foreground border-[color:var(--hairline)]"
+                        }`}
+                        style={on ? { background: t.cor, borderColor: t.cor } : undefined}>
+                        {t.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-1.5">
+                  <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder="Nova etiqueta…"
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void criarTag(); } }}
+                    className="h-8 text-[12.5px]" />
+                  <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => void criarTag()} aria-label="Criar etiqueta">
+                    <Plus className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Notas internas — o cliente nunca recebe */}
+              <div className="pt-3 border-t border-[color:var(--hairline)]">
+                <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold flex items-center gap-1.5">
+                  <StickyNote className="size-3" /> Notas internas
+                  <HelpTip text="Só o seu time vê. O cliente nunca recebe essas anotações." />
+                </div>
+                <textarea
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  placeholder="Anotar algo para o time…"
+                  rows={2}
+                  className="w-full rounded-md border border-[color:var(--hairline)] bg-[color:var(--panel-2)] px-2.5 py-2 text-[12.5px] resize-y"
+                />
+                <Button size="sm" className="mt-1.5 w-full" disabled={savingNote || !noteDraft.trim()} onClick={() => void salvarNota()}>
+                  {savingNote ? <Loader2 className="size-3.5 animate-spin" /> : "Salvar nota"}
+                </Button>
+                <ul className="mt-2 space-y-1.5">
+                  {notes.map((n) => (
+                    <li key={n.id} className="rounded-lg bg-[color:var(--panel-2)] border border-[color:var(--hairline)] px-2.5 py-2">
+                      <div className="flex items-start gap-2">
+                        <p className="text-[12.5px] whitespace-pre-wrap flex-1 break-words">{n.texto}</p>
+                        {n.autor_id === userId && (
+                          <button onClick={() => void removerNota(n.id)} aria-label="Apagar nota" className="text-muted-foreground hover:text-red-600">
+                            <Trash2 className="size-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[10.5px] text-muted-foreground mt-1">
+                        {new Date(n.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
               <div className="mt-auto pt-3 border-t border-[color:var(--hairline)] text-[11.5px] text-muted-foreground flex items-center gap-1.5">
                 <User className="size-3" /> {thread.length} mensagens nesta conversa
               </div>
@@ -857,13 +955,21 @@ function ChannelTabs({ value, onChange }: { value: "todos" | Channel; onChange: 
   );
 }
 
-function FilterTabs({ value, onChange, counts }: { value: Filter; onChange: (f: Filter) => void; counts: { nao_lidas: number } }) {
+type FilterCounts = {
+  nao_lidas: number; nao_atribuidas: number; minhas: number;
+  do_time: number; aguardando: number; resolvidas: number;
+};
+
+function FilterTabs({ value, onChange, counts }: { value: Filter; onChange: (f: Filter) => void; counts: FilterCounts }) {
   const opts: { v: Filter; label: string; badge?: number }[] = [
     { v: "todas", label: "Todas" },
     { v: "nao_lidas", label: "Não lidas", badge: counts.nao_lidas },
-    { v: "minhas", label: "Atribuídas a mim" },
+    { v: "nao_atribuidas", label: "Não atribuídas", badge: counts.nao_atribuidas },
+    { v: "minhas", label: "Minhas", badge: counts.minhas },
+    { v: "do_time", label: "Do time", badge: counts.do_time },
+    { v: "aguardando", label: "Aguardando cliente", badge: counts.aguardando },
     { v: "ia_ativa", label: "IA ativa" },
-    { v: "resolvidas", label: "Resolvidas" },
+    { v: "resolvidas", label: "Resolvidas", badge: counts.resolvidas },
   ];
   return (
     <div className="inline-flex flex-wrap rounded-lg border border-[color:var(--hairline)] bg-[color:var(--panel)] p-1">
