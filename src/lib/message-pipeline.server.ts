@@ -387,6 +387,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     stages: stages.map((s) => ({ nome: s.nome, tipo: s.tipo })),
     googleConectado: !!googleIntegration?.conectado,
     agendaTools: agendaToolsAtivas,
+    materialsAvailable: materials.length > 0,
   });
 
 

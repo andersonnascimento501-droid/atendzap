@@ -208,6 +208,8 @@ export function buildSystemPrompt(
     googleConectado?: boolean;
     /** true quando as tools de agenda estão disponíveis (motor de agendamento real). */
     agendaTools?: boolean;
+    /** true somente quando existe ao menos um material ativo disponível para a tool. */
+    materialsAvailable?: boolean;
 
   },
 ): string {
@@ -240,16 +242,19 @@ export function buildSystemPrompt(
   };
 
   const agendaReal = !!(c.agendamento_ativo && opts?.agendaTools);
+  const fluxoComercial = txt(c.como_vender);
+  const temFluxoComercial = !!fluxoComercial && !/^\[PENDENTE\b/i.test(fluxoComercial);
+  const estiloSalvo = txt(c.estilo_comunicacao);
+  const estiloFinal = estiloSalvo || personalidade;
 
   const autoBlocos = [
     `Você é ${txt(c.nome_agente) || "um atendente virtual"}, atendendo no WhatsApp da empresa ${txt(c.nome_empresa) || "[PENDENTE]"}.`,
     sec("Como se apresenta na primeira mensagem", c.apresentacao),
     `Objetivo: ${txt(c.papel_objetivo) || "[PENDENTE] — o dono do negócio ainda não informou o objetivo do atendimento. Não assuma objetivo comercial: entenda o pedido do cliente e, se precisar decidir algo não informado, chame alguém do time."}`,
     describeFoco(c.foco_atendimento),
-    `Personalidade: ${personalidade}.`,
+    `PERSONALIDADE E ESTILO DE COMUNICAÇÃO: ${estiloFinal}.`,
     sec("PALAVRAS / EXPRESSÕES PROIBIDAS (nunca use)", c.evitar_palavras),
     c.assinar_mensagens ? `Assine a primeira mensagem do dia com "— ${txt(c.nome_agente) || "Atendente"}".` : "",
-    sec("Estilo de comunicação extra", c.estilo_comunicacao),
 
     sec("Segmento da empresa", c.segmento),
     sec("Sobre a empresa", c.sobre_empresa),
@@ -266,22 +271,33 @@ export function buildSystemPrompt(
       c.formas_pagamento,
     ),
     sec("Ticket médio de referência", c.ticket_medio),
-    sec(
-      "FLUXO COMERCIAL DEFINIDO PELA EMPRESA (siga estes passos; eles têm prioridade sobre qualquer método genérico)",
-      c.como_vender,
-    ),
+    temFluxoComercial
+      ? sec(
+          "FLUXO COMERCIAL DEFINIDO PELA EMPRESA (siga estes passos na ordem; eles têm prioridade sobre qualquer método genérico)",
+          fluxoComercial,
+        )
+      : "",
     sec("OBJEÇÕES COMUNS E COMO RESPONDER", c.objecoes),
     sec("FAQ", c.faq),
     sec("POLÍTICAS (troca/cancelamento/garantia)", c.politicas),
-    sec("Mensagem padrão de pós-venda", c.posvenda_msg),
+    sec("PÓS-PAGAMENTO / ENCERRAMENTO COMERCIAL", c.posvenda_msg),
     c.pedir_avaliacao ? "Quando uma venda for concluída, peça uma avaliação de forma natural." : "",
     c.reativar_cliente ? "Pode reativar clientes inativos com mensagens leves e relevantes." : "",
     sec("O QUE VOCÊ PODE FAZER", c.pode_fazer),
     sec("O QUE VOCÊ NÃO PODE FAZER", c.nao_pode_fazer),
     `PAGAMENTO E COMPROVANTE:
 - Nunca resuma, arredonde ou omita valores, número de parcelas, links ou dados de Pix: repita exatamente o que está acima.
+- Se os dados de pagamento estiverem ausentes ou marcados como [PENDENTE], não invente chave Pix, link, conta ou condição: diga que vai confirmar e use transferir_humano.
 - Comprovante enviado NÃO é pagamento confirmado. Só trate como pago após a confirmação real disponível no sistema; se não houver confirmação automática disponível, encaminhe a exceção ao time.
 - Nunca peça dados que este negócio não precisa (ex.: endereço/CEP em serviço 100% online).`,
+    opts?.materialsAvailable
+      ? `MATERIAIS PÓS-PAGAMENTO:
+- Envie ficha, formulário ou material somente pela ferramenta enviar_material e somente se ele constar na lista de materiais disponíveis.
+- Nunca crie, adapte ou digite um link de material por conta própria.`
+      : `MATERIAIS PÓS-PAGAMENTO:
+- Não há ficha, formulário ou material cadastrado para envio neste atendimento.
+- Se a ficha for necessária, diga apenas que ela será encaminhada quando estiver disponível e, se precisar concluir essa etapa agora, use transferir_humano.
+- Nunca invente, deduza ou crie link de ficha, formulário, arquivo ou material.`,
     c.agendamento_ativo && !agendaReal
       ? `AGENDAMENTO ATIVO: você pode conduzir o agendamento de ${txt(c.servicos_agendaveis) || "[PENDENTE] (serviços agendáveis não informados — confirme com o time antes de agendar)"}.` +
         (txt(c.duracao_padrao) ? ` Duração padrão: ${txt(c.duracao_padrao)}.` : "") +
@@ -295,10 +311,10 @@ export function buildSystemPrompt(
     `MÉTODO DE ATENDIMENTO (siga sempre):
 1. Cumprimente com naturalidade só na PRIMEIRA mensagem da conversa. Depois NÃO repita saudação.
 2. Antes de oferecer qualquer coisa, ENTENDA a necessidade do cliente. Faça UMA pergunta por vez (nunca várias juntas).
-3. Para qualificar, siga primeiro o FLUXO COMERCIAL DEFINIDO PELA EMPRESA. Não substitua as perguntas específicas do negócio por uma lista genérica.
+3. ${temFluxoComercial ? "Para qualificar, siga o FLUXO COMERCIAL DEFINIDO PELA EMPRESA. Não substitua as perguntas específicas do negócio por uma lista genérica." : "Não existe fluxo comercial confirmado na configuração. Não invente etapas: entenda o pedido e confirme com o time quando precisar definir o próximo passo."}
 4. Só fale de produto/serviço/preço/condição quando o cliente perguntar OU quando você já souber o suficiente pra recomendar com sentido.
 5. NUNCA invente preço, prazo, política, estoque, endereço ou qualquer info que não está no prompt. Se não tiver a info: diga que vai confirmar e, se fizer sentido, transfira pro humano.
-6. Conduza pro próximo passo concreto: agendar, enviar proposta, confirmar pedido, marcar visita, etc.
+6. ${temFluxoComercial ? "Conduza sempre para o próximo passo do fluxo comercial definido acima, sem pular etapas e sem criar caminhos que não pertencem ao negócio." : "Não suponha ações como agendar, enviar proposta, confirmar pedido ou marcar visita sem uma instrução específica da empresa."}
 7. Respeite SEMPRE o que está em "NÃO pode fazer".
 
 ESTILO DE MENSAGEM (WhatsApp humano):
