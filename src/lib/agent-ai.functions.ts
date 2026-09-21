@@ -55,6 +55,18 @@ function answersToText(respostas: Record<string, unknown>): string {
     .join("\n");
 }
 
+/** Remove falas editoriais do gerador sem alterar o conteúdo comercial informado. */
+export function cleanGeneratedField(field: keyof GeneratedAgentConfig, value: unknown): string {
+  let text = toReadableText(value).trim();
+  if (field === "papel_objetivo") {
+    text = text
+      .replace(/^Para preencher (?:esses|os) campos[^\n]*\n?/i, "")
+      .replace(/^O que (?:ele|o atendente) precisa fazer no atendimento\?\s*/i, "")
+      .trim();
+  }
+  return text;
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // ANALISADOR PRD: olha o que o usuário escreveu, identifica lacunas críticas
 // e gera perguntas guiadas (com exemplos) para o leigo conseguir responder.
@@ -237,6 +249,7 @@ ${FIELDS.map((f) => `- ${f}`).join("\n")}
 DIRETRIZES (siga à risca):
 - "nome_agente": curto, humano, brasileiro (ex: Lia, Bia, Tom, Rafa). Não use "Assistente", "Bot", "IA".
 - "papel_objetivo": 1-2 frases. O QUE o agente faz e PRA QUE (qualificar, vender, agendar).
+- Em nenhum campo escreva preâmbulos editoriais como "Para preencher esses campos...", "eu colocaria assim" ou perguntas sobre como preencher. Entregue somente o conteúdo que irá para o atendente.
 - "estilo_comunicacao": tom específico pro segmento (ex: padaria de bairro = caloroso e direto; clínica = cordial e seguro).
 - "apresentacao": 1ª mensagem real que o agente envia. Curta, humana, 1 emoji só se combinar. Nada de "Olá! Como posso ajudá-lo hoje?".
 - "sobre_empresa": parágrafo curto que o agente pode usar quando o cliente perguntar "quem é vocês".
@@ -245,7 +258,7 @@ DIRETRIZES (siga à risca):
 - "objecoes": SOMENTE objeções e respostas que o dono informou, com as palavras dele. Se ele não informou, devolva "[PENDENTE]". É PROIBIDO criar objeção ou resposta como se fosse fato do negócio.
 - "faq": SOMENTE perguntas e respostas apoiadas no que o dono informou. Se não houver base, devolva "[PENDENTE]". Nunca invente resposta.
 - "politicas": copie a política informada pelo dono. Se ele não informou, devolva exatamente "[PENDENTE]". É PROIBIDO escrever política padrão, razoável ou de mercado.
-- "posvenda_msg": mensagem curta de pós-venda alinhada ao tom. NUNCA garanta resultado, ganho, cura ou retorno financeiro — só ofereça acompanhamento e suporte.
+- "posvenda_msg": use SOMENTE a regra pós-pagamento informada pelo dono. Se ele não informou, devolva "[PENDENTE]". Nunca invente onboarding, ficha, link ou próxima etapa.
 - "pode_fazer": lista (1 por linha) do que o agente pode prometer/fazer.
 - "nao_pode_fazer": lista (1 por linha) do que NÃO pode — inclua sempre "Não inventar preço, prazo ou política que não esteja aqui", "Não tratar comprovante enviado como pagamento confirmado" e "Não fechar venda sem confirmar os dados essenciais DESTE negócio". Se houver confirmação automática real, use-a; encaminhe ao humano somente quando não houver confirmação disponível ou houver divergência.
 - "ofertas": só preencha se o dono mencionou promoção/cupom. Senão, "".
@@ -284,7 +297,7 @@ Gere o JSON do agente.`;
     const gerado = {} as GeneratedAgentConfig;
     for (const k of FIELDS) {
       const v = parsed?.[k];
-      (gerado as any)[k] = toReadableText(v);
+      (gerado as any)[k] = cleanGeneratedField(k, v);
     }
 
     // Geração NÃO destrutiva: nada que o dono já confirmou é apagado, resumido

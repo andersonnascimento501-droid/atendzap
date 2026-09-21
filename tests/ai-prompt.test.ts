@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildSystemPrompt } from "../src/lib/ai-prompt";
+import { cleanGeneratedField } from "../src/lib/agent-ai.functions";
 import { toReadableText } from "../src/lib/structured-text";
 
 describe("serialização segura do prompt", () => {
@@ -55,5 +56,52 @@ describe("serialização segura do prompt", () => {
 
   test("não deixa marcador legado sobreviver dentro de estruturas", () => {
     expect(toReadableText({ produto: "[object Object]", valor: "R$397" })).toBe("Valor: R$397");
+  });
+
+  test("monta o fluxo real da consultoria sem ações genéricas nem ficha inventada", () => {
+    const prompt = buildSystemPrompt({
+      nome_agente: "Pedro",
+      nome_empresa: "Consultoria Pedro Bahia",
+      papel_objetivo: "Atender interessados, apresentar os planos e conduzir até o pagamento real.",
+      estilo_comunicacao: "Próximo, seguro e profissional.",
+      sobre_empresa: "Consultoria fitness online.",
+      produtos_servicos: "Trimestral: R$397. Semestral: R$599.",
+      formas_pagamento: "[PENDENTE] — dados de Pix e links de cartão ainda não cadastrados.",
+      como_vender: "Novo contato → Entender objetivo principal → Apresentar a consultoria → Cliente escolheu → Enviar forma de pagamento correta → Aguardando pagamento → Confirmar pagamento REAL → Pago / ficha enviada → Encerrar atendimento comercial",
+      posvenda_msg: "Após confirmação real, enviar a ficha inicial e encerrar o atendimento comercial.",
+      pode_fazer: "Explicar a consultoria.",
+      nao_pode_fazer: "Não inventar informações.",
+      quando_transferir: "quando faltar uma informação necessária",
+      telefone_transferencia: "",
+      palavra_pausar: "/pausar",
+      palavra_despausar: "/despausar",
+    }, { materialsAvailable: false });
+
+    expect(prompt).toContain("Consultoria Pedro Bahia");
+    expect(prompt).toContain("Novo contato → Entender objetivo principal");
+    expect(prompt).toContain("encerrar o atendimento comercial");
+    expect(prompt).toContain("Não há ficha, formulário ou material cadastrado");
+    expect(prompt).toContain("Nunca invente, deduza ou crie link de ficha");
+    expect(prompt).toContain("transferir_humano");
+    expect(prompt).not.toContain("agendar, enviar proposta, confirmar pedido, marcar visita");
+    expect(prompt).not.toContain("Estilo de comunicação extra");
+  });
+
+  test("não cita fluxo definido quando o fluxo está vazio", () => {
+    const prompt = buildSystemPrompt({
+      nome_agente: "Ana", nome_empresa: "Empresa", papel_objetivo: "Atender",
+      estilo_comunicacao: "Direto", sobre_empresa: "Serviços", produtos_servicos: "Serviço",
+      pode_fazer: "Responder", nao_pode_fazer: "Inventar", telefone_transferencia: "",
+      palavra_pausar: "/pausar", palavra_despausar: "/despausar", como_vender: "",
+    });
+    expect(prompt).not.toContain("FLUXO COMERCIAL DEFINIDO PELA EMPRESA");
+    expect(prompt).toContain("Não existe fluxo comercial confirmado");
+  });
+
+  test("remove texto editorial do objetivo gerado", () => {
+    expect(cleanGeneratedField(
+      "papel_objetivo",
+      "Para preencher esses campos do atendimento do Pedro, eu colocaria assim:\nO que ele precisa fazer no atendimento?\nAtender leads e conduzir ao pagamento.",
+    )).toBe("Atender leads e conduzir ao pagamento.");
   });
 });
