@@ -203,7 +203,9 @@ function AgentePage() {
   const promptPreview = buildSystemPrompt(cfg, {
     responderEmPartes: cfg.responder_em_partes,
     produtos: produtos.filter((p) => p.ativo).map((p) => ({ nome: p.nome, preco: p.preco, descricao: p.descricao })),
+    company: (ctx.company ?? undefined) as any,
   });
+
 
   return (
     <div className="space-y-6">
@@ -574,29 +576,15 @@ function AgentePage() {
             </TabsContent>
 
             <TabsContent value="prompt" className="space-y-3">
-              <Section title="Prompt manual" icon={<Bot className="size-3.5" />}>
+              <Section title="Instruções extras (prompt manual)" icon={<Bot className="size-3.5" />}>
                 <p className="text-sm text-muted-foreground">
-                  Aqui você escreve as instruções do atendente com suas palavras. Enquanto este campo estiver
-                  em branco, valem as informações preenchidas nas outras abas. Se você escrever algo aqui,
-                  este texto passa a valer no lugar delas — nada do que você já preencheu é apagado, então
-                  basta esvaziar este campo para voltar ao texto automático.
+                  Aqui você escreve instruções com suas palavras. Elas entram JUNTO com tudo o que você
+                  preencheu nas outras abas — produtos, preços, formas de pagamento, políticas e dados da
+                  empresa continuam valendo e continuam sendo atualizados quando você mudar aquelas abas.
+                  Para remover as instruções extras, basta esvaziar este campo.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (
-                        requiresManualOverrideConfirm(cfg.prompt_custom) &&
-                        !window.confirm(MANUAL_OVERRIDE_CONFIRM_MESSAGE)
-                      ) return;
-                      up("prompt_custom", promptPreview);
-                    }}
-                  >
-                    Usar o texto automático como base
-                  </Button>
-                  {String(cfg.prompt_custom ?? "").trim() ? (
+                {String(cfg.prompt_custom ?? "").trim() ? (
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
                       size="sm"
@@ -606,23 +594,24 @@ function AgentePage() {
                         up("prompt_custom", "");
                       }}
                     >
-                      Voltar para o texto automático
+                      Limpar instruções extras
                     </Button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
                 <Textarea
                   value={cfg.prompt_custom ?? ""}
                   onChange={(e) => up("prompt_custom", e.target.value)}
                   rows={18}
                   className="font-mono text-[12px] leading-relaxed"
-                  placeholder="Escreva aqui como o atendente deve se comportar, o que pode e o que não pode fazer…"
+                  placeholder="Ex: Nunca chame o cliente de senhor. Sempre confirme a cidade antes de falar de prazo."
                 />
                 {String(cfg.prompt_custom ?? "").trim() ? (
                   <p className="text-xs text-[var(--brand-text)]">
-                    Este texto está valendo. Clique em Salvar alterações.
+                    Estas instruções estão valendo junto com as demais abas. Clique em Salvar alterações.
                   </p>
                 ) : null}
               </Section>
+
 
               <Section title="Materiais da empresa" icon={<Sparkles className="size-3.5" />}>
                 <AgentMaterialsPanel companyId={companyId} agentId={cfg.id} />
