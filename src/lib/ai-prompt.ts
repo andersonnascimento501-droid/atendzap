@@ -20,11 +20,12 @@ export interface AgentConfig {
 
 
   /**
-   * Prompt escrito manualmente pelo cliente (modo avançado).
-   * Quando preenchido, substitui os blocos gerados automaticamente,
-   * mas os protocolos técnicos (formato, agenda real, estágio) continuam sendo anexados.
+   * Instruções EXTRAS escritas manualmente pelo cliente (modo avançado).
+   * NÃO substitui os blocos estruturados: é anexado como instrução adicional,
+   * para que produtos, preços, pagamento, políticas, FAQ e empresa continuem valendo.
    */
   prompt_custom?: string;
+
 
   // Identidade
   nome_agente: string;
@@ -196,6 +197,57 @@ function montaPersonalidade(c: Partial<AgentConfig>): string {
     c.perguntar_uma_por_vez === false ? "" : "faça SEMPRE uma pergunta por vez (nunca dispare várias juntas)",
   ].filter(Boolean).join("; ");
 }
+
+/** Idioma oficial do atendimento. Fallback: Português do Brasil. */
+const IDIOMA_LABEL: Record<string, string> = {
+  "pt-br": "Português do Brasil",
+  "pt-pt": "Português de Portugal",
+  es: "Espanhol",
+  en: "Inglês",
+};
+
+export function describeIdioma(idioma?: string | null): string {
+  const key = String(idioma || "pt-BR").trim().toLowerCase();
+  return IDIOMA_LABEL[key] ?? IDIOMA_LABEL["pt-br"]!;
+}
+
+/** Dados cadastrais da empresa (fonte oficial = tabela company). */
+export interface CompanyBrief {
+  nome?: string | null;
+  nome_fantasia?: string | null;
+  telefone?: string | null;
+  email_corporativo?: string | null;
+  site?: string | null;
+  rua?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+  cep?: string | null;
+  segmento?: string | null;
+}
+
+function montaBlocoEmpresa(company: CompanyBrief | undefined, nomeUsado: string): string {
+  if (!company) return "";
+  const linhas: string[] = [];
+  const add = (label: string, v: unknown) => {
+    const t = txt(v);
+    if (t) linhas.push(`- ${label}: ${t}`);
+  };
+  const fantasia = txt(company.nome_fantasia);
+  if (fantasia && fantasia !== nomeUsado) add("Nome fantasia", fantasia);
+  add("Telefone da empresa", company.telefone);
+  add("E-mail da empresa", company.email_corporativo);
+  add("Site", company.site);
+  const endereco = [txt(company.rua), txt(company.numero), txt(company.bairro)].filter(Boolean).join(", ");
+  add("Endereço", endereco);
+  add("Cidade", company.cidade);
+  add("Estado", company.estado);
+  add("CEP", company.cep);
+  if (!linhas.length) return "";
+  return `DADOS CADASTRAIS DA EMPRESA (use somente o que está aqui; nunca invente outro dado):\n${linhas.join("\n")}`;
+}
+
 
 export function buildSystemPrompt(
   c: Partial<AgentConfig>,
