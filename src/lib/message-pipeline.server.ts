@@ -394,7 +394,9 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     googleConectado: !!googleIntegration?.conectado,
     agendaTools: agendaToolsAtivas,
     materialsAvailable: materials.length > 0,
+    company: (companyRow ?? undefined) as any,
   });
+
 
 
 
