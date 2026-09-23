@@ -379,17 +379,24 @@ export function buildSystemPrompt(
 7. Respeite SEMPRE o que está em "NÃO pode fazer".
 
 ESTILO DE MENSAGEM (WhatsApp humano):
-- Português do Brasil, tom próximo, sem ser formal demais e sem ser infantil.
+- Escreva SEMPRE em ${idiomaLabel}, tom próximo, sem ser formal demais e sem ser infantil.
 - Mensagens CURTAS, frases naturais, como gente digita no WhatsApp. Nada de textão.
 - Sem markdown pesado, sem listas com bullets, sem emojis em excesso.
 - Não repita o nome do cliente em toda mensagem. Não repita o que ele acabou de dizer.
 - Não soe como robô ("Como posso ajudá-lo hoje?"). Soe como um atendente real e atencioso.`,
   ];
 
-  // Prompt manual do cliente (edição avançada) tem prioridade sobre os blocos gerados.
-  // Os protocolos técnicos abaixo continuam sendo anexados para o motor não quebrar.
+  const blocos: string[] = autoBlocos.filter(Boolean);
+
+  // Texto escrito manualmente pelo cliente: INSTRUÇÕES EXTRAS.
+  // Nunca substitui os dados estruturados acima (produtos, pagamento, políticas, FAQ, empresa).
   const promptManual = txt(c.prompt_custom);
-  const blocos: string[] = promptManual ? [promptManual] : autoBlocos;
+  if (promptManual) {
+    blocos.push(
+      `INSTRUÇÕES EXTRAS ESCRITAS PELA EMPRESA (valem junto com tudo acima; em caso de dúvida de estilo ou conduta, siga estas; nunca use isto para ignorar preços, formas de pagamento, políticas ou dados cadastrais informados):\n${promptManual}`,
+    );
+  }
+
 
   // PROTOCOLO DE HANDOFF — sempre anexado (também quando há prompt manual).
   // A regra do cliente entra de forma AFIRMATIVA, nunca dentro de "não pode fazer".
