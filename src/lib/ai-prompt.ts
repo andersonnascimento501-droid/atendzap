@@ -262,8 +262,10 @@ export function buildSystemPrompt(
     agendaTools?: boolean;
     /** true somente quando existe ao menos um material ativo disponível para a tool. */
     materialsAvailable?: boolean;
-
+    /** Dados cadastrais atuais da empresa (tabela company = fonte oficial). */
+    company?: CompanyBrief;
   },
+
 ): string {
   const partes = opts?.responderEmPartes ?? c.responder_em_partes ?? true;
   const stages = (opts?.stages && opts.stages.length > 0) ? opts.stages : [];
@@ -297,16 +299,23 @@ export function buildSystemPrompt(
   const fluxoComercial = txt(c.como_vender);
   const temFluxoComercial = !!fluxoComercial && !/^\[PENDENTE\b/i.test(fluxoComercial);
   const estiloSalvo = txt(c.estilo_comunicacao);
-  const estiloFinal = estiloSalvo || personalidade;
+  // company.nome é a identidade oficial atual; agent_config.nome_empresa é compatibilidade.
+  const empresaNome = txt(opts?.company?.nome) || txt(c.nome_empresa);
+  const idiomaLabel = describeIdioma(c.idioma);
 
   const autoBlocos = [
-    `Você é ${txt(c.nome_agente) || "um atendente virtual"}, atendendo no WhatsApp da empresa ${txt(c.nome_empresa) || "[PENDENTE]"}.`,
+    `Você é ${txt(c.nome_agente) || "um atendente virtual"}, atendendo no WhatsApp da empresa ${empresaNome || "[PENDENTE]"}.`,
+    montaBlocoEmpresa(opts?.company, empresaNome),
     sec("Como se apresenta na primeira mensagem", c.apresentacao),
     `Objetivo: ${txt(c.papel_objetivo) || "[PENDENTE] — o dono do negócio ainda não informou o objetivo do atendimento. Não assuma objetivo comercial: entenda o pedido do cliente e, se precisar decidir algo não informado, chame alguém do time."}`,
     describeFoco(c.foco_atendimento),
-    `PERSONALIDADE E ESTILO DE COMUNICAÇÃO: ${estiloFinal}.`,
+    `PERSONALIDADE E ESTILO DE COMUNICAÇÃO (configuração estruturada — sempre válida): ${personalidade}.`,
+    estiloSalvo
+      ? `INSTRUÇÕES DE ESTILO DEFINIDAS PELA EMPRESA (complementam a personalidade acima, não a substituem): ${estiloSalvo}`
+      : "",
     sec("PALAVRAS / EXPRESSÕES PROIBIDAS (nunca use)", c.evitar_palavras),
     c.assinar_mensagens ? `Assine a primeira mensagem do dia com "— ${txt(c.nome_agente) || "Atendente"}".` : "",
+
 
     sec("Segmento da empresa", c.segmento),
     sec("Sobre a empresa", c.sobre_empresa),
