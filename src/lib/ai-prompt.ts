@@ -20,11 +20,12 @@ export interface AgentConfig {
 
 
   /**
-   * Prompt escrito manualmente pelo cliente (modo avançado).
-   * Quando preenchido, substitui os blocos gerados automaticamente,
-   * mas os protocolos técnicos (formato, agenda real, estágio) continuam sendo anexados.
+   * Instruções EXTRAS escritas manualmente pelo cliente (modo avançado).
+   * NÃO substitui os blocos estruturados: é anexado como instrução adicional,
+   * para que produtos, preços, pagamento, políticas, FAQ e empresa continuem valendo.
    */
   prompt_custom?: string;
+
 
   // Identidade
   nome_agente: string;
@@ -197,6 +198,57 @@ function montaPersonalidade(c: Partial<AgentConfig>): string {
   ].filter(Boolean).join("; ");
 }
 
+/** Idioma oficial do atendimento. Fallback: Português do Brasil. */
+const IDIOMA_LABEL: Record<string, string> = {
+  "pt-br": "Português do Brasil",
+  "pt-pt": "Português de Portugal",
+  es: "Espanhol",
+  en: "Inglês",
+};
+
+export function describeIdioma(idioma?: string | null): string {
+  const key = String(idioma || "pt-BR").trim().toLowerCase();
+  return IDIOMA_LABEL[key] ?? IDIOMA_LABEL["pt-br"]!;
+}
+
+/** Dados cadastrais da empresa (fonte oficial = tabela company). */
+export interface CompanyBrief {
+  nome?: string | null;
+  nome_fantasia?: string | null;
+  telefone?: string | null;
+  email_corporativo?: string | null;
+  site?: string | null;
+  rua?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+  cep?: string | null;
+  segmento?: string | null;
+}
+
+function montaBlocoEmpresa(company: CompanyBrief | undefined, nomeUsado: string): string {
+  if (!company) return "";
+  const linhas: string[] = [];
+  const add = (label: string, v: unknown) => {
+    const t = txt(v);
+    if (t) linhas.push(`- ${label}: ${t}`);
+  };
+  const fantasia = txt(company.nome_fantasia);
+  if (fantasia && fantasia !== nomeUsado) add("Nome fantasia", fantasia);
+  add("Telefone da empresa", company.telefone);
+  add("E-mail da empresa", company.email_corporativo);
+  add("Site", company.site);
+  const endereco = [txt(company.rua), txt(company.numero), txt(company.bairro)].filter(Boolean).join(", ");
+  add("Endereço", endereco);
+  add("Cidade", company.cidade);
+  add("Estado", company.estado);
+  add("CEP", company.cep);
+  if (!linhas.length) return "";
+  return `DADOS CADASTRAIS DA EMPRESA (use somente o que está aqui; nunca invente outro dado):\n${linhas.join("\n")}`;
+}
+
+
 export function buildSystemPrompt(
   c: Partial<AgentConfig>,
   opts?: {
@@ -210,8 +262,10 @@ export function buildSystemPrompt(
     agendaTools?: boolean;
     /** true somente quando existe ao menos um material ativo disponível para a tool. */
     materialsAvailable?: boolean;
-
+    /** Dados cadastrais atuais da empresa (tabela company = fonte oficial). */
+    company?: CompanyBrief;
   },
+
 ): string {
   const partes = opts?.responderEmPartes ?? c.responder_em_partes ?? true;
   const stages = (opts?.stages && opts.stages.length > 0) ? opts.stages : [];
@@ -245,16 +299,23 @@ export function buildSystemPrompt(
   const fluxoComercial = txt(c.como_vender);
   const temFluxoComercial = !!fluxoComercial && !/^\[PENDENTE\b/i.test(fluxoComercial);
   const estiloSalvo = txt(c.estilo_comunicacao);
-  const estiloFinal = estiloSalvo || personalidade;
+  // company.nome é a identidade oficial atual; agent_config.nome_empresa é compatibilidade.
+  const empresaNome = txt(opts?.company?.nome) || txt(c.nome_empresa);
+  const idiomaLabel = describeIdioma(c.idioma);
 
   const autoBlocos = [
-    `Você é ${txt(c.nome_agente) || "um atendente virtual"}, atendendo no WhatsApp da empresa ${txt(c.nome_empresa) || "[PENDENTE]"}.`,
+    `Você é ${txt(c.nome_agente) || "um atendente virtual"}, atendendo no WhatsApp da empresa ${empresaNome || "[PENDENTE]"}.`,
+    montaBlocoEmpresa(opts?.company, empresaNome),
     sec("Como se apresenta na primeira mensagem", c.apresentacao),
     `Objetivo: ${txt(c.papel_objetivo) || "[PENDENTE] — o dono do negócio ainda não informou o objetivo do atendimento. Não assuma objetivo comercial: entenda o pedido do cliente e, se precisar decidir algo não informado, chame alguém do time."}`,
     describeFoco(c.foco_atendimento),
-    `PERSONALIDADE E ESTILO DE COMUNICAÇÃO: ${estiloFinal}.`,
+    `PERSONALIDADE E ESTILO DE COMUNICAÇÃO (configuração estruturada — sempre válida): ${personalidade}.`,
+    estiloSalvo
+      ? `INSTRUÇÕES DE ESTILO DEFINIDAS PELA EMPRESA (complementam a personalidade acima, não a substituem): ${estiloSalvo}`
+      : "",
     sec("PALAVRAS / EXPRESSÕES PROIBIDAS (nunca use)", c.evitar_palavras),
     c.assinar_mensagens ? `Assine a primeira mensagem do dia com "— ${txt(c.nome_agente) || "Atendente"}".` : "",
+
 
     sec("Segmento da empresa", c.segmento),
     sec("Sobre a empresa", c.sobre_empresa),
@@ -318,17 +379,24 @@ export function buildSystemPrompt(
 7. Respeite SEMPRE o que está em "NÃO pode fazer".
 
 ESTILO DE MENSAGEM (WhatsApp humano):
-- Português do Brasil, tom próximo, sem ser formal demais e sem ser infantil.
+- Escreva SEMPRE em ${idiomaLabel}, tom próximo, sem ser formal demais e sem ser infantil.
 - Mensagens CURTAS, frases naturais, como gente digita no WhatsApp. Nada de textão.
 - Sem markdown pesado, sem listas com bullets, sem emojis em excesso.
 - Não repita o nome do cliente em toda mensagem. Não repita o que ele acabou de dizer.
 - Não soe como robô ("Como posso ajudá-lo hoje?"). Soe como um atendente real e atencioso.`,
   ];
 
-  // Prompt manual do cliente (edição avançada) tem prioridade sobre os blocos gerados.
-  // Os protocolos técnicos abaixo continuam sendo anexados para o motor não quebrar.
+  const blocos: string[] = autoBlocos.filter(Boolean);
+
+  // Texto escrito manualmente pelo cliente: INSTRUÇÕES EXTRAS.
+  // Nunca substitui os dados estruturados acima (produtos, pagamento, políticas, FAQ, empresa).
   const promptManual = txt(c.prompt_custom);
-  const blocos: string[] = promptManual ? [promptManual] : autoBlocos;
+  if (promptManual) {
+    blocos.push(
+      `INSTRUÇÕES EXTRAS ESCRITAS PELA EMPRESA (valem junto com tudo acima; em caso de dúvida de estilo ou conduta, siga estas; nunca use isto para ignorar preços, formas de pagamento, políticas ou dados cadastrais informados):\n${promptManual}`,
+    );
+  }
+
 
   // PROTOCOLO DE HANDOFF — sempre anexado (também quando há prompt manual).
   // A regra do cliente entra de forma AFIRMATIVA, nunca dentro de "não pode fazer".

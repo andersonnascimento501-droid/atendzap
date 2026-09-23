@@ -274,43 +274,72 @@ export const setContactIaActive = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Teste da IA com a MESMA verdade do WhatsApp real:
+ * mesmo agente (agentId), mesma montagem de contexto (loadAgentContext → buildSystemPrompt),
+ * mesmas definições de tools. Só a execução externa das tools não acontece no teste.
+ */
 export const testAiReply = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { message: string }) => d)
+  .inputValidator((d: { message: string; agentId?: string | null; config?: Record<string, any> | null }) => ({
+    message: String(d?.message ?? "").slice(0, 4000),
+    agentId: d?.agentId ? String(d.agentId) : null,
+    config: d?.config && typeof d.config === "object" ? d.config : null,
+  }))
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const companyId = await resolveCompanyId(supabase, userId);
     const { lovableAiChat } = await import("./lovable-ai.server");
-    const { buildSystemPrompt, parseAiOutput } = await import("./ai-prompt");
-    const [{ data: cfg }, { data: stagesRows }, { data: prodRows }] = await Promise.all([
-      (await import("./agents")).fetchDefaultAgent(supabase, companyId).then((d: any) => ({ data: d })),
-      supabase.from("crm_stage").select("nome, tipo, ordem").eq("company_id", companyId).order("ordem", { ascending: true }),
-      supabase.from("produto").select("nome, preco, descricao, ordem").eq("company_id", companyId).eq("ativo", true).order("ordem", { ascending: true }),
-    ]);
-    const stages = (stagesRows ?? []).map((s: any) => ({ nome: s.nome, tipo: s.tipo }));
-    const produtos = (prodRows ?? []).map((p: any) => ({ nome: p.nome, preco: p.preco, descricao: p.descricao }));
-    const system = buildSystemPrompt(cfg ?? {}, {
-      responderEmPartes: cfg?.responder_em_partes ?? true,
-      stages,
-      produtos,
-      agendaTools: !!cfg?.agendamento_ativo,
+    const { parseAiOutput } = await import("./ai-prompt");
+    const { loadAgentContext } = await import("./agent-context.server");
+    const { stripAgentSecrets } = await import("./agents");
+
+    const ctxAgent = await loadAgentContext(supabase, {
+      companyId,
+      agentId: data.agentId,
+      overrides: data.config ? stripAgentSecrets(data.config) : null,
     });
+    const cfg = ctxAgent.agent ?? {};
+
+    // Mesmas regras/definições de tools que o runtime entrega ao modelo.
+    let toolsPrompt = "";
+    if (ctxAgent.allowedTools.length && cfg.id) {
+      const { buildToolsPromptBlock, loadCustomFields } = await import("./agent-tools.server");
+      const fields = await loadCustomFields(supabase, companyId, cfg.id as string);
+      toolsPrompt = buildToolsPromptBlock(
+        {
+          companyId,
+          userId,
+          agentId: cfg.id,
+          agentNome: cfg.nome_agente,
+          numero: "teste",
+          contatoNome: null,
+          allowedTools: ctxAgent.allowedTools,
+          fields,
+          materials: ctxAgent.materials,
+          jobId: "preview",
+        } as any,
+        null,
+      );
+    }
 
     // Enforcement: provider precisa estar liberado no plano (Starter = Gemini)
     const { getCompanyPlan } = await import("./plan-limits.server");
     const { allowsProvider, PLAN_LABEL } = await import("./plan-features");
     const plan = await getCompanyPlan(companyId);
-    let provider = ((cfg as any)?.ai_provider || "gemini") as string;
-    let model = ((cfg as any)?.ai_model || "google/gemini-2.5-flash") as string;
+    const provider = ((cfg as any)?.ai_provider || "gemini") as string;
+    const model = ((cfg as any)?.ai_model || "google/gemini-2.5-flash") as string;
     if (!allowsProvider(plan.slug, provider)) {
       throw new Error(
         `O provedor ${provider.toUpperCase()} não está incluso no plano ${PLAN_LABEL[plan.slug]}. Faça upgrade para Pro para usar GPT/Claude.`,
       );
     }
 
+    const stages = ctxAgent.stages.map((s) => ({ nome: s.nome, tipo: s.tipo }));
     const raw = await lovableAiChat(
       [
-        { role: "system", content: system },
+        { role: "system", content: ctxAgent.system },
+        ...(toolsPrompt ? [{ role: "system" as const, content: toolsPrompt }] : []),
         { role: "user", content: data.message },
       ],
       {
@@ -322,6 +351,9 @@ export const testAiReply = createServerFn({ method: "POST" })
       },
     );
     const { parts, stage } = parseAiOutput(raw, stages);
-    return { reply: parts.join("\n\n"), parts, stage, system };
+    const { sanitizeAiParts } = await import("./message-pipeline.server");
+    const finalParts = sanitizeAiParts(parts);
+    return { reply: finalParts.join("\n\n"), parts: finalParts, stage, system: ctxAgent.system };
   });
+
 

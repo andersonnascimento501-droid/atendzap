@@ -26,12 +26,14 @@ import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/app/agente/avancado")({
   head: () => ({ meta: [{ title: `${brand.name} — Agente IA` }] }),
+  validateSearch: (s: Record<string, unknown>) => ({ id: typeof s.id === "string" ? s.id : undefined }),
   beforeLoad: ({ context }: any) => {
     const r = context?.membership?.role;
     if (r === "atendente") throw redirect({ to: "/app/dashboard" });
   },
   component: AgentePage,
 });
+
 
 const DEFAULTS: any = {
   ai_provider: "gemini", ai_model: "google/gemini-2.5-flash",
@@ -135,8 +137,18 @@ function AgentePage() {
 
   async function reload() {
     if (!companyId) return;
+    const { fetchDefaultAgent, AGENT_SAFE_COLUMNS } = await import("@/lib/agents");
+    const agentPromise = searchId
+      ? supabase
+          .from("agent_config")
+          .select(AGENT_SAFE_COLUMNS)
+          .eq("company_id", companyId)
+          .eq("id", searchId)
+          .maybeSingle()
+          .then((r: any) => ({ data: r.data }))
+      : fetchDefaultAgent(supabase, companyId).then((d: any) => ({ data: d }));
     const [{ data: c }, { data: p }, { data: g }] = await Promise.all([
-      (await import("@/lib/agents")).fetchDefaultAgent(supabase, companyId).then((d: any) => ({ data: d })),
+      agentPromise,
       supabase.from("produto").select("*").eq("company_id", companyId).order("ordem", { ascending: true }),
       supabase.from("google_integration").select("company_id,email,conectado,calendar_id,expiry,updated_at").eq("company_id", companyId).maybeSingle(),
     ]);
@@ -146,14 +158,29 @@ function AgentePage() {
     setLoading(false);
   }
 
-  useEffect(() => { void reload(); }, [companyId]);
+  useEffect(() => { void reload(); }, [companyId, searchId]);
 
   function up(k: string, v: any) { setCfg((p: any) => ({ ...p, [k]: v })); }
 
   async function save() {
     if (!companyId) return;
     setSaving(true);
-    const { saveDefaultAgentConfig } = await import("@/lib/agents");
+    const { stripAgentSecrets, saveDefaultAgentConfig } = await import("@/lib/agents");
+    // Multiagente: quando um agente específico está aberto, salva NELE (nunca no padrão).
+    if (cfg?.id) {
+      const {
+        id: _i, company_id: _c, user_id: _u, created_at: _ca, updated_at: _ua, source_template_id: _st, ...rest
+      } = cfg;
+      const { error } = await supabase
+        .from("agent_config")
+        .update(stripAgentSecrets(rest))
+        .eq("id", cfg.id)
+        .eq("company_id", companyId);
+      setSaving(false);
+      if (error) return toast.error(error.message);
+      toast.success("Configuração salva");
+      return;
+    }
     const { error } = await saveDefaultAgentConfig(supabase, companyId, ctx.user.id, cfg as any);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -163,11 +190,13 @@ function AgentePage() {
   async function runTest() {
     setTesting(true); setTestReply([]);
     try {
-      const r = await test({ data: { message: testMsg } });
+      // Testa exatamente o que está na tela, no agente que está aberto.
+      const r = await test({ data: { message: testMsg, agentId: cfg?.id ?? null, config: cfg } });
       setTestReply(r.parts);
     } catch (e: any) { toast.error(e?.message || "Falha"); }
     finally { setTesting(false); }
   }
+
 
   // Produtos CRUD
   async function addProduto() {
@@ -203,7 +232,9 @@ function AgentePage() {
   const promptPreview = buildSystemPrompt(cfg, {
     responderEmPartes: cfg.responder_em_partes,
     produtos: produtos.filter((p) => p.ativo).map((p) => ({ nome: p.nome, preco: p.preco, descricao: p.descricao })),
+    company: (ctx.company ?? undefined) as any,
   });
+
 
   return (
     <div className="space-y-6">
@@ -574,29 +605,15 @@ function AgentePage() {
             </TabsContent>
 
             <TabsContent value="prompt" className="space-y-3">
-              <Section title="Prompt manual" icon={<Bot className="size-3.5" />}>
+              <Section title="Instruções extras (prompt manual)" icon={<Bot className="size-3.5" />}>
                 <p className="text-sm text-muted-foreground">
-                  Aqui você escreve as instruções do atendente com suas palavras. Enquanto este campo estiver
-                  em branco, valem as informações preenchidas nas outras abas. Se você escrever algo aqui,
-                  este texto passa a valer no lugar delas — nada do que você já preencheu é apagado, então
-                  basta esvaziar este campo para voltar ao texto automático.
+                  Aqui você escreve instruções com suas palavras. Elas entram JUNTO com tudo o que você
+                  preencheu nas outras abas — produtos, preços, formas de pagamento, políticas e dados da
+                  empresa continuam valendo e continuam sendo atualizados quando você mudar aquelas abas.
+                  Para remover as instruções extras, basta esvaziar este campo.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (
-                        requiresManualOverrideConfirm(cfg.prompt_custom) &&
-                        !window.confirm(MANUAL_OVERRIDE_CONFIRM_MESSAGE)
-                      ) return;
-                      up("prompt_custom", promptPreview);
-                    }}
-                  >
-                    Usar o texto automático como base
-                  </Button>
-                  {String(cfg.prompt_custom ?? "").trim() ? (
+                {String(cfg.prompt_custom ?? "").trim() ? (
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
                       size="sm"
@@ -606,23 +623,24 @@ function AgentePage() {
                         up("prompt_custom", "");
                       }}
                     >
-                      Voltar para o texto automático
+                      Limpar instruções extras
                     </Button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
                 <Textarea
                   value={cfg.prompt_custom ?? ""}
                   onChange={(e) => up("prompt_custom", e.target.value)}
                   rows={18}
                   className="font-mono text-[12px] leading-relaxed"
-                  placeholder="Escreva aqui como o atendente deve se comportar, o que pode e o que não pode fazer…"
+                  placeholder="Ex: Nunca chame o cliente de senhor. Sempre confirme a cidade antes de falar de prazo."
                 />
                 {String(cfg.prompt_custom ?? "").trim() ? (
                   <p className="text-xs text-[var(--brand-text)]">
-                    Este texto está valendo. Clique em Salvar alterações.
+                    Estas instruções estão valendo junto com as demais abas. Clique em Salvar alterações.
                   </p>
                 ) : null}
               </Section>
+
 
               <Section title="Materiais da empresa" icon={<Sparkles className="size-3.5" />}>
                 <AgentMaterialsPanel companyId={companyId} agentId={cfg.id} />

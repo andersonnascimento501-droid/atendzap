@@ -208,7 +208,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     cfg = legacyCfg;
   }
 
-  const [{ data: stagesRows }, { data: produtosRows }] = await Promise.all([
+  const [{ data: stagesRows }, { data: produtosRows }, { data: companyRow }] = await Promise.all([
     admin.from("crm_stage").select("id, nome, tipo, ordem").eq("company_id", companyId).order("ordem", { ascending: true }),
     admin
       .from("produto")
@@ -216,9 +216,15 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
       .eq("company_id", companyId)
       .eq("ativo", true)
       .order("ordem", { ascending: true }),
+    admin
+      .from("company")
+      .select("nome,nome_fantasia,telefone,email_corporativo,site,rua,numero,bairro,cidade,estado,cep,segmento")
+      .eq("id", companyId)
+      .maybeSingle(),
   ]);
   const stages = (stagesRows ?? []) as Array<{ id: string; nome: string; tipo: "normal" | "ganho" | "perda" }>;
   const produtos = (produtosRows ?? []).map((p: any) => ({ nome: p.nome, preco: p.preco, descricao: p.descricao }));
+
 
   // ---- Human takeover: nada de IA, nada de crédito.
   const { data: pauseRow } = await admin
@@ -388,7 +394,9 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     googleConectado: !!googleIntegration?.conectado,
     agendaTools: agendaToolsAtivas,
     materialsAvailable: materials.length > 0,
+    company: (companyRow ?? undefined) as any,
   });
+
 
 
 
@@ -560,8 +568,9 @@ export function sanitizeAiParts(parts: string[]) {
     .map((part) => part.replace(/\s+/g, " ").trim())
     .filter(Boolean)
     .map((part) => (part.length > 700 ? `${part.slice(0, 697).trim()}...` : part))
-    .slice(0, 2);
+    .slice(0, 3);
 }
+
 
 export async function getAiThrottleReason(admin: any, companyId: string, numero: string): Promise<string | null> {
   const now = Date.now();
