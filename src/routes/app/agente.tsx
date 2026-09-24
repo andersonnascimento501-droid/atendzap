@@ -305,7 +305,7 @@ function AgentePage() {
         </div>
 
         <div className="text-center">
-          <Link to="/app/agente/avancado" className="text-xs text-muted-foreground underline">
+          <Link to="/app/agente/avancado" search={{ id: cfg?.id }} className="text-xs text-muted-foreground underline">
             Prefiro preencher tudo manualmente (edição avançada)
           </Link>
         </div>
@@ -334,7 +334,7 @@ function AgentePage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button asChild variant="outline" size="sm">
-            <Link to="/app/agente/avancado">
+            <Link to="/app/agente/avancado" search={{ id: cfg?.id }}>
               <Settings2 className="size-3.5 mr-1.5" /> Editar manualmente
             </Link>
           </Button>
@@ -408,7 +408,7 @@ function AgentePage() {
           </Collapsible>
 
           <div className="text-center">
-            <Link to="/app/agente/avancado" className="text-xs text-muted-foreground underline">
+            <Link to="/app/agente/avancado" search={{ id: cfg?.id }} className="text-xs text-muted-foreground underline">
               Edição avançada (todos os campos)
             </Link>
           </div>
