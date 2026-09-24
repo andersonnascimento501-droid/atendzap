@@ -118,8 +118,10 @@ interface Produto { id: string; nome: string; preco: number; descricao: string |
 
 function AgentePage() {
   const ctx = Route.useRouteContext();
+  const { id: searchId } = Route.useSearch();
   const companyId = ctx.company?.id;
   const test = useServerFn(testAiReply);
+
   const gStart = useServerFn(startGoogleOAuth);
   const gDisc = useServerFn(disconnectGoogle);
   const plan = usePlanFeatures();
