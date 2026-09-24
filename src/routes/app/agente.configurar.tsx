@@ -285,8 +285,9 @@ function ConfigurarPage() {
           </Group>
 
           <p className="text-xs text-muted-foreground text-center">
-            <Link to="/app/agente/avancado" className="underline">Ver todas as configurações detalhadas</Link>
+            <Link to="/app/agente/avancado" search={{ id: cfg.id }} className="underline">Ver todas as configurações detalhadas</Link>
           </p>
+
         </div>
       )}
 

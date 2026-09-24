@@ -178,11 +178,13 @@ function AgentePage() {
   async function runTest() {
     setTesting(true); setTestReply([]);
     try {
-      const r = await test({ data: { message: testMsg } });
+      // O que o cliente está vendo é o que ele testa (mesma montagem do WhatsApp real).
+      const r = await test({ data: { message: testMsg, agentId: cfg?.id ?? null, config: cfg ?? null } });
       setTestReply(r.parts);
     } catch (e: any) { toast.error(e?.message || "Falha"); }
     finally { setTesting(false); }
   }
+
 
   if (loading) return <div className="grid place-items-center h-40 text-muted-foreground"><Loader2 className="animate-spin" /></div>;
 
@@ -303,7 +305,7 @@ function AgentePage() {
         </div>
 
         <div className="text-center">
-          <Link to="/app/agente/avancado" className="text-xs text-muted-foreground underline">
+          <Link to="/app/agente/avancado" search={{ id: cfg?.id }} className="text-xs text-muted-foreground underline">
             Prefiro preencher tudo manualmente (edição avançada)
           </Link>
         </div>
@@ -332,7 +334,7 @@ function AgentePage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button asChild variant="outline" size="sm">
-            <Link to="/app/agente/avancado">
+            <Link to="/app/agente/avancado" search={{ id: cfg?.id }}>
               <Settings2 className="size-3.5 mr-1.5" /> Editar manualmente
             </Link>
           </Button>
@@ -406,7 +408,7 @@ function AgentePage() {
           </Collapsible>
 
           <div className="text-center">
-            <Link to="/app/agente/avancado" className="text-xs text-muted-foreground underline">
+            <Link to="/app/agente/avancado" search={{ id: cfg?.id }} className="text-xs text-muted-foreground underline">
               Edição avançada (todos os campos)
             </Link>
           </div>
@@ -433,8 +435,9 @@ function AgentePage() {
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground mt-2">
-              Salve a configuração antes de testar para usar as últimas alterações.
+              O teste usa exatamente o que está nesta tela — as mesmas informações que valem no WhatsApp.
             </p>
+
           </Section>
 
           <Collapsible>

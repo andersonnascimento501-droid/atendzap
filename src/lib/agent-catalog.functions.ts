@@ -184,7 +184,10 @@ export const installTemplate = createServerFn({ method: "POST" })
         source_template_id: tpl.id,
         channels: tpl.channels_supported,
         allowed_tools: tpl.default_tools,
-        papel_objetivo: tpl.prompt_base,
+        // prompt_base é um PROMPT completo: entra como instruções extras, nunca como "objetivo".
+        papel_objetivo: tpl.descricao_curta || tpl.descricao || "",
+        prompt_custom: tpl.prompt_base || "",
+
         ai_provider: tpl.provider_default,
         ai_model: tpl.model_default,
         nome_empresa: (companyRow as any)?.nome ?? "",

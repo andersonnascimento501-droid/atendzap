@@ -1,3 +1,6 @@
+// ATIVAÇÃO — caminho obrigatório mínimo: empresa → atendente (motor de IA existente)
+// → teste → WhatsApp → pronto. Nada é apagado: endereço, identidade visual, etapas do
+// funil, permissões e materiais continuam existindo nas telas próprias.
 import { createFileRoute, useNavigate, useSearch, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,14 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { brand } from "@/config/brand";
 import {
-  Loader2, Check, Building2, MapPin, Palette, Bot, PartyPopper,
-  MessageCircle, ShieldCheck, KanbanSquare, Paperclip, Send, Plus, ExternalLink, Settings2,
+  Loader2, Check, Building2, Bot, PartyPopper, MessageCircle, Send, ExternalLink, Settings2, Wand2, HelpCircle,
 } from "lucide-react";
-import { maskCpf, maskCnpj, maskPhone, maskCep } from "@/lib/masks";
-import { AgentActionsPanel } from "@/components/agent-actions-panel";
-import { AgentMaterialsPanel } from "@/components/agent-materials-panel";
+import { maskPhone } from "@/lib/masks";
 import { useWhatsappStatus } from "@/hooks/use-whatsapp-status";
 import { testAiReply } from "@/lib/evolution.functions";
+import { analyzeBusinessBrief, generateAgentConfig, type BriefQuestion } from "@/lib/agent-ai.functions";
 
 type Search = { checkout?: string };
 
@@ -32,15 +33,10 @@ export const Route = createFileRoute("/app/onboarding")({
 
 const STEPS = [
   { key: "empresa", label: "Empresa", icon: Building2 },
-  { key: "endereco", label: "Endereço", icon: MapPin },
-  { key: "identidade", label: "Identidade", icon: Palette },
   { key: "agente", label: "Atendente", icon: Bot },
-  { key: "acoes", label: "Permissões", icon: ShieldCheck },
-  { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { key: "funil", label: "Etapas", icon: KanbanSquare },
-  { key: "materiais", label: "Materiais", icon: Paperclip },
   { key: "teste", label: "Teste", icon: Send },
-  { key: "concluir", label: "Concluir", icon: PartyPopper },
+  { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { key: "concluir", label: "Pronto", icon: PartyPopper },
 ] as const;
 
 const SEGMENTOS = [
@@ -49,11 +45,7 @@ const SEGMENTOS = [
   "Indústria", "Construção", "Logística", "Outro",
 ];
 
-const PORTES = ["Autônomo / MEI", "Pequena (até 9)", "Média (10-49)", "Grande (50+)"];
-
-const ACOES_PADRAO = ["atualizar_lead", "qualificar_lead", "mover_pipeline", "transferir_humano"];
-
-type StageRow = { id: string; nome: string; ordem: number; cor: string; tipo: string };
+const PLACEHOLDER = `Ex: Tenho uma padaria artesanal na Vila Mariana, em São Paulo, aberta de seg a sáb das 6h às 20h. Vendo pães de fermentação natural, bolos sob encomenda e cestas de café da manhã. Entrego em até 5km. Recebo por Pix e cartão. Quero que o atendente descubra o que o cliente quer, sugira combos, confirme o endereço e mande a forma de pagamento.`;
 
 function Onboarding() {
   const ctx = Route.useRouteContext();
@@ -62,90 +54,54 @@ function Onboarding() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  // Empresa
-  const [tipoPessoa, setTipoPessoa] = useState<"pf" | "pj">("pj");
-  const [cnpjCpf, setCnpjCpf] = useState("");
-  const [razaoSocial, setRazaoSocial] = useState("");
-  const [nomeFantasia, setNomeFantasia] = useState(ctx.company?.nome ?? "");
-  const [emailCorp, setEmailCorp] = useState(ctx.user.email ?? "");
-  const [telefone, setTelefone] = useState("");
+  // Etapa 1 — identificação mínima da empresa (company = fonte oficial do cadastro)
+  const [nomeEmpresa, setNomeEmpresa] = useState(ctx.company?.nome ?? "");
   const [segmento, setSegmento] = useState("");
-  const [porte, setPorte] = useState("");
-  const [site, setSite] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [emailCorp, setEmailCorp] = useState(ctx.user.email ?? "");
 
-  // Endereço
-  const [cep, setCep] = useState("");
-  const [rua, setRua] = useState("");
-  const [numero, setNumero] = useState("");
-  const [complemento, setComplemento] = useState("");
-  const [bairro, setBairro] = useState("");
-  const [cidade, setCidade] = useState("");
-  const [estado, setEstado] = useState("");
-
-  // Identidade
-  const [primaryColor, setPrimaryColor] = useState(ctx.company?.primary_color ?? brand.primary);
-  const [logoUrl, setLogoUrl] = useState(ctx.company?.logo_url ?? "");
-
-  // Agente
-  const [agente, setAgente] = useState({
-    nome_agente: "Atendente Virtual",
-    papel_objetivo: "Atender clientes, tirar dúvidas e ajudar a fechar vendas.",
-    estilo_comunicacao: "Cordial, profissional e objetivo.",
-    sobre_empresa: "",
-    produtos_servicos: "",
-  });
+  // Etapa 2 — atendente pelo MESMO motor de /app/agente
+  const analyze = useServerFn(analyzeBusinessBrief);
+  const generate = useServerFn(generateAgentConfig);
+  const [descricao, setDescricao] = useState("");
+  const [perguntas, setPerguntas] = useState<BriefQuestion[]>([]);
+  const [respostas, setRespostas] = useState<Record<string, string>>({});
+  const [resumoIA, setResumoIA] = useState("");
+  const [cobertura, setCobertura] = useState(0);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [agente, setAgente] = useState<any>(null);
   const [agentId, setAgentId] = useState<string | undefined>(undefined);
-
-  // Permissões da IA
-  const [allowedTools, setAllowedTools] = useState<string[]>(ACOES_PADRAO);
+  // Regra de transferência: só grava o que o cliente escrever (nunca um default do sistema).
+  const [quandoTransferir, setQuandoTransferir] = useState("");
   const [telefoneTransferencia, setTelefoneTransferencia] = useState("");
-  const [quandoTransferir, setQuandoTransferir] = useState(
-    "Quando o cliente pedir para falar com uma pessoa, reclamar de algo sério ou pedir algo que a IA não sabe responder.",
-  );
 
-  // Etapas do funil
-  const [stages, setStages] = useState<StageRow[]>([]);
-  const [loadingStages, setLoadingStages] = useState(false);
-
-  // Teste
+  // Etapa 3 — teste com a mesma montagem do WhatsApp real
   const runTest = useServerFn(testAiReply);
   const [testMsg, setTestMsg] = useState("Oi, vocês atendem hoje?");
   const [testReply, setTestReply] = useState<string[]>([]);
   const [testing, setTesting] = useState(false);
+  const [testado, setTestado] = useState(false);
 
   const waStatus = useWhatsappStatus(15000);
 
-  // Sem empresa? Vai para checkout primeiro
   useEffect(() => {
     if (!ctx.company) navigate({ to: "/app/checkout", replace: true });
   }, [ctx.company, navigate]);
 
-  // Pré-preenche com dados existentes da empresa
   useEffect(() => {
     if (!ctx.company) return;
     const c = ctx.company;
-    if (c.tipo_pessoa) setTipoPessoa(c.tipo_pessoa as any);
-    if (c.cnpj_cpf) setCnpjCpf(c.cnpj_cpf);
-    if (c.razao_social) setRazaoSocial(c.razao_social);
-    if (c.nome_fantasia) setNomeFantasia(c.nome_fantasia);
-    if (c.email_corporativo) setEmailCorp(c.email_corporativo);
-    if (c.telefone) setTelefone(c.telefone);
+    if (c.nome_fantasia || c.nome) setNomeEmpresa(c.nome_fantasia || c.nome);
     if (c.segmento) setSegmento(c.segmento);
-    if (c.porte) setPorte(c.porte);
-    if (c.site) setSite(c.site);
-    if (c.cep) setCep(c.cep);
-    if (c.rua) setRua(c.rua);
-    if (c.numero) setNumero(c.numero);
-    if (c.complemento) setComplemento(c.complemento);
-    if (c.bairro) setBairro(c.bairro);
-    if (c.cidade) setCidade(c.cidade);
-    if (c.estado) setEstado(c.estado);
+    if (c.telefone) setTelefone(c.telefone);
+    if (c.email_corporativo) setEmailCorp(c.email_corporativo);
     if (typeof c.onboarding_step === "number" && c.onboarding_step > 0) {
       setStep(Math.min(c.onboarding_step, STEPS.length - 1));
     }
   }, [ctx.company]);
 
-  // Retoma o que já foi configurado do atendente (progresso salvo)
+  // Retoma o atendente já existente (nada é sobrescrito por default).
   useEffect(() => {
     if (!ctx.company) return;
     void (async () => {
@@ -153,116 +109,101 @@ function Onboarding() {
       const a: any = await fetchDefaultAgent(supabase, ctx.company!.id);
       if (!a) return;
       setAgentId(a.id);
-      setAgente((prev) => ({
-        nome_agente: a.nome_agente || prev.nome_agente,
-        papel_objetivo: a.papel_objetivo || prev.papel_objetivo,
-        estilo_comunicacao: a.estilo_comunicacao || prev.estilo_comunicacao,
-        sobre_empresa: a.sobre_empresa || prev.sobre_empresa,
-        produtos_servicos: a.produtos_servicos || prev.produtos_servicos,
-      }));
-      if (Array.isArray(a.allowed_tools) && a.allowed_tools.length) setAllowedTools(a.allowed_tools as string[]);
+      setAgente(a);
+      if (a.quando_transferir) setQuandoTransferir(a.quando_transferir);
       if (a.telefone_transferencia) setTelefoneTransferencia(a.telefone_transferencia);
     })();
   }, [ctx.company]);
 
-  // Etapas reais do CRM (criadas automaticamente com a empresa)
   useEffect(() => {
-    if (!ctx.company || STEPS[step]?.key !== "funil") return;
-    void reloadStages();
-  }, [ctx.company, step]);
-
-  // Toast pagamento aprovado
-  useEffect(() => {
-    if (search.checkout === "success") {
-      toast.success("Pagamento validado! Acesso liberado.");
-    }
+    if (search.checkout === "success") toast.success("Pagamento validado! Acesso liberado.");
   }, [search.checkout]);
 
   if (!ctx.company) return null;
   const companyId = ctx.company.id;
 
-  async function reloadStages() {
-    setLoadingStages(true);
-    const { data } = await supabase
-      .from("crm_stage")
-      .select("id, nome, ordem, cor, tipo")
-      .eq("company_id", companyId)
-      .order("ordem", { ascending: true });
-    setStages((data ?? []) as StageRow[]);
-    setLoadingStages(false);
-  }
-
-  async function addStage() {
-    const ordem = stages.length ? Math.max(...stages.map((s) => s.ordem)) + 1 : 0;
+  /** Dados cadastrais vão para company; erro de banco NUNCA é ignorado. */
+  async function persistCompany(nextStep: number) {
     const { error } = await supabase
-      .from("crm_stage")
-      .insert({ company_id: companyId, nome: "Nova etapa", ordem, cor: "#8AA89A", tipo: "normal" });
-    if (error) return toast.error(error.message);
-    await reloadStages();
+      .from("company")
+      .update({
+        nome: nomeEmpresa.trim() || ctx.company!.nome,
+        nome_fantasia: nomeEmpresa.trim() || null,
+        segmento: segmento || null,
+        telefone: telefone || null,
+        email_corporativo: emailCorp || null,
+        onboarding_step: nextStep,
+      })
+      .eq("id", companyId);
+    if (error) throw new Error(error.message);
   }
 
-  async function renameStage(id: string, nome: string) {
-    setStages((ss) => ss.map((s) => (s.id === id ? { ...s, nome } : s)));
-    await supabase.from("crm_stage").update({ nome }).eq("id", id).eq("company_id", companyId);
-  }
-
-  async function persistPartial(nextStep: number) {
-    const patch: any = {
-      tipo_pessoa: tipoPessoa,
-      cnpj_cpf: cnpjCpf || null,
-      razao_social: razaoSocial || null,
-      nome_fantasia: nomeFantasia || null,
-      email_corporativo: emailCorp || null,
-      telefone: telefone || null,
-      segmento: segmento || null,
-      porte: porte || null,
-      site: site || null,
-      cep: cep || null,
-      rua: rua || null,
-      numero: numero || null,
-      complemento: complemento || null,
-      bairro: bairro || null,
-      cidade: cidade || null,
-      estado: estado || null,
-      pais: "BR",
-      primary_color: primaryColor,
-      logo_url: logoUrl || null,
-      onboarding_step: nextStep,
-    };
-    await supabase.from("company").update(patch).eq("id", companyId);
-  }
-
-  /** Salva o atendente (sem apagar nada que já exista) e devolve o id. */
-  async function persistAgent() {
+  /** Grava o atendente na MESMA tabela/motor usado pelas outras telas. */
+  async function persistAgent(extra?: Record<string, any>) {
     const { saveDefaultAgentConfig, fetchDefaultAgent } = await import("@/lib/agents");
-    const { error } = await saveDefaultAgentConfig(supabase, companyId, ctx.user.id, {
-      nome_empresa: nomeFantasia.trim(),
-      segmento: segmento || "",
-      ...agente,
-      allowed_tools: allowedTools,
-      telefone_transferencia: telefoneTransferencia,
-      quando_transferir: quandoTransferir || "",
-    } as any);
+    const payload: Record<string, any> = {
+      ...(agente ?? {}),
+      ...(extra ?? {}),
+      nome_empresa: nomeEmpresa.trim(),
+      ...(segmento ? { segmento } : {}),
+    };
+    if (quandoTransferir.trim()) payload.quando_transferir = quandoTransferir.trim();
+    if (telefoneTransferencia.trim()) payload.telefone_transferencia = telefoneTransferencia.trim();
+    const { error } = await saveDefaultAgentConfig(supabase, companyId, ctx.user.id, payload);
     if (error) throw new Error(error.message);
     const a: any = await fetchDefaultAgent(supabase, companyId);
-    if (a?.id) setAgentId(a.id);
+    if (a) { setAgentId(a.id); setAgente(a); }
+    return a;
+  }
+
+  async function runAnalyze() {
+    if (descricao.trim().length < 20) {
+      return toast.error("Conte um pouco mais sobre o seu negócio.");
+    }
+    setAnalyzing(true);
+    try {
+      const preenchidos: Record<string, string> = {};
+      for (const [k, v] of Object.entries(agente ?? {})) {
+        if (typeof v === "string" && v.trim()) preenchidos[k] = v;
+      }
+      const a: any = await analyze({ data: { descricao, respostas, preenchidos } });
+      setResumoIA(a.resumo || "");
+      setCobertura(a.cobertura || 0);
+      setPerguntas(a.perguntas || []);
+      if (a.pronto || !(a.perguntas ?? []).length) await runGenerate(respostas);
+    } catch (e: any) {
+      toast.error(e?.message || "Não foi possível analisar agora.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  async function runGenerate(extraRespostas: Record<string, string>) {
+    setGenerating(true);
+    try {
+      const merged = { ...respostas, ...extraRespostas };
+      const r: any = await generate({ data: { descricao, respostas: merged } });
+      await persistAgent(r.config);
+      setPerguntas([]);
+      if (Array.isArray(r.conflitos) && r.conflitos.length) {
+        toast.warning(`Mantive o que você já tinha em: ${r.conflitos.join(", ")}.`);
+      }
+      toast.success("Atendente montado com as suas informações.");
+    } catch (e: any) {
+      toast.error(e?.message || "Não foi possível montar o atendente agora.");
+    } finally {
+      setGenerating(false);
+    }
   }
 
   function validateStep(): string | null {
     const key = STEPS[step]?.key;
     if (key === "empresa") {
-      if (!nomeFantasia.trim()) return "Informe o nome da empresa.";
-      if (!cnpjCpf.trim()) return tipoPessoa === "pj" ? "Informe o CNPJ." : "Informe o CPF.";
-      if (!telefone.trim()) return "Informe o telefone.";
-      if (!segmento) return "Selecione o segmento.";
-      if (!porte) return "Selecione o porte.";
+      if (!nomeEmpresa.trim()) return "Informe o nome do seu negócio.";
+      if (!segmento) return "Escolha o segmento.";
     }
-    if (key === "endereco") {
-      if (!cep.trim() || !cidade.trim() || !estado.trim()) return "Preencha CEP, cidade e estado.";
-    }
-    if (key === "agente") {
-      if (!agente.nome_agente.trim()) return "Dê um nome ao seu atendente.";
-      if (agente.sobre_empresa.trim().length < 10) return "Escreva um pouco sobre a sua empresa.";
+    if (key === "agente" && !agente?.sobre_empresa && !agente?.produtos_servicos) {
+      return "Conte sobre o negócio e toque em Montar meu atendente.";
     }
     return null;
   }
@@ -272,12 +213,11 @@ function Onboarding() {
     if (err) return toast.error(err);
     setSaving(true);
     try {
-      const key = STEPS[step]?.key;
-      if (key === "agente" || key === "acoes") await persistAgent();
-      await persistPartial(step + 1);
+      if (STEPS[step]?.key === "agente") await persistAgent();
+      await persistCompany(step + 1);
       setStep(Math.min(step + 1, STEPS.length - 1));
     } catch (e: any) {
-      toast.error(e.message || "Falha ao salvar");
+      toast.error(e.message || "Não foi possível salvar. Nada foi perdido, tente de novo.");
     } finally {
       setSaving(false);
     }
@@ -288,8 +228,9 @@ function Onboarding() {
     setTesting(true); setTestReply([]);
     try {
       await persistAgent();
-      const r = await runTest({ data: { message: testMsg } });
+      const r = await runTest({ data: { message: testMsg, agentId: agentId ?? null } });
       setTestReply(r.parts);
+      setTestado(true);
     } catch (e: any) {
       toast.error(e?.message || "Não foi possível testar agora.");
     } finally {
@@ -300,13 +241,13 @@ function Onboarding() {
   async function finalizar() {
     setSaving(true);
     try {
-      await persistPartial(STEPS.length - 1);
       await persistAgent();
-      await supabase.from("company").update({
-        onboarding_completed: true,
-        nome: nomeFantasia.trim(),
-      }).eq("id", companyId);
-
+      await persistCompany(STEPS.length - 1);
+      const { error } = await supabase
+        .from("company")
+        .update({ onboarding_completed: true, nome: nomeEmpresa.trim() })
+        .eq("id", companyId);
+      if (error) throw new Error(error.message);
       toast.success("Tudo pronto! Bem-vindo ao " + brand.name);
       window.location.href = "/app/dashboard";
     } catch (e: any) {
@@ -321,13 +262,12 @@ function Onboarding() {
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
       <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold font-display">Vamos configurar seu {brand.name}</h1>
+        <h1 className="text-2xl md:text-3xl font-bold font-display">Vamos deixar seu {brand.name} atendendo</h1>
         <p className="text-sm text-muted-foreground">
-          Passo a passo, em linguagem simples. Cada passo é salvo — você pode sair e continuar depois.
+          Cinco passos simples. Cada passo é salvo — você pode sair e continuar depois.
         </p>
       </div>
 
-      {/* Stepper */}
       <div className="flex items-center gap-1 md:gap-2 mb-6 overflow-x-auto pb-2">
         {STEPS.map((s, i) => {
           const Icon = s.icon;
@@ -352,47 +292,12 @@ function Onboarding() {
       <Card className="p-6 space-y-4">
         {stepKey === "empresa" && (
           <>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setTipoPessoa("pj")}
-                className={`flex-1 rounded-lg border-2 p-3 text-sm font-semibold transition ${tipoPessoa === "pj" ? "border-primary bg-primary/5" : "border-border"}`}
-              >Pessoa Jurídica (CNPJ)</button>
-              <button
-                type="button"
-                onClick={() => setTipoPessoa("pf")}
-                className={`flex-1 rounded-lg border-2 p-3 text-sm font-semibold transition ${tipoPessoa === "pf" ? "border-primary bg-primary/5" : "border-border"}`}
-              >Pessoa Física (CPF)</button>
-            </div>
-
-            <Row label={tipoPessoa === "pj" ? "CNPJ" : "CPF"}>
-              <Input
-                value={cnpjCpf}
-                onChange={(e) => setCnpjCpf(tipoPessoa === "pj" ? maskCnpj(e.target.value) : maskCpf(e.target.value))}
-                placeholder={tipoPessoa === "pj" ? "00.000.000/0000-00" : "000.000.000-00"}
-                inputMode="numeric"
-              />
+            <p className="text-sm text-muted-foreground">
+              Só o essencial agora. CNPJ, endereço e identidade visual você preenche depois em Configurações.
+            </p>
+            <Row label="Nome do seu negócio">
+              <Input value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)} placeholder="Ex: Padaria do João" />
             </Row>
-
-            {tipoPessoa === "pj" && (
-              <Row label="Razão social">
-                <Input value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} placeholder="Ex: Padaria do João LTDA" />
-              </Row>
-            )}
-
-            <Row label={tipoPessoa === "pj" ? "Nome fantasia" : "Nome do negócio"}>
-              <Input value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} placeholder="Ex: Padaria do João" />
-            </Row>
-
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Row label="E-mail corporativo">
-                <Input type="email" value={emailCorp} onChange={(e) => setEmailCorp(e.target.value)} />
-              </Row>
-              <Row label="Telefone">
-                <Input value={telefone} onChange={(e) => setTelefone(maskPhone(e.target.value))} placeholder="(11) 99999-9999" inputMode="tel" />
-              </Row>
-            </div>
-
             <div className="grid sm:grid-cols-2 gap-3">
               <Row label="Segmento">
                 <Select value={segmento} onValueChange={setSegmento}>
@@ -402,88 +307,118 @@ function Onboarding() {
                   </SelectContent>
                 </Select>
               </Row>
-              <Row label="Porte">
-                <Select value={porte} onValueChange={setPorte}>
-                  <SelectTrigger><SelectValue placeholder="Escolha…" /></SelectTrigger>
-                  <SelectContent>
-                    {PORTES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <Row label="Telefone de contato (opcional)">
+                <Input value={telefone} onChange={(e) => setTelefone(maskPhone(e.target.value))} placeholder="(11) 99999-9999" inputMode="tel" />
               </Row>
             </div>
-
-            <Row label="Site (opcional)">
-              <Input value={site} onChange={(e) => setSite(e.target.value)} placeholder="https://" />
+            <Row label="E-mail (opcional)">
+              <Input type="email" value={emailCorp} onChange={(e) => setEmailCorp(e.target.value)} />
             </Row>
-          </>
-        )}
-
-        {stepKey === "endereco" && (
-          <>
-            <div className="grid sm:grid-cols-3 gap-3">
-              <Row label="CEP"><Input value={cep} onChange={(e) => setCep(maskCep(e.target.value))} placeholder="00000-000" inputMode="numeric" /></Row>
-              <div className="sm:col-span-2"><Row label="Rua"><Input value={rua} onChange={(e) => setRua(e.target.value)} /></Row></div>
-            </div>
-            <div className="grid sm:grid-cols-3 gap-3">
-              <Row label="Número"><Input value={numero} onChange={(e) => setNumero(e.target.value)} /></Row>
-              <Row label="Complemento"><Input value={complemento} onChange={(e) => setComplemento(e.target.value)} placeholder="Sala, andar…" /></Row>
-              <Row label="Bairro"><Input value={bairro} onChange={(e) => setBairro(e.target.value)} /></Row>
-            </div>
-            <div className="grid sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-2"><Row label="Cidade"><Input value={cidade} onChange={(e) => setCidade(e.target.value)} /></Row></div>
-              <Row label="Estado (UF)"><Input value={estado} onChange={(e) => setEstado(e.target.value.toUpperCase().slice(0, 2))} placeholder="SP" /></Row>
-            </div>
-          </>
-        )}
-
-        {stepKey === "identidade" && (
-          <>
-            <Row label="Cor primária da marca">
-              <div className="flex items-center gap-3">
-                <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="h-10 w-14 rounded border" />
-                <Input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} />
-              </div>
-            </Row>
-            <p className="text-xs text-muted-foreground">Você pode trocar isso depois em Configurações.</p>
           </>
         )}
 
         {stepKey === "agente" && (
           <>
             <p className="text-sm text-muted-foreground">
-              Responda com suas palavras. É com isso que seu atendente vai conversar com os clientes.
+              Escreva com suas palavras. É com isso que seu atendente vai conversar com os clientes.
             </p>
-            <Row label="Como o atendente vai se chamar?">
-              <Input value={agente.nome_agente} onChange={(e) => setAgente({ ...agente, nome_agente: e.target.value })} />
+            <Row label="Conte sobre seu negócio, o que vocês vendem, como atendem e o que esse atendente deve fazer">
+              <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={8} placeholder={PLACEHOLDER} />
             </Row>
-            <Row label="O que ele precisa fazer no atendimento?">
-              <Textarea value={agente.papel_objetivo} onChange={(e) => setAgente({ ...agente, papel_objetivo: e.target.value })} rows={2} />
-            </Row>
-            <Row label="Como ele deve falar com o cliente?">
-              <Textarea value={agente.estilo_comunicacao} onChange={(e) => setAgente({ ...agente, estilo_comunicacao: e.target.value })} rows={2} />
-            </Row>
-            <Row label="Conte sobre a sua empresa">
-              <Textarea value={agente.sobre_empresa} onChange={(e) => setAgente({ ...agente, sobre_empresa: e.target.value })} rows={3} placeholder="O que faz, há quanto tempo, o que te diferencia…" />
-            </Row>
-            <Row label="O que você vende (com preços, se quiser)">
-              <Textarea value={agente.produtos_servicos} onChange={(e) => setAgente({ ...agente, produtos_servicos: e.target.value })} rows={3} placeholder="Liste os principais produtos e serviços." />
-            </Row>
-            <p className="text-xs text-muted-foreground">
-              Depois você pode ajustar tudo isso, ou escrever você mesmo as instruções, em{" "}
-              <span className="font-medium">Atendente → Editar manualmente</span>.
-            </p>
-          </>
-        )}
 
-        {stepKey === "acoes" && (
-          <>
-            <AgentActionsPanel allowedTools={allowedTools} onChangeTools={setAllowedTools} />
-            <Row label="Quando ele deve chamar uma pessoa do time?">
-              <Textarea value={quandoTransferir} onChange={(e) => setQuandoTransferir(e.target.value)} rows={3} />
+            {perguntas.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                  <HelpCircle className="size-3.5" /> Faltam alguns detalhes
+                </div>
+                {resumoIA && (
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Entendi até aqui:</span> {resumoIA}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-primary transition-all" style={{ width: `${Math.max(15, cobertura)}%` }} />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{cobertura}%</span>
+                </div>
+                {perguntas.map((q) => (
+                  <div key={q.id} className="rounded-xl border border-border p-3 space-y-2">
+                    <Label className="text-sm leading-snug">
+                      {q.pergunta}{q.obrigatoria && <span className="text-primary ml-1">*</span>}
+                    </Label>
+                    {q.porque && <p className="text-[11.5px] text-muted-foreground">{q.porque}</p>}
+                    <Textarea
+                      value={respostas[q.id] || ""}
+                      onChange={(e) => setRespostas((r) => ({ ...r, [q.id]: e.target.value }))}
+                      placeholder={q.exemplo ? `Ex: ${q.exemplo}` : ""}
+                      rows={2}
+                    />
+                  </div>
+                ))}
+                <Button onClick={() => runGenerate(respostas)} disabled={generating}>
+                  {generating ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Wand2 className="size-4 mr-1.5" />}
+                  Montar meu atendente
+                </Button>
+              </div>
+            )}
+
+            {perguntas.length === 0 && (
+              <Button onClick={runAnalyze} disabled={analyzing || generating}>
+                {analyzing || generating ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Wand2 className="size-4 mr-1.5" />}
+                Montar meu atendente
+              </Button>
+            )}
+
+            {agente?.nome_agente && (
+              <div className="rounded-xl border border-border p-4 space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">O que ficou configurado</div>
+                <Summary label="Nome do atendente" value={agente.nome_agente} />
+                <Summary label="Objetivo" value={agente.papel_objetivo} />
+                <Summary label="O que vocês vendem" value={agente.produtos_servicos} />
+                <Summary label="Formas de pagamento" value={agente.formas_pagamento} />
+              </div>
+            )}
+
+            <Row label="Quando ele deve chamar uma pessoa do time? (opcional)">
+              <Textarea
+                value={quandoTransferir}
+                onChange={(e) => setQuandoTransferir(e.target.value)}
+                rows={2}
+                placeholder="Se deixar em branco, ele chama alguém quando o cliente pedir, houver reclamação séria ou faltar informação."
+              />
             </Row>
             <Row label="Telefone de quem assume o atendimento (opcional)">
               <Input value={telefoneTransferencia} onChange={(e) => setTelefoneTransferencia(maskPhone(e.target.value))} placeholder="(11) 99999-9999" inputMode="tel" />
             </Row>
+            <p className="text-xs text-muted-foreground">
+              Depois você ajusta tudo — inclusive permissões, materiais e etapas — em{" "}
+              <span className="font-medium">Atendente</span>.
+            </p>
+          </>
+        )}
+
+        {stepKey === "teste" && (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Escreva como um cliente escreveria. O teste usa exatamente a mesma configuração que vale no WhatsApp.
+            </p>
+            <div className="flex gap-2">
+              <Input value={testMsg} onChange={(e) => setTestMsg(e.target.value)} placeholder="Mensagem do cliente…" />
+              <Button onClick={testar} disabled={testing}>
+                {testing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              </Button>
+            </div>
+            <div className="rounded-xl border border-border p-4 space-y-2 min-h-[120px]">
+              {testReply.length === 0 && !testing && <p className="text-xs text-muted-foreground">A resposta aparece aqui.</p>}
+              {testing && <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="size-3 animate-spin" />pensando…</div>}
+              {testReply.map((p, i) => (
+                <div key={i} className="max-w-[80%] rounded-2xl rounded-bl-md bg-primary/10 px-3.5 py-2.5 text-[13px]">{p}</div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Não gostou? Volte um passo, acrescente informações e monte de novo.
+            </p>
           </>
         )}
 
@@ -509,69 +444,7 @@ function Onboarding() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Abre em outra aba. Depois de ler o QR Code, volte aqui e clique em Avançar. Se preferir, pode conectar mais tarde.
-            </p>
-          </>
-        )}
-
-        {stepKey === "funil" && (
-          <>
-            <p className="text-sm text-muted-foreground">
-              Estas são as etapas pelas quais cada cliente passa. Já deixamos um caminho pronto — renomeie ou adicione o que fizer sentido pro seu negócio.
-            </p>
-            {loadingStages ? (
-              <div className="py-6 grid place-items-center text-muted-foreground"><Loader2 className="animate-spin" /></div>
-            ) : (
-              <div className="space-y-2">
-                {stages.map((s) => (
-                  <div key={s.id} className="flex items-center gap-2">
-                    <span className="size-3 rounded-full shrink-0" style={{ background: s.cor }} />
-                    <Input value={s.nome} onChange={(e) => renameStage(s.id, e.target.value)} />
-                    <span className="text-[11px] text-muted-foreground w-16 shrink-0">
-                      {s.tipo === "ganho" ? "fechou" : s.tipo === "perda" ? "não fechou" : ""}
-                    </span>
-                  </div>
-                ))}
-                <Button variant="outline" size="sm" onClick={addStage}>
-                  <Plus className="size-4 mr-1.5" /> Adicionar etapa
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-
-        {stepKey === "materiais" && (
-          <>
-            <p className="text-sm text-muted-foreground">
-              Opcional. Guarde fotos, catálogos em PDF, tabelas de preço ou links que o atendente pode enviar aos clientes.
-            </p>
-            <AgentMaterialsPanel companyId={companyId} agentId={agentId} />
-          </>
-        )}
-
-        {stepKey === "teste" && (
-          <>
-            <p className="text-sm text-muted-foreground">
-              Escreva como um cliente escreveria e veja a resposta antes de liberar o atendimento.
-            </p>
-            <div className="flex gap-2">
-              <Input value={testMsg} onChange={(e) => setTestMsg(e.target.value)} placeholder="Mensagem do cliente…" />
-              <Button onClick={testar} disabled={testing}>
-                {testing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              </Button>
-            </div>
-            <div className="rounded-xl border border-border p-4 space-y-2 min-h-[120px]">
-              {testReply.length === 0 && !testing && (
-                <p className="text-xs text-muted-foreground">A resposta aparece aqui.</p>
-              )}
-              {testing && <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="size-3 animate-spin" />pensando…</div>}
-              {testReply.map((p, i) => (
-                <div key={i} className="max-w-[80%] rounded-2xl rounded-bl-md bg-primary/10 px-3.5 py-2.5 text-[13px]">{p}</div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Não gostou da resposta? Volte um passo, ajuste as informações, ou depois use{" "}
-              <span className="font-medium">Atendente → Editar manualmente</span> para escrever as instruções do seu jeito.
+              Depois de conectar, mande uma mensagem de outro número para ver o atendimento acontecendo.
             </p>
           </>
         )}
@@ -581,13 +454,14 @@ function Onboarding() {
             <div className="size-16 mx-auto rounded-full bg-primary/10 grid place-items-center">
               <PartyPopper className="size-8 text-primary" />
             </div>
-            <h2 className="text-xl font-bold font-display">Tudo certo, {nomeFantasia}!</h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Seu atendente está configurado. Se quiser refinar depois, tudo fica em Atendente — inclusive a
-              opção de escrever as instruções manualmente.
-            </p>
+            <h2 className="text-xl font-bold font-display">Tudo certo, {nomeEmpresa}!</h2>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>{agente?.nome_agente ? `Atendente configurado: ${agente.nome_agente}` : "Atendente configurado"}</li>
+              <li>{testado ? "Teste realizado" : "Teste ainda não feito (opcional)"}</li>
+              <li>{waStatus === "connected" ? "WhatsApp conectado" : "WhatsApp ainda não conectado"}</li>
+            </ul>
             <div className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
-              <Settings2 className="size-3.5" /> Atendente → Editar manualmente
+              <Settings2 className="size-3.5" /> Atendente → para refinar quando quiser
             </div>
           </div>
         )}
@@ -614,6 +488,17 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     <div className="space-y-1.5">
       <Label>{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function Summary({ label, value }: { label: string; value?: unknown }) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  return (
+    <div className="space-y-0.5">
+      <div className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm whitespace-pre-wrap">{text}</div>
     </div>
   );
 }
