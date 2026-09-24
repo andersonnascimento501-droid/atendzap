@@ -48,14 +48,17 @@ export function AgentFieldsPanel({ companyId, agentId }: { companyId?: string; a
 
   async function reload() {
     if (!companyId) return;
-    const { data } = await supabase
+    // Multiagente: campo global (agent_id null) + campos DESTE agente. Nunca de outro agente.
+    let q = supabase
       .from("agent_custom_fields")
-      .select("id, key, label, description, field_type, required, active, sort_order")
-      .eq("company_id", companyId)
-      .order("sort_order", { ascending: true });
+      .select("id, key, label, description, field_type, required, active, sort_order, agent_id")
+      .eq("company_id", companyId);
+    q = agentId ? q.or(`agent_id.is.null,agent_id.eq.${agentId}`) : q.is("agent_id", null);
+    const { data } = await q.order("sort_order", { ascending: true });
     setFields((data ?? []) as FieldRow[]);
     setLoading(false);
   }
+
   useEffect(() => {
     void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps

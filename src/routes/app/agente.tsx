@@ -178,11 +178,13 @@ function AgentePage() {
   async function runTest() {
     setTesting(true); setTestReply([]);
     try {
-      const r = await test({ data: { message: testMsg } });
+      // O que o cliente está vendo é o que ele testa (mesma montagem do WhatsApp real).
+      const r = await test({ data: { message: testMsg, agentId: cfg?.id ?? null, config: cfg ?? null } });
       setTestReply(r.parts);
     } catch (e: any) { toast.error(e?.message || "Falha"); }
     finally { setTesting(false); }
   }
+
 
   if (loading) return <div className="grid place-items-center h-40 text-muted-foreground"><Loader2 className="animate-spin" /></div>;
 
@@ -433,8 +435,9 @@ function AgentePage() {
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground mt-2">
-              Salve a configuração antes de testar para usar as últimas alterações.
+              O teste usa exatamente o que está nesta tela — as mesmas informações que valem no WhatsApp.
             </p>
+
           </Section>
 
           <Collapsible>
