@@ -90,7 +90,7 @@ export async function loadAgentContext(
   const system = buildSystemPrompt(cfg as any, {
     responderEmPartes: cfg.responder_em_partes ?? true,
     produtos,
-    stages: stages.map((s) => ({ nome: s.nome, tipo: s.tipo })),
+    stages: stages.map((s: { nome: string; tipo: "normal" | "ganho" | "perda" }) => ({ nome: s.nome, tipo: s.tipo })),
     agendaTools,
     materialsAvailable: materials.length > 0,
     googleConectado: !!googleRow?.conectado,
