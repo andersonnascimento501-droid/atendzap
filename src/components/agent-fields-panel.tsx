@@ -39,7 +39,9 @@ type FieldRow = {
   required: boolean;
   active: boolean;
   sort_order: number;
+  agent_id?: string | null;
 };
+
 
 export function AgentFieldsPanel({ companyId, agentId }: { companyId?: string; agentId?: string }) {
   const [fields, setFields] = useState<FieldRow[]>([]);
