@@ -105,3 +105,28 @@ describe("serialização segura do prompt", () => {
     )).toBe("Atender leads e conduzir ao pagamento.");
   });
 });
+describe("empresa e idioma no prompt", () => {
+  test("company é a fonte oficial do nome e entra com os dados cadastrais", () => {
+    const prompt = buildSystemPrompt(
+      { nome_agente: "Lia", nome_empresa: "Empresa de nordestehiper", papel_objetivo: "Atender" },
+      {
+        company: {
+          nome: "Consultoria Pedro Bahia",
+          telefone: "(71) 99999-0000",
+          cidade: "Salvador",
+          estado: "BA",
+        },
+      },
+    );
+    expect(prompt).toContain("Consultoria Pedro Bahia");
+    expect(prompt).not.toContain("Empresa de nordestehiper");
+    expect(prompt).toContain("(71) 99999-0000");
+    expect(prompt).toContain("Salvador");
+  });
+
+  test("idioma configurado é respeitado", () => {
+    const prompt = buildSystemPrompt({ nome_agente: "Lia", idioma: "es" }, {});
+    expect(prompt).toContain("Espanhol");
+    expect(prompt).not.toContain("SEMPRE em Português do Brasil");
+  });
+});
