@@ -32,7 +32,7 @@ async function evo<T = any>(
       body: init.json !== undefined ? JSON.stringify(init.json) : init.body,
     });
   } catch (e: any) {
-    throw new Error(`Evolution API indisponível: ${e?.message || "falha de rede"}.${SUPPORT_SUFFIX}`);
+    throw Object.assign(new Error(`Evolution API indisponível: ${e?.message || "falha de rede"}.${SUPPORT_SUFFIX}`), { providerStatus: 0 });
   }
   const text = await res.text();
   let data: any = null;
@@ -43,7 +43,7 @@ async function evo<T = any>(
   }
   if (!res.ok) {
     const msg = data?.message || data?.error || text || `HTTP ${res.status}`;
-    throw new Error(`Evolution API: ${msg}.${SUPPORT_SUFFIX}`);
+    throw Object.assign(new Error(`Evolution API: ${msg}.${SUPPORT_SUFFIX}`), { providerStatus: res.status });
   }
   return data as T;
 }
