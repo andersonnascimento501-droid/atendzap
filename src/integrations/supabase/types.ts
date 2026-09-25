@@ -2321,6 +2321,7 @@ export type Database = {
           numero: string
           provider_message_id: string | null
           response_key: string | null
+          send_status: string | null
           texto: string
           tipo: string
           user_id: string
@@ -2340,6 +2341,7 @@ export type Database = {
           numero: string
           provider_message_id?: string | null
           response_key?: string | null
+          send_status?: string | null
           texto: string
           tipo?: string
           user_id: string
@@ -2359,6 +2361,7 @@ export type Database = {
           numero?: string
           provider_message_id?: string | null
           response_key?: string | null
+          send_status?: string | null
           texto?: string
           tipo?: string
           user_id?: string
@@ -2374,9 +2377,11 @@ export type Database = {
           completed_at: string | null
           created_at: string
           credit_consumed: boolean
+          credit_refunded: boolean
           id: string
           instance_name: string | null
           last_error: string | null
+          lease_token: string | null
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
@@ -2393,9 +2398,11 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           credit_consumed?: boolean
+          credit_refunded?: boolean
           id?: string
           instance_name?: string | null
           last_error?: string | null
+          lease_token?: string | null
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
@@ -2412,9 +2419,11 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           credit_consumed?: boolean
+          credit_refunded?: boolean
           id?: string
           instance_name?: string | null
           last_error?: string | null
+          lease_token?: string | null
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
@@ -2988,9 +2997,11 @@ export type Database = {
           completed_at: string | null
           created_at: string
           credit_consumed: boolean
+          credit_refunded: boolean
           id: string
           instance_name: string | null
           last_error: string | null
+          lease_token: string | null
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
@@ -3008,6 +3019,35 @@ export type Database = {
         }
       }
       mq_cleanup: { Args: never; Returns: number }
+      mq_enqueue: {
+        Args: {
+          _available_at: string
+          _company_id: string
+          _instance_name: string
+          _numero: string
+        }
+        Returns: undefined
+      }
+      mq_finish: {
+        Args: {
+          _attempts?: number
+          _error?: string
+          _id: string
+          _retry_at?: string
+          _status: string
+          _token: string
+        }
+        Returns: boolean
+      }
+      mq_recover_orphans: { Args: { _limit?: number }; Returns: number }
+      mq_renew_lease: {
+        Args: { _id: string; _token: string }
+        Returns: boolean
+      }
+      refund_ai_credit: {
+        Args: { _company_id: string; _ref?: string }
+        Returns: boolean
+      }
       seed_fin_categorias: { Args: { _company_id: string }; Returns: undefined }
       topup_plan_credits: {
         Args: { _company_id: string; _plan_slug: string }
