@@ -75,7 +75,7 @@ describe("geração não destrutiva do agente", () => {
 describe("modo manual do prompt", () => {
   const manual = "Você é a Rafa. Nunca prometa prazo. Preço do plano: R$397.";
 
-  test("(d) prompt_custom tem prioridade e é preservado exatamente", () => {
+  test("(d) prompt_custom é instrução EXTRA: soma-se aos dados estruturados", () => {
     const prompt = buildSystemPrompt(
       {
         prompt_custom: manual,
@@ -93,11 +93,14 @@ describe("modo manual do prompt", () => {
       },
       { responderEmPartes: false },
     );
-    expect(prompt.startsWith(manual)).toBe(true);
-    expect(prompt).not.toContain("Personalidade:");
-    expect(prompt).not.toContain("Plano mensal R$197");
+    expect(prompt).toContain(manual);
+    // Nada estruturado é perdido quando o cliente escreve instruções próprias.
+    expect(prompt).toContain("Plano mensal R$197");
+    expect(prompt).toContain("Pedro Bahia");
+    expect(prompt).toContain("PERSONALIDADE E ESTILO DE COMUNICAÇÃO");
     expect(isManualPromptMode(manual)).toBe(true);
   });
+
 
   test("(e) regeneração com prompt manual exige confirmação", () => {
     expect(requiresManualOverrideConfirm(manual)).toBe(true);
