@@ -24,7 +24,7 @@ async function graph<T = any>(
       body: init.json !== undefined ? JSON.stringify(init.json) : undefined,
     });
   } catch (e: any) {
-    throw new Error(`Instagram indisponível: ${e?.message || "falha de rede"}.`);
+    throw Object.assign(new Error(`Instagram indisponível: ${e?.message || "falha de rede"}.`), { providerStatus: 0 });
   }
   const text = await res.text();
   let data: any = null;
@@ -35,7 +35,7 @@ async function graph<T = any>(
   }
   if (!res.ok) {
     const msg = data?.error?.message || data?.message || text || `HTTP ${res.status}`;
-    throw new Error(`Instagram: ${msg}`);
+    throw Object.assign(new Error(`Instagram: ${msg}`), { providerStatus: res.status });
   }
   return data as T;
 }
