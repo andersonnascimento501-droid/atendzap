@@ -3,6 +3,7 @@
 // mídia → contact_pause → horário → buffer/consolidação → Supervisor → agente → tools → canal (WhatsApp/Instagram) → follow-up.
 
 import { channelOf } from "./channels";
+import { buildContextMessages } from "./queue-logic";
 
 export type QueueJob = {
   id: string;
@@ -12,7 +13,20 @@ export type QueueJob = {
   credit_consumed: boolean;
   routed_agent_id: string | null;
   run_seq: number;
+  lease_token: string | null;
 };
+
+export class LeaseLostError extends Error {
+  constructor() { super("lease-lost"); }
+}
+
+/** Renova a posse do job; se outro worker assumiu, aborta antes de qualquer efeito. */
+export async function assertLease(admin: any, job: QueueJob) {
+  if (!job.lease_token) return; // chamadas fora da fila (testes/legado)
+  const { data, error } = await admin.rpc("mq_renew_lease", { _id: job.id, _token: job.lease_token });
+  if (error) throw new Error(`mq_renew_lease: ${error.message}`);
+  if (!data) throw new LeaseLostError();
+}
 
 type PendingMsg = {
   id: string;
@@ -24,11 +38,11 @@ type PendingMsg = {
 
 export type PipelineResult = { status: "completed" | "skipped"; reason?: string };
 
-const MAX_PENDING = 20;
+const MAX_PENDING = 50;
 
 /** Mensagens de entrada ainda não processadas pela IA (buffer consolidado). */
 async function loadPending(admin: any, companyId: string, numero: string): Promise<PendingMsg[]> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from("mensagens")
     .select("id, texto, contato_nome, created_at, media_ref")
     .eq("company_id", companyId)
@@ -37,12 +51,14 @@ async function loadPending(admin: any, companyId: string, numero: string): Promi
     .is("ai_processed_at", null)
     .order("created_at", { ascending: true })
     .limit(MAX_PENDING);
+  if (error) throw new Error(`loadPending: ${error.message}`);
   return (data ?? []) as PendingMsg[];
 }
 
 async function markProcessed(admin: any, ids: string[]) {
   if (!ids.length) return;
-  await admin.from("mensagens").update({ ai_processed_at: new Date().toISOString() }).in("id", ids);
+  const { error } = await admin.from("mensagens").update({ ai_processed_at: new Date().toISOString() }).in("id", ids);
+  if (error) throw new Error(`markProcessed: ${error.message}`);
 }
 
 /** Interpreta a mídia guardada pelo webhook (Whisper / Vision / documento) — pesado, por isso roda aqui. */
@@ -134,8 +150,15 @@ async function resolveMedia(
 }
 
 
-/** Envio idempotente: response_key = job + índice da parte. Só grava depois do envio confirmado. */
-async function sendPartOnce(
+/**
+ * Envio idempotente em 3 estados (mensagens.send_status):
+ *   1) reserva a response_key ANTES de enviar (sending) — índice único impede duplicata;
+ *   2) envia; confirmado => sent (+ provider_message_id);
+ *   3) recusa explícita do provedor (4xx) => reserva removida (retry pode reenviar);
+ *      falha ambígua (rede/5xx) => uncertain: NÃO reenvia às cegas, fica registrado.
+ * Não há garantia "exatamente uma vez": Evolution/Instagram não aceitam chave de idempotência.
+ */
+export async function sendPartOnce(
   admin: any,
   args: {
     companyId: string;
@@ -147,31 +170,59 @@ async function sendPartOnce(
     index: number;
     texto: string;
     autor?: string;
+    job?: QueueJob;
+    send?: (target: any, texto: string) => Promise<any>;
   },
-) {
+): Promise<"sent" | "skipped" | "uncertain"> {
   const responseKey = `${args.jobId}:${args.index}`;
-  const { data: already } = await admin
-    .from("mensagens")
-    .select("id")
-    .eq("company_id", args.companyId)
-    .eq("response_key", responseKey)
-    .maybeSingle();
-  if (already) return; // retry: essa parte já foi enviada
+  if (args.job) await assertLease(admin, args.job);
 
-  const { sendChannelText } = await import("@/lib/channels.server");
-  await sendChannelText(args.target, args.texto);
-  await admin.from("mensagens").insert({
-    company_id: args.companyId,
-    user_id: args.userId,
-    numero: args.numero,
-    channel: args.target.channel,
-    contato_nome: args.contatoNome,
-    direcao: "saida",
-    autor: args.autor ?? "ia",
-    texto: args.texto,
-    response_key: responseKey,
-    ai_processed_at: new Date().toISOString(),
-  });
+  const { data: reserved, error: resErr } = await admin
+    .from("mensagens")
+    .insert({
+      company_id: args.companyId,
+      user_id: args.userId,
+      numero: args.numero,
+      channel: args.target.channel,
+      contato_nome: args.contatoNome,
+      direcao: "saida",
+      autor: args.autor ?? "ia",
+      texto: args.texto,
+      response_key: responseKey,
+      send_status: "sending",
+      ai_processed_at: new Date().toISOString(),
+    })
+    .select("id")
+    .maybeSingle();
+  if (resErr) {
+    if ((resErr as any).code === "23505") return "skipped"; // já enviada ou em estado incerto: não reenvia
+    throw new Error(`reserva de envio: ${resErr.message}`);
+  }
+  const rowId = (reserved as any)?.id as string;
+
+  const { isDefinitiveSendFailure } = await import("@/lib/queue-logic");
+  const send = args.send ?? (await import("@/lib/channels.server")).sendChannelText;
+  let res: any;
+  try {
+    res = await send(args.target, args.texto);
+  } catch (e: any) {
+    if (isDefinitiveSendFailure(e)) {
+      const { error: delErr } = await admin.from("mensagens").delete().eq("id", rowId);
+      if (delErr) console.error("[send.release]", delErr.message);
+      throw e;
+    }
+    const { error: uErr } = await admin.from("mensagens").update({ send_status: "uncertain" }).eq("id", rowId);
+    if (uErr) console.error("[send.uncertain]", uErr.message);
+    console.warn("[send.uncertain]", args.companyId, args.numero, responseKey, e?.message);
+    return "uncertain";
+  }
+  const providerId = res?.key?.id ?? res?.message_id ?? res?.id ?? null;
+  const { error: okErr } = await admin
+    .from("mensagens")
+    .update({ send_status: "sent", provider_message_id: typeof providerId === "string" ? providerId : null })
+    .eq("id", rowId);
+  if (okErr) console.error("[send.confirm]", okErr.message); // já entregue; a reserva impede reenvio
+  return "sent";
 }
 
 export async function processConversationJob(admin: any, job: QueueJob): Promise<PipelineResult> {
@@ -274,7 +325,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
       if (!ultimaFoiFora) {
         await sendPartOnce(admin, {
           companyId, userId, numero: number, contatoNome: pushName ?? null,
-          target, jobId: job.id, index: 0, texto: msgFora,
+          target, jobId: job.id, index: 0, texto: msgFora, job,
         });
       }
       await markProcessed(admin, ids);
@@ -289,7 +340,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   if (mediaFailureNotice) {
     await sendPartOnce(admin, {
       companyId, userId, numero: number, contatoNome: pushName ?? null,
-      target, jobId: job.id, index: 0, texto: mediaFailureNotice,
+      target, jobId: job.id, index: 0, texto: mediaFailureNotice, job,
     });
     await markProcessed(admin, ids);
     await upsertCard(admin, companyId, userId, number, pushName, lastText, stages);
@@ -313,13 +364,16 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   }
 
   // ---- histórico / card
-  const { data: histDesc } = await admin
+  // Histórico ANTERIOR ao lote; o lote inteiro entra depois, uma única vez.
+  const { data: histDesc, error: histErr } = await admin
     .from("mensagens")
-    .select("autor,direcao,texto,created_at")
+    .select("id,autor,direcao,texto,created_at")
     .eq("company_id", companyId)
     .eq("numero", number)
+    .lt("created_at", pending[0]!.created_at)
     .order("created_at", { ascending: false })
     .limit(25);
+  if (histErr) throw new Error(`histórico: ${histErr.message}`);
   const historico = (histDesc ?? []).slice().reverse();
 
   const { data: cardRow } = await admin
@@ -367,7 +421,9 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     } catch {}
   }
   if (cfg?.id && cfg.id !== job.routed_agent_id) {
-    await admin.from("message_processing_queue").update({ routed_agent_id: cfg.id }).eq("id", job.id);
+    const q = admin.from("message_processing_queue").update({ routed_agent_id: cfg.id }).eq("id", job.id);
+    const { error: rErr } = job.lease_token ? await q.eq("lease_token", job.lease_token) : await q;
+    if (rErr) console.error("[router.persist]", rErr.message);
   }
 
   // ---- Tools (Bloco 2 preservado) + tools de agenda quando o agendamento está ativo
@@ -418,14 +474,8 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: system },
     ...(toolsPrompt ? [{ role: "system" as const, content: toolsPrompt }] : []),
-    ...historico.map((m: any) => ({
-      role: (m.direcao === "entrada" ? "user" : "assistant") as "user" | "assistant",
-      content: m.texto,
-    })),
+    ...buildContextMessages(historico as any, pending),
   ];
-  if (!messages.length || messages[messages.length - 1]!.role !== "user") {
-    messages.push({ role: "user", content: text });
-  }
 
   // ---- Créditos: 1 por interação, nunca 2 por causa de retry.
   const { getCompanyPlan } = await import("@/lib/plan-limits.server");
@@ -440,25 +490,38 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
       return { status: "skipped", reason: "company_not_operational" };
     }
   }
-  if (!job.credit_consumed) {
-    const { data: hasCredit } = await admin.rpc("consume_ai_credit", { _company_id: companyId, _ref: number });
-
-    if (!hasCredit) {
-      await markProcessed(admin, ids);
-      await upsertCard(admin, companyId, userId, number, pushName, lastText, stages);
-      console.warn("[credits] créditos esgotados — IA não respondeu", companyId);
-      return { status: "skipped", reason: "no_credits" };
-    }
-    await admin.from("message_processing_queue").update({ credit_consumed: true }).eq("id", job.id);
-    job.credit_consumed = true;
-  }
-
+  // Limite de respostas ANTES de cobrar: bloqueio aqui não consome crédito.
   const throttleReason = await getAiThrottleReason(admin, companyId, number);
   if (throttleReason) {
     await markProcessed(admin, ids);
     await upsertCard(admin, companyId, userId, number, pushName, lastText, stages);
     console.warn("[whatsapp.safety] resposta pausada", throttleReason, companyId, number);
     return { status: "skipped", reason: throttleReason };
+  }
+
+  // 1 crédito por job. Retry do mesmo job reaproveita credit_consumed e não cobra de novo.
+  // Se o job falhar de vez sem ter enviado nada, o worker estorna (refund_ai_credit).
+  if (!job.credit_consumed) {
+    await assertLease(admin, job);
+    const { data: hasCredit, error: cErr } = await admin.rpc("consume_ai_credit", { _company_id: companyId, _ref: `${number}:${job.id}` });
+    if (cErr) throw new Error(`consume_ai_credit: ${cErr.message}`);
+    if (hasCredit !== true) {
+      await markProcessed(admin, ids);
+      await upsertCard(admin, companyId, userId, number, pushName, lastText, stages);
+      console.warn("[credits] créditos esgotados — IA não respondeu", companyId);
+      return { status: "skipped", reason: "no_credits" };
+    }
+    job.credit_consumed = true;
+    let q = admin.from("message_processing_queue").update({ credit_consumed: true }).eq("id", job.id);
+    if (job.lease_token) q = q.eq("lease_token", job.lease_token);
+    const { data: upd, error: uErr } = await q.select("id");
+    if (uErr || !upd?.length) {
+      // Não conseguimos registrar a cobrança no job: devolve já para não cobrar em dobro no retry.
+      await admin.rpc("refund_ai_credit", { _company_id: companyId, _ref: `${number}:${job.id}` });
+      job.credit_consumed = false;
+      if (!uErr) throw new LeaseLostError();
+      throw new Error(`credit_consumed: ${uErr.message}`);
+    }
   }
 
   const plan = await getCompanyPlan(companyId);
@@ -476,6 +539,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     anthropicKey: (cfg as any)?.anthropic_api_key || "",
   };
   const { lovableAiChat } = await import("@/lib/lovable-ai.server");
+  await assertLease(admin, job);
   let rawReply = "";
   let toolsExecutadas = false;
   let transferiuParaHumano = false;
@@ -530,12 +594,13 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   for (let i = 0; i < finalParts.length; i++) {
     const part = finalParts[i];
     if (!part) continue;
+    await assertLease(admin, job);
     const typingMs = Math.min(3000, 1200 + Math.floor(part.length * 35));
     await sendChannelTyping(target, typingMs);
     await new Promise((r) => setTimeout(r, typingMs));
     await sendPartOnce(admin, {
       companyId, userId, numero: number, contatoNome: pushName ?? null,
-      target, jobId: job.id, index: i, texto: part,
+      target, jobId: job.id, index: i, texto: part, job,
     });
     if (i < finalParts.length - 1) await new Promise((r) => setTimeout(r, 700 + Math.floor(Math.random() * 800)));
   }
