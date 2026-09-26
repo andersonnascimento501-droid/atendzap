@@ -88,7 +88,15 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             .maybeSingle();
           if (insertErr) {
             // 23505 = unique violation => evento reenviado pela Evolution
-            if ((insertErr as any).code === "23505") return new Response("duplicate", { status: 200 });
+            if ((insertErr as any).code === "23505") {
+              // Reentrega: a mensagem já está gravada, mas o job pode não ter sido criado da 1ª vez.
+              const { error: reErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
+                _company_id: companyId, _numero: number, _instance_name: instanceName,
+                _available_at: new Date(Date.now() + 3_000).toISOString(),
+              });
+              if (reErr) throw reErr;
+              return new Response("duplicate", { status: 200 });
+            }
             throw insertErr;
           }
 
@@ -137,60 +145,46 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           } catch {}
 
           if (isOptOutMessage(lower) || lower === palavraPausar) {
-            await (supabaseAdmin as any)
+            const { error: pErr } = await (supabaseAdmin as any)
               .from("contact_pause")
               .upsert(
                 { company_id: companyId, user_id: userId, numero: number, pausado: true },
                 { onConflict: "company_id,numero" },
               );
-            await (supabaseAdmin as any).from("mensagens").update({ ai_processed_at: new Date().toISOString() }).eq("id", inserted?.id);
+            if (pErr) throw pErr;
+            const { error: mErr } = await (supabaseAdmin as any).from("mensagens").update({ ai_processed_at: new Date().toISOString() }).eq("id", inserted?.id);
+            if (mErr) throw mErr;
             return new Response("paused", { status: 200 });
           }
           if (lower === palavraDespausar) {
-            await (supabaseAdmin as any)
+            const { error: pErr } = await (supabaseAdmin as any)
               .from("contact_pause")
               .upsert(
                 { company_id: companyId, user_id: userId, numero: number, pausado: false },
                 { onConflict: "company_id,numero" },
               );
-            await (supabaseAdmin as any).from("mensagens").update({ ai_processed_at: new Date().toISOString() }).eq("id", inserted?.id);
+            if (pErr) throw pErr;
+            const { error: mErr } = await (supabaseAdmin as any).from("mensagens").update({ ai_processed_at: new Date().toISOString() }).eq("id", inserted?.id);
+            if (mErr) throw mErr;
             return new Response("resumed", { status: 200 });
           }
 
           // ---- Fila: 1 job por conversa. Nova mensagem só empurra a janela de debounce.
           const bufferSec = Math.max(0, Math.min(20, Number((cmdCfg as any)?.segundos_buffer ?? 8)));
           const availableAt = new Date(Date.now() + bufferSec * 1000).toISOString();
-          const { data: job } = await (supabaseAdmin as any)
-            .from("message_processing_queue")
-            .select("id, status")
-            .eq("company_id", companyId)
-            .eq("numero", number)
-            .in("status", ["pending", "processing"])
-            .maybeSingle();
-
-          if (job?.status === "pending") {
-            await (supabaseAdmin as any)
-              .from("message_processing_queue")
-              .update({ available_at: availableAt })
-              .eq("id", job.id);
-          } else if (!job) {
-            const { error: qErr } = await (supabaseAdmin as any).from("message_processing_queue").insert({
-              company_id: companyId,
-              numero: number,
-              instance_name: instanceName,
-              status: "pending",
-              available_at: availableAt,
-            });
-            // corrida entre dois webhooks simultâneos: índice único resolve, nada a fazer
-            if (qErr && (qErr as any).code !== "23505") console.error("[queue.enqueue]", (qErr as any).message);
-          }
+          // Atômico (INSERT … ON CONFLICT): dois webhooks simultâneos resultam em 1 job ativo.
+          const { error: qErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
+            _company_id: companyId, _numero: number, _instance_name: instanceName, _available_at: availableAt,
+          });
+          if (qErr) throw qErr;
           // job em "processing": a mensagem fica pendente e entra no próximo job/ciclo.
 
           console.info("[webhook] recebido em", Date.now() - t0, "ms", companyId, number);
           return new Response("queued", { status: 200 });
         } catch (e: any) {
           console.error("[webhook]", e?.message, e?.stack);
-          return new Response("error", { status: 200 });
+          // 500 => Evolution reenvia; a reentrega é idempotente (whatsapp_message_id único).
+          return new Response("error", { status: 500 });
         }
       },
       GET: async () => new Response("AtendAI webhook online", { status: 200 }),
