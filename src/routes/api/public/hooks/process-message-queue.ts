@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 /**
- * BLOCO 4 — Worker da fila de mensagens (chamado por pg_cron a cada minuto).
- * Claim atômico via mq_claim_due (FOR UPDATE SKIP LOCKED) → nunca 2 workers na mesma conversa.
- * Faz um drain curto para reduzir latência entre execuções do cron.
+ * Worker da fila de mensagens (pg_cron a cada minuto, Authorization: Bearer <segredo interno>).
+ * - Claim atômico (mq_claim_due, SKIP LOCKED) gera lease_token novo a cada posse.
+ * - Toda finalização/retry passa por mq_finish(id, lease_token): worker antigo não sobrescreve.
+ * - mq_finish cria o próximo ciclo quando chegaram mensagens durante o processamento.
+ * - Início de cada execução roda mq_recover_orphans (entradas sem job ativo).
  */
 
 const BACKOFF_MIN = [1, 5, 15]; // minutos
@@ -18,24 +20,35 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
         const denied = await authenticateWorkerRequest(request);
         if (denied) return denied;
 
-
         const started = Date.now();
-        let claimed = 0;
-        let completed = 0;
-        let skipped = 0;
-        let retried = 0;
-        let failed = 0;
+        const stats = { recovered: 0, claimed: 0, completed: 0, skipped: 0, retried: 0, failed: 0, leaseLost: 0 };
 
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { processConversationJob } = await import("@/lib/message-pipeline.server");
+          const { processConversationJob, LeaseLostError } = await import("@/lib/message-pipeline.server");
+          const admin = supabaseAdmin as any;
           const worker = `w-${Math.random().toString(36).slice(2, 8)}`;
 
-          while (Date.now() - started < DRAIN_MS) {
-            const { data: jobs, error } = await (supabaseAdmin as any).rpc("mq_claim_due", {
-              _limit: BATCH,
-              _worker: worker,
+          const { data: rec, error: recErr } = await admin.rpc("mq_recover_orphans", { _limit: 50 });
+          if (recErr) console.error("[mq.recover]", recErr.message);
+          else stats.recovered = Number(rec ?? 0);
+
+          const finish = async (job: any, status: "completed" | "failed" | "pending", extra: { error?: string; retryAt?: string; attempts?: number } = {}) => {
+            const { data, error } = await admin.rpc("mq_finish", {
+              _id: job.id,
+              _token: job.lease_token,
+              _status: status,
+              _error: extra.error ?? null,
+              _retry_at: extra.retryAt ?? null,
+              _attempts: extra.attempts ?? null,
             });
+            if (error) throw new Error(`mq_finish: ${error.message}`);
+            if (!data) stats.leaseLost++;
+            return !!data;
+          };
+
+          while (Date.now() - started < DRAIN_MS) {
+            const { data: jobs, error } = await admin.rpc("mq_claim_due", { _limit: BATCH, _worker: worker });
             if (error) throw error;
             const list = (jobs ?? []) as any[];
             if (!list.length) {
@@ -43,88 +56,60 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
               await new Promise((r) => setTimeout(r, 4_000));
               continue;
             }
+            stats.claimed += list.length;
 
-            claimed += list.length;
-            // Conversas diferentes em paralelo; a mesma conversa nunca aparece 2x (1 job ativo por conversa).
             await Promise.all(
               list.map(async (job: any) => {
                 const jobStart = Date.now();
+                const qjob = {
+                  id: job.id,
+                  company_id: job.company_id,
+                  numero: job.numero,
+                  instance_name: job.instance_name,
+                  credit_consumed: !!job.credit_consumed,
+                  routed_agent_id: job.routed_agent_id ?? null,
+                  run_seq: job.run_seq ?? 0,
+                  lease_token: job.lease_token ?? null,
+                };
                 try {
-                  const out = await processConversationJob(supabaseAdmin, {
-                    id: job.id,
-                    company_id: job.company_id,
-                    numero: job.numero,
-                    instance_name: job.instance_name,
-                    credit_consumed: !!job.credit_consumed,
-                    routed_agent_id: job.routed_agent_id ?? null,
-                    run_seq: job.run_seq ?? 0,
-                  });
-                  await (supabaseAdmin as any)
-                    .from("message_processing_queue")
-                    .update({
-                      status: "completed",
-                      completed_at: new Date().toISOString(),
-                      last_error: null,
-                    })
-                    .eq("id", job.id);
-                  if (out.status === "completed") completed++;
-                  else skipped++;
+                  const out = await processConversationJob(admin, qjob);
+                  if (await finish(job, "completed")) {
+                    if (out.status === "completed") stats.completed++;
+                    else stats.skipped++;
+                  }
                   console.info("[mq]", job.company_id, job.numero, out.status, out.reason ?? "", `${Date.now() - jobStart}ms`);
                 } catch (e: any) {
+                  if (e instanceof LeaseLostError) {
+                    stats.leaseLost++;
+                    console.warn("[mq.lease-lost]", job.company_id, job.numero, job.id);
+                    return;
+                  }
                   const attempts = (job.attempts ?? 0) + 1;
                   const max = job.max_attempts ?? 3;
                   const msg = String(e?.message ?? e).slice(0, 500);
-                  if (attempts >= max) {
-                    failed++;
-                    await (supabaseAdmin as any)
-                      .from("message_processing_queue")
-                      .update({ status: "failed", attempts, last_error: msg })
-                      .eq("id", job.id);
-                    console.error("[mq.failed]", job.company_id, job.numero, msg);
-                  } else {
-                    retried++;
-                    const delayMin = BACKOFF_MIN[Math.min(attempts - 1, BACKOFF_MIN.length - 1)]!;
-                    await (supabaseAdmin as any)
-                      .from("message_processing_queue")
-                      .update({
-                        status: "pending",
-                        attempts,
-                        last_error: msg,
-                        available_at: new Date(Date.now() + delayMin * 60_000).toISOString(),
-                        locked_at: null,
-                        locked_by: null,
-                      })
-                      .eq("id", job.id);
-                    console.warn("[mq.retry]", job.company_id, job.numero, `tentativa ${attempts}/${max} em ${delayMin}min`, msg);
+                  try {
+                    if (attempts >= max) {
+                      if (await finish(job, "failed", { error: msg, attempts })) {
+                        stats.failed++;
+                        await refundIfNothingSent(admin, qjob);
+                      }
+                      console.error("[mq.failed]", job.company_id, job.numero, msg);
+                    } else {
+                      const delayMin = BACKOFF_MIN[Math.min(attempts - 1, BACKOFF_MIN.length - 1)]!;
+                      const retryAt = new Date(Date.now() + delayMin * 60_000).toISOString();
+                      if (await finish(job, "pending", { error: msg, attempts, retryAt })) stats.retried++;
+                      console.warn("[mq.retry]", job.company_id, job.numero, `tentativa ${attempts}/${max} em ${delayMin}min`, msg);
+                    }
+                  } catch (fe: any) {
+                    // Sem posse gravada o job expira em 5 min e é reclamado de novo; nada é perdido.
+                    console.error("[mq.finish]", job.id, fe?.message);
                   }
-                  return;
                 }
-
-                // Mensagens que chegaram durante o processamento => novo job.
-                try {
-                  const { data: rest } = await (supabaseAdmin as any)
-                    .from("mensagens")
-                    .select("id")
-                    .eq("company_id", job.company_id)
-                    .eq("numero", job.numero)
-                    .eq("direcao", "entrada")
-                    .is("ai_processed_at", null)
-                    .limit(1);
-                  if (rest && rest.length) {
-                    await (supabaseAdmin as any).from("message_processing_queue").insert({
-                      company_id: job.company_id,
-                      numero: job.numero,
-                      instance_name: job.instance_name,
-                      status: "pending",
-                      available_at: new Date(Date.now() + 5_000).toISOString(),
-                    });
-                  }
-                } catch {}
               }),
             );
           }
 
-          return Response.json({ ok: true, claimed, completed, skipped, retried, failed, ms: Date.now() - started });
+          return Response.json({ ok: true, ...stats, ms: Date.now() - started });
         } catch (e: any) {
           console.error("[process-message-queue]", e?.message);
           return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
@@ -133,3 +118,25 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
     },
   },
 });
+
+/** Regra de cobrança: job que falhou de vez sem nenhuma resposta enviada tem o crédito estornado. */
+async function refundIfNothingSent(admin: any, job: { id: string; company_id: string; numero: string; credit_consumed: boolean }) {
+  const { data: row } = await admin.from("message_processing_queue").select("credit_consumed, credit_refunded").eq("id", job.id).maybeSingle();
+  if (!row?.credit_consumed || row?.credit_refunded) return;
+  const { count, error } = await admin
+    .from("mensagens")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", job.company_id)
+    .like("response_key", `${job.id}:%`);
+  if (error) return console.error("[credits.refund.check]", error.message);
+  if ((count ?? 0) > 0) return; // algo foi (ou pode ter sido) entregue: cobrança mantida
+  const { data: flagged, error: fErr } = await admin
+    .from("message_processing_queue")
+    .update({ credit_refunded: true })
+    .eq("id", job.id)
+    .eq("credit_refunded", false)
+    .select("id");
+  if (fErr || !flagged?.length) return;
+  const { error: rErr } = await admin.rpc("refund_ai_credit", { _company_id: job.company_id, _ref: `${job.numero}:${job.id}` });
+  if (rErr) console.error("[credits.refund]", rErr.message);
+}
