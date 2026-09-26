@@ -162,8 +162,13 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
                 .select("id")
                 .maybeSingle();
               if (insertErr) {
-                if ((insertErr as any).code === "23505") continue; // reentrega da Meta
-                console.error("[instagram-webhook.insert]", (insertErr as any).message);
+                if ((insertErr as any).code !== "23505") throw insertErr;
+                // Reentrega da Meta: garante que existe job para a conversa.
+                const { error: reErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
+                  _company_id: companyId, _numero: contactId, _instance_name: null,
+                  _available_at: new Date(Date.now() + 3_000).toISOString(),
+                });
+                if (reErr) throw reErr;
                 continue;
               }
 
@@ -199,54 +204,39 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
               } catch {}
 
               if (lower === palavraPausar) {
-                await (supabaseAdmin as any).from("contact_pause").upsert(
+                const { error: pErr } = await (supabaseAdmin as any).from("contact_pause").upsert(
                   { company_id: companyId, user_id: userId, numero: contactId, pausado: true },
                   { onConflict: "company_id,numero" },
                 );
-                await (supabaseAdmin as any)
+                if (pErr) throw pErr;
+                const { error: mErr } = await (supabaseAdmin as any)
                   .from("mensagens")
                   .update({ ai_processed_at: new Date().toISOString() })
                   .eq("id", inserted?.id);
+                if (mErr) throw mErr;
                 continue;
               }
               if (lower === palavraDespausar) {
-                await (supabaseAdmin as any).from("contact_pause").upsert(
+                const { error: pErr } = await (supabaseAdmin as any).from("contact_pause").upsert(
                   { company_id: companyId, user_id: userId, numero: contactId, pausado: false },
                   { onConflict: "company_id,numero" },
                 );
-                await (supabaseAdmin as any)
+                if (pErr) throw pErr;
+                const { error: mErr } = await (supabaseAdmin as any)
                   .from("mensagens")
                   .update({ ai_processed_at: new Date().toISOString() })
                   .eq("id", inserted?.id);
+                if (mErr) throw mErr;
                 continue;
               }
 
               // ---- Fila (Bloco 4): 1 job por conversa, debounce por empresa.
               const bufferSec = Math.max(0, Math.min(20, Number((cmdCfg as any)?.segundos_buffer ?? 8)));
               const availableAt = new Date(Date.now() + bufferSec * 1000).toISOString();
-              const { data: job } = await (supabaseAdmin as any)
-                .from("message_processing_queue")
-                .select("id, status")
-                .eq("company_id", companyId)
-                .eq("numero", contactId)
-                .in("status", ["pending", "processing"])
-                .maybeSingle();
-
-              if (job?.status === "pending") {
-                await (supabaseAdmin as any)
-                  .from("message_processing_queue")
-                  .update({ available_at: availableAt })
-                  .eq("id", job.id);
-              } else if (!job) {
-                const { error: qErr } = await (supabaseAdmin as any).from("message_processing_queue").insert({
-                  company_id: companyId,
-                  numero: contactId,
-                  instance_name: null,
-                  status: "pending",
-                  available_at: availableAt,
-                });
-                if (qErr && (qErr as any).code !== "23505") console.error("[queue.enqueue]", (qErr as any).message);
-              }
+              const { error: qErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
+                _company_id: companyId, _numero: contactId, _instance_name: null, _available_at: availableAt,
+              });
+              if (qErr) throw qErr;
               queued++;
             }
           }
@@ -255,7 +245,8 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
           return new Response("queued", { status: 200 });
         } catch (e: any) {
           console.error("[instagram-webhook]", e?.message, e?.stack);
-          return new Response("error", { status: 200 });
+          // 500 => a Meta reentrega; entradas já gravadas são deduplicadas pelo mid.
+          return new Response("error", { status: 500 });
         }
       },
     },
