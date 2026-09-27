@@ -20,7 +20,7 @@ export const AGENT_SAFE_COLUMNS = "prompt_custom,user_id,nome_agente,nome_empres
 
 /** Remove credenciais privadas de qualquer payload vindo do cliente. */
 export function stripAgentSecrets<T extends Record<string, any>>(payload: T): T {
-  const { openai_api_key: _o, anthropic_api_key: _a, ...rest } = payload as any;
+  const { openai_api_key: _o, anthropic_api_key: _a, ai_provider: _p, ai_model: _m, ...rest } = payload as any;
   return rest as T;
 }
 
