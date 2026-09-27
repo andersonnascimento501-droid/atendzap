@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { igContactId } from "@/lib/channels";
+import { ingestInstagramInbound } from "@/lib/instagram-ingest.server";
 
 /**
  * BLOCO 5 — WEBHOOK RÁPIDO DO INSTAGRAM (somente RECEBIMENTO).
@@ -85,10 +86,12 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
               // Resolve a empresa pela conta que RECEBEU a mensagem.
               const { data: ig } = await (supabaseAdmin as any)
                 .from("instagram_integration")
-                .select("company_id, user_id, ig_user_id, page_id, page_access_token, conectado")
+                .select("company_id, user_id, ig_user_id, page_id, page_access_token, conectado, instagram_provider")
                 .or(`ig_user_id.eq.${recipientId},page_id.eq.${recipientId}`)
                 .maybeSingle();
               if (!ig || !(ig as any).conectado) continue;
+              // Provedor ativo é a Zernio: a entrada vem pelo webhook da Zernio (evita duplicar).
+              if ((ig as any).instagram_provider === "zernio") continue;
 
               const companyId = (ig as any).company_id as string;
               const userId = (ig as any).user_id as string | null;
@@ -132,143 +135,22 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
               }
 
               const text: string = typeof message.text === "string" ? message.text : "";
-              if (!text.trim() && !media) continue;
-
-              const label =
-                media?.kind === "audio"
-                  ? "[Áudio]"
-                  : media?.kind === "image"
-                    ? "[Imagem]"
-                    : media
-                      ? "[Arquivo]"
-                      : "";
-              const storedText = text.trim() || `${label} (processando...)`;
-
-              // Nome do contato (best-effort, uma vez por conversa).
-              let contatoNome: string | null = null;
-              const { data: knownCard } = await (supabaseAdmin as any)
-                .from("crm_cards")
-                .select("nome")
-                .eq("company_id", companyId)
-                .eq("numero", contactId)
-                .maybeSingle();
-              contatoNome = (knownCard as any)?.nome ?? null;
-              if (!contatoNome && (ig as any).page_access_token) {
-                try {
-                  const { igFetchContact } = await import("@/lib/instagram.server");
-                  contatoNome = (await igFetchContact((ig as any).page_access_token, senderId))
-                    .nome;
-                } catch {}
-              }
-
-              const { data: inserted, error: insertErr } = await (supabaseAdmin as any)
-                .from("mensagens")
-                .insert({
-                  company_id: companyId,
-                  user_id: userId,
-                  numero: contactId,
-                  channel: "instagram",
-                  contato_nome: contatoNome,
-                  direcao: "entrada",
-                  autor: "contato",
-                  texto: storedText,
-                  whatsapp_message_id: mid,
-                  media_ref: media,
-                })
-                .select("id")
-                .maybeSingle();
-              if (insertErr) {
-                if ((insertErr as any).code !== "23505") throw insertErr;
-                // Reentrega da Meta: garante que existe job para a conversa.
-                const { error: reErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
-                  _company_id: companyId,
-                  _numero: contactId,
-                  _instance_name: null,
-                  _available_at: new Date(Date.now() + 3_000).toISOString(),
-                });
-                if (reErr) throw reErr;
-                continue;
-              }
-
-              const lower = storedText.toLowerCase().trim();
-
-              const { data: cmdCfg } = await (supabaseAdmin as any)
-                .from("agent_config")
-                .select("palavra_pausar, palavra_despausar, segundos_buffer")
-                .eq("company_id", companyId)
-                .order("is_default", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              const palavraPausar = ((cmdCfg as any)?.palavra_pausar || "/pausar")
-                .toLowerCase()
-                .trim();
-              const palavraDespausar = ((cmdCfg as any)?.palavra_despausar || "/despausar")
-                .toLowerCase()
-                .trim();
-
-              // Cliente respondeu → cancela follow-up pendente (Bloco 3).
-              try {
-                const { cancelFollowups } = await import("@/lib/followup.server");
-                await cancelFollowups(supabaseAdmin, companyId, contactId, "cliente respondeu");
-              } catch (e: any) {
-                console.error("[followup.reset]", e?.message);
-              }
-
-              try {
-                const { emitWebhook } = await import("@/lib/webhooks.server");
-                void emitWebhook(companyId, "message.received", {
-                  numero: contactId,
-                  channel: "instagram",
-                  contato_nome: contatoNome,
-                  texto: storedText,
-                  message_id: inserted?.id,
-                });
-              } catch {}
-
-              if (lower === palavraPausar) {
-                const { error: pErr } = await (supabaseAdmin as any)
-                  .from("contact_pause")
-                  .upsert(
-                    { company_id: companyId, user_id: userId, numero: contactId, pausado: true },
-                    { onConflict: "company_id,numero" },
-                  );
-                if (pErr) throw pErr;
-                const { error: mErr } = await (supabaseAdmin as any)
-                  .from("mensagens")
-                  .update({ ai_processed_at: new Date().toISOString() })
-                  .eq("id", inserted?.id);
-                if (mErr) throw mErr;
-                continue;
-              }
-              if (lower === palavraDespausar) {
-                const { error: pErr } = await (supabaseAdmin as any)
-                  .from("contact_pause")
-                  .upsert(
-                    { company_id: companyId, user_id: userId, numero: contactId, pausado: false },
-                    { onConflict: "company_id,numero" },
-                  );
-                if (pErr) throw pErr;
-                const { error: mErr } = await (supabaseAdmin as any)
-                  .from("mensagens")
-                  .update({ ai_processed_at: new Date().toISOString() })
-                  .eq("id", inserted?.id);
-                if (mErr) throw mErr;
-                continue;
-              }
-
-              // ---- Fila (Bloco 4): 1 job por conversa, debounce por empresa.
-              const bufferSec = Math.max(
-                0,
-                Math.min(20, Number((cmdCfg as any)?.segundos_buffer ?? 8)),
-              );
-              const availableAt = new Date(Date.now() + bufferSec * 1000).toISOString();
-              const { error: qErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
-                _company_id: companyId,
-                _numero: contactId,
-                _instance_name: null,
-                _available_at: availableAt,
+              const token = (ig as any).page_access_token as string | null;
+              const r = await ingestInstagramInbound(supabaseAdmin, {
+                companyId,
+                userId,
+                contactId,
+                externalMessageId: mid,
+                text,
+                media,
+                resolveName: token
+                  ? async () => {
+                      const { igFetchContact } = await import("@/lib/instagram.server");
+                      return (await igFetchContact(token, senderId)).nome;
+                    }
+                  : undefined,
               });
-              if (qErr) throw qErr;
+              if (r !== "queued") continue;
               queued++;
             }
           }
