@@ -162,8 +162,7 @@ Analise e devolva o JSON.`;
       [
         { role: "system", content: system },
         { role: "user", content: user },
-      ],
-      { provider: "gemini", model: "google/gemini-2.5-flash" },
+      ]
     );
 
     const parsed = extractJson(raw);
@@ -289,8 +288,7 @@ Gere o JSON do agente.`;
       [
         { role: "system", content: system },
         { role: "user", content: user },
-      ],
-      { provider: "gemini", model: "google/gemini-2.5-flash" },
+      ]
     );
 
     const parsed = extractJson(raw) as Record<string, unknown>;
