@@ -3,7 +3,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const askAssistant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { question: string }) => ({ question: String(d?.question ?? "").trim().slice(0, 1000) }))
+  .inputValidator((d: { question: string; requestId?: string }) => ({
+    question: String(d?.question ?? "").trim().slice(0, 1000),
+    requestId: typeof d?.requestId === "string" && /^[\w-]{8,64}$/.test(d.requestId) ? d.requestId : undefined,
+  }))
   .handler(async ({ context, data }) => {
     if (!data.question) throw new Error("Escreva sua pergunta.");
     const { supabase, userId } = context;
@@ -18,15 +21,32 @@ export const askAssistant = createServerFn({ method: "POST" })
     const { buildCompanySnapshot, buildAssistantMessages, parseAssistantReply } = await import("./assistant.server");
     const snapshot = await buildCompanySnapshot(supabase, companyId);
 
-    // Limite de uso: cada pergunta consome 1 crédito da empresa (mesmo mecanismo da IA).
+    // Limite de uso: cada pergunta consome 1 crédito da empresa; estornado se a IA falhar.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: ok, error: cErr } = await (supabaseAdmin as any).rpc("consume_ai_credit", {
-      _company_id: companyId, _ref: `assistente:${userId}:${Date.now()}`,
-    });
-    if (cErr) throw new Error("Não foi possível verificar seus créditos agora.");
-    if (ok !== true) throw new Error("Seus créditos acabaram. Veja seu plano em /app/checkout.");
-
+    const admin = supabaseAdmin as any;
+    const ref = `assistente:${userId}:${data.requestId ?? crypto.randomUUID()}`;
+    const { withChargedCredit } = await import("./credit-guard");
     const { lovableAiChat } = await import("./lovable-ai.server");
-    const raw = await lovableAiChat(buildAssistantMessages(snapshot, data.question));
-    return parseAssistantReply(raw);
+    return withChargedCredit(ref, {
+      alreadyCharged: async (r) => {
+        if (!data.requestId) return false;
+        const { data: rows } = await admin.from("credit_ledger").select("motivo")
+          .eq("company_id", companyId).eq("ref", r);
+        const m = (rows ?? []).map((x: any) => x.motivo);
+        return m.includes("ai_message") && !m.includes("ai_refund");
+      },
+      consume: async (r) => {
+        const { data: ok, error } = await admin.rpc("consume_ai_credit", { _company_id: companyId, _ref: r });
+        if (error) throw new Error("Não foi possível verificar seus créditos agora.");
+        return ok === true;
+      },
+      refund: async (r) => {
+        const { data: ok } = await admin.rpc("refund_ai_credit", { _company_id: companyId, _ref: r });
+        return ok === true;
+      },
+    }, async () => {
+      const raw = await lovableAiChat(buildAssistantMessages(snapshot, data.question));
+      if (!raw || !raw.trim()) throw new Error("A IA não respondeu agora. Tente novamente.");
+      return parseAssistantReply(raw);
+    });
   });

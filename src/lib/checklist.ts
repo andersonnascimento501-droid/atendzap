@@ -16,7 +16,6 @@ export type ChecklistInput = {
 
 export type ChecklistItem = { id: string; label: string; ok: boolean; to: string; opcional: boolean };
 
-export const TESTE_FLAG_KEY = (companyId: string) => `atendai:testado:${companyId}`;
 
 export function buildChecklist(i: ChecklistInput): ChecklistItem[] {
   const items: ChecklistItem[] = [
