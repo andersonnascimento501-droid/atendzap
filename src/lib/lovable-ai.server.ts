@@ -1,107 +1,78 @@
-// Multi-provider AI chat. Gemini default via Lovable Gateway (free for users).
-// OpenAI e Anthropic usam a chave da própria empresa.
+// Adaptador ÚNICO de IA da plataforma: OpenAI com a chave do servidor (OPENAI_API_KEY).
+// O nome do arquivo e as assinaturas foram mantidos para não refatorar o resto do sistema.
+// Valores antigos de provider/model/chave por empresa são IGNORADOS de propósito.
+// Sem fallback para outro provedor: se a OpenAI falhar, o erro sobe com mensagem clara.
 
 export interface ChatMsg {
   role: "system" | "user" | "assistant";
   content: string;
 }
 
+/** Mantido por compatibilidade: todos os campos são ignorados. */
 export interface AiProviderConfig {
-  provider?: "gemini" | "openai" | "anthropic" | string;
+  provider?: string;
   model?: string;
   openaiKey?: string;
   anthropicKey?: string;
 }
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+export const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
+export const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+
+export class AiUnavailableError extends Error {
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "AiUnavailableError";
+    this.status = status;
+  }
+}
+
+/** Chave da plataforma — lida apenas no servidor, em tempo de chamada. */
+export function getPlatformOpenAiKey(): string {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) throw new AiUnavailableError("IA indisponível: OPENAI_API_KEY não configurada no servidor.");
+  return key;
+}
+
+/** Modelo central da plataforma, configurável por variável de ambiente. */
+export function getPlatformModel(kind: "chat" | "vision" | "audio" = "chat"): string {
+  if (kind === "audio") return process.env.OPENAI_AUDIO_MODEL?.trim() || "gpt-4o-mini-transcribe";
+  if (kind === "vision") return process.env.OPENAI_VISION_MODEL?.trim() || process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
+  return process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
+}
+
+export async function openAiRequest(body: any): Promise<any> {
+  const key = getPlatformOpenAiKey();
+  let res: Response;
+  try {
+    res = await fetch(OPENAI_CHAT_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e: any) {
+    throw new AiUnavailableError(`IA indisponível (OpenAI sem resposta): ${e?.message ?? e}`);
+  }
+  if (!res.ok) {
+    const t = (await res.text()).slice(0, 200);
+    if (res.status === 429) throw new AiUnavailableError("IA ocupada no momento (limite da OpenAI). Tente em alguns minutos.", 429);
+    if (res.status === 401) throw new AiUnavailableError("IA indisponível: chave OpenAI da plataforma inválida.", 401);
+    throw new AiUnavailableError(`OpenAI ${res.status}: ${t}`, res.status);
+  }
+  return res.json();
+}
 
 export async function lovableAiChat(
-  messages: ChatMsg[],
-  modelOrConfig: string | AiProviderConfig = "google/gemini-2.5-flash",
+  messages: ChatMsg[] | any[],
+  _modelOrConfig?: string | AiProviderConfig,
 ): Promise<string> {
-  const cfg: AiProviderConfig =
-    typeof modelOrConfig === "string"
-      ? { provider: "gemini", model: modelOrConfig }
-      : modelOrConfig;
-  const provider = (cfg.provider || "gemini").toLowerCase();
-
-  if (provider === "openai") {
-    // Chave própria da empresa (BYOK) quando existir; senão, chave global da plataforma.
-    const key = cfg.openaiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
-    if (!key) throw new Error("Nenhuma chave OpenAI disponível (empresa ou plataforma).");
-    const model = cfg.model || "gpt-4o-mini";
-    return openAiChat(key, model, messages);
-  }
-  if (provider === "anthropic") {
-    const key = cfg.anthropicKey?.trim();
-    if (!key) throw new Error("Chave Anthropic (Claude) não configurada na sua empresa.");
-    const model = cfg.model || "claude-3-5-sonnet-latest";
-    return anthropicChat(key, model, messages);
-  }
-  // default: Gemini via Lovable Gateway
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY ausente.");
-  const model = cfg.model || "google/gemini-2.5-flash";
-  const res = await fetch(GATEWAY, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages }),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    if (res.status === 429) throw new Error("Limite de uso da IA atingido. Tente em alguns minutos.");
-    if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
-    throw new Error(`Lovable AI: ${res.status} ${t}`);
-  }
-  const data = await res.json();
+  const data = await openAiRequest({ model: getPlatformModel("chat"), messages });
   return data?.choices?.[0]?.message?.content?.toString().trim() || "";
-}
-
-async function openAiChat(key: string, model: string, messages: ChatMsg[]): Promise<string> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages }),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`OpenAI: ${res.status} ${t.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content?.toString().trim() || "";
-}
-
-async function anthropicChat(key: string, model: string, messages: ChatMsg[]): Promise<string> {
-  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-  const conv = messages
-    .filter((m) => m.role !== "system")
-    .map((m) => ({ role: m.role, content: m.content }));
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model, max_tokens: 1024, system, messages: conv }),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Anthropic: ${res.status} ${t.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  const txt = (data?.content || [])
-    .filter((p: any) => p?.type === "text")
-    .map((p: any) => p.text)
-    .join("\n")
-    .trim();
-  return txt;
 }
 
 // ============================================================================
-// BLOCO 2 — Tool calling com abstração única por provider.
-// O formato interno é sempre { text, toolCalls[] }; cada provider tem seu adapter.
-// A regra de negócio fica no dispatcher (agent-tools.server.ts), nunca aqui.
+// Tool calling (formato interno { text, toolCalls[] }). Regra de negócio fica no dispatcher.
 // ============================================================================
 
 export interface ToolSpec {
@@ -116,7 +87,6 @@ export interface ToolCall {
   args: any;
 }
 
-/** Mensagem estendida: suporta turnos de tool no formato interno. */
 export interface AgentMsg {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
@@ -132,9 +102,7 @@ export interface ToolTurn {
 
 function toOpenAiMessages(messages: AgentMsg[]): any[] {
   return messages.map((m) => {
-    if (m.role === "tool") {
-      return { role: "tool", tool_call_id: m.tool_call_id, content: m.content };
-    }
+    if (m.role === "tool") return { role: "tool", tool_call_id: m.tool_call_id, content: m.content };
     if (m.role === "assistant" && m.tool_calls?.length) {
       return {
         role: "assistant",
@@ -167,15 +135,12 @@ function parseOpenAiTurn(data: any): ToolTurn {
   };
 }
 
-async function openAiCompatibleTurn(
-  url: string,
-  key: string,
-  model: string,
+export async function aiTurnWithTools(
   messages: AgentMsg[],
-  tools: ToolSpec[],
-  authHeader: Record<string, string>,
+  _modelOrConfig: string | AiProviderConfig | undefined,
+  tools: ToolSpec[] = [],
 ): Promise<ToolTurn> {
-  const body: any = { model, messages: toOpenAiMessages(messages) };
+  const body: any = { model: getPlatformModel("chat"), messages: toOpenAiMessages(messages) };
   if (tools.length) {
     body.tools = tools.map((t) => ({
       type: "function",
@@ -183,100 +148,5 @@ async function openAiCompatibleTurn(
     }));
     body.tool_choice = "auto";
   }
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { ...authHeader, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    if (res.status === 429) throw new Error("Limite de uso da IA atingido. Tente em alguns minutos.");
-    if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
-    throw new Error(`AI ${res.status}: ${t.slice(0, 200)}`);
-  }
-  return parseOpenAiTurn(await res.json());
-}
-
-async function anthropicTurn(
-  key: string,
-  model: string,
-  messages: AgentMsg[],
-  tools: ToolSpec[],
-): Promise<ToolTurn> {
-  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-  const conv: any[] = [];
-  for (const m of messages) {
-    if (m.role === "system") continue;
-    if (m.role === "tool") {
-      conv.push({
-        role: "user",
-        content: [{ type: "tool_result", tool_use_id: m.tool_call_id, content: m.content }],
-      });
-      continue;
-    }
-    if (m.role === "assistant" && m.tool_calls?.length) {
-      const blocks: any[] = [];
-      if (m.content) blocks.push({ type: "text", text: m.content });
-      for (const c of m.tool_calls) blocks.push({ type: "tool_use", id: c.id, name: c.name, input: c.args ?? {} });
-      conv.push({ role: "assistant", content: blocks });
-      continue;
-    }
-    conv.push({ role: m.role, content: m.content });
-  }
-  const body: any = { model, max_tokens: 1024, system, messages: conv };
-  if (tools.length) {
-    body.tools = tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters }));
-  }
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Anthropic: ${res.status} ${t.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  const parts: any[] = data?.content ?? [];
-  return {
-    text: parts.filter((p) => p?.type === "text").map((p) => p.text).join("\n").trim(),
-    toolCalls: parts
-      .filter((p) => p?.type === "tool_use")
-      .map((p: any, i: number) => ({ id: p.id || `call_${i}`, name: p.name, args: p.input ?? {} })),
-  };
-}
-
-/** Um turno do modelo, com tools. Mesma assinatura para Gemini/OpenAI/Anthropic. */
-export async function aiTurnWithTools(
-  messages: AgentMsg[],
-  modelOrConfig: string | AiProviderConfig,
-  tools: ToolSpec[] = [],
-): Promise<ToolTurn> {
-  const cfg: AiProviderConfig =
-    typeof modelOrConfig === "string" ? { provider: "gemini", model: modelOrConfig } : modelOrConfig;
-  const provider = (cfg.provider || "gemini").toLowerCase();
-
-  if (provider === "openai") {
-    const key = cfg.openaiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
-    if (!key) throw new Error("Nenhuma chave OpenAI disponível (empresa ou plataforma).");
-    return openAiCompatibleTurn(
-      "https://api.openai.com/v1/chat/completions",
-      key,
-      cfg.model || "gpt-4o-mini",
-      messages,
-      tools,
-      { Authorization: `Bearer ${key}` },
-    );
-  }
-  if (provider === "anthropic") {
-    const key = cfg.anthropicKey?.trim();
-    if (!key) throw new Error("Chave Anthropic (Claude) não configurada na sua empresa.");
-    return anthropicTurn(key, cfg.model || "claude-3-5-sonnet-latest", messages, tools);
-  }
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY ausente.");
-  // Gateway Lovable é compatível com o formato OpenAI (inclusive tools).
-  return openAiCompatibleTurn(GATEWAY, key, cfg.model || "google/gemini-2.5-flash", messages, tools, {
-    Authorization: `Bearer ${key}`,
-  });
+  return parseOpenAiTurn(await openAiRequest(body));
 }
