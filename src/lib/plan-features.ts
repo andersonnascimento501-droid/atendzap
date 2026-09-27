@@ -47,11 +47,13 @@ export const PLAN_FEATURES: Record<PlanSlug, PlanFeatures> = {
 export const PLAN_LABEL: Record<PlanSlug, string> = {
   starter: "Starter",
   pro: "Pro",
-  business: "Business",
+  business: "Plano AtendAi",
 };
 
 export function normalizePlanSlug(slug?: string | null): PlanSlug {
   const s = String(slug || "").toLowerCase();
+  // Plano AtendAi (qualquer período) = todas as funcionalidades.
+  if (s.startsWith("atendai")) return "business";
   if (s === "pro" || s === "business" || s === "starter") return s as PlanSlug;
   return "starter";
 }

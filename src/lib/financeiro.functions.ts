@@ -13,18 +13,18 @@ async function getCompanyAndPlan(supabase: any, userId: string) {
   if (!cu) throw new Error("Sem empresa vinculada");
   const { data: sub } = await supabase
     .from("subscription")
-    .select("plan:plan(nome)")
+    .select("plan:plan(nome, slug)")
     .eq("company_id", cu.company_id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const planSlug = String(sub?.plan?.nome || "starter").toLowerCase();
+  const planSlug = String((sub?.plan as any)?.slug || sub?.plan?.nome || "starter").toLowerCase();
   return { companyId: cu.company_id, role: cu.role, company: cu.company, planSlug };
 }
 
 function planAllowsFin(planSlug: string) {
   const s = planSlug.toLowerCase();
-  return s === "pro" || s === "business";
+  return s === "pro" || s === "business" || s.startsWith("atendai");
 }
 
 async function assertCanWrite(supabase: any, userId: string) {

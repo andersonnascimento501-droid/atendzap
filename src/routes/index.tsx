@@ -366,7 +366,7 @@ function Hero({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#planos",
           </div>
 
           <ul className="mt-7 flex flex-wrap justify-center lg:justify-start gap-x-5 gap-y-2 text-sm text-white/65 font-medium">
-            <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> 3 dias grátis</li>
+            <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> 3 dias grátis, sem cartão</li>
             <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> Conecta em 2 minutos</li>
             <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> Cancele quando quiser</li>
           </ul>
@@ -753,7 +753,7 @@ function FinalCta({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plan
             Pare de perder venda no <span className="text-grad">"oi, sumiu"</span>.
           </h2>
           <p className="mt-6 text-white/70 max-w-xl mx-auto text-lg sm:text-xl">
-            3 dias grátis pra ver a IA atendendo seu WhatsApp e fechando lead sozinha. Cancele antes e não paga nada.
+            3 dias grátis pra ver a IA atendendo seu WhatsApp e fechando lead sozinha. Sem cartão.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row flex-wrap justify-center gap-3">
             <button
@@ -761,7 +761,7 @@ function FinalCta({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plan
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-black font-bold text-base sm:text-lg btn-glow"
               style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}
             >
-              Começar agora, de graça <ArrowRight className="size-5" />
+              Começar 3 dias grátis <ArrowRight className="size-5" />
             </button>
             <button onClick={() => onCta("/demo/dashboard")} className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl glass-strong text-white hover:bg-white/10 text-base sm:text-lg font-medium">
               <Play className="size-4" /> Ver demonstração
