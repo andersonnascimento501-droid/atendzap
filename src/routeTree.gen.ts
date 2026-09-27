@@ -65,6 +65,7 @@ import { Route as AppAgenteAvancadoRouteImport } from './routes/app/agente.avanc
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
 import { Route as ApiPublicInstagramWebhookRouteImport } from './routes/api/public/instagram-webhook'
 import { Route as ApiPublicGoogleCallbackRouteImport } from './routes/api/public/google-callback'
+import { Route as ApiPublicZernioWebhookTokenRouteImport } from './routes/api/public/zernio-webhook.$token'
 import { Route as ApiPublicV1SplatRouteImport } from './routes/api/public/v1/$'
 import { Route as ApiPublicHooksProcessMessageQueueRouteImport } from './routes/api/public/hooks/process-message-queue'
 import { Route as ApiPublicHooksProcessFollowupsRouteImport } from './routes/api/public/hooks/process-followups'
@@ -353,6 +354,12 @@ const ApiPublicGoogleCallbackRoute = ApiPublicGoogleCallbackRouteImport.update({
   path: '/api/public/google-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicZernioWebhookTokenRoute =
+  ApiPublicZernioWebhookTokenRouteImport.update({
+    id: '/api/public/zernio-webhook/$token',
+    path: '/api/public/zernio-webhook/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicV1SplatRoute = ApiPublicV1SplatRouteImport.update({
   id: '/api/public/v1/$',
   path: '/api/public/v1/$',
@@ -444,6 +451,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/process-followups': typeof ApiPublicHooksProcessFollowupsRoute
   '/api/public/hooks/process-message-queue': typeof ApiPublicHooksProcessMessageQueueRoute
   '/api/public/v1/$': typeof ApiPublicV1SplatRoute
+  '/api/public/zernio-webhook/$token': typeof ApiPublicZernioWebhookTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -505,6 +513,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/process-followups': typeof ApiPublicHooksProcessFollowupsRoute
   '/api/public/hooks/process-message-queue': typeof ApiPublicHooksProcessMessageQueueRoute
   '/api/public/v1/$': typeof ApiPublicV1SplatRoute
+  '/api/public/zernio-webhook/$token': typeof ApiPublicZernioWebhookTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -569,6 +578,7 @@ export interface FileRoutesById {
   '/api/public/hooks/process-followups': typeof ApiPublicHooksProcessFollowupsRoute
   '/api/public/hooks/process-message-queue': typeof ApiPublicHooksProcessMessageQueueRoute
   '/api/public/v1/$': typeof ApiPublicV1SplatRoute
+  '/api/public/zernio-webhook/$token': typeof ApiPublicZernioWebhookTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -634,6 +644,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/process-followups'
     | '/api/public/hooks/process-message-queue'
     | '/api/public/v1/$'
+    | '/api/public/zernio-webhook/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -695,6 +706,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/process-followups'
     | '/api/public/hooks/process-message-queue'
     | '/api/public/v1/$'
+    | '/api/public/zernio-webhook/$token'
   id:
     | '__root__'
     | '/'
@@ -758,6 +770,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/process-followups'
     | '/api/public/hooks/process-message-queue'
     | '/api/public/v1/$'
+    | '/api/public/zernio-webhook/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -781,6 +794,7 @@ export interface RootRouteChildren {
   ApiPublicHooksProcessFollowupsRoute: typeof ApiPublicHooksProcessFollowupsRoute
   ApiPublicHooksProcessMessageQueueRoute: typeof ApiPublicHooksProcessMessageQueueRoute
   ApiPublicV1SplatRoute: typeof ApiPublicV1SplatRoute
+  ApiPublicZernioWebhookTokenRoute: typeof ApiPublicZernioWebhookTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1177,6 +1191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGoogleCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/zernio-webhook/$token': {
+      id: '/api/public/zernio-webhook/$token'
+      path: '/api/public/zernio-webhook/$token'
+      fullPath: '/api/public/zernio-webhook/$token'
+      preLoaderRoute: typeof ApiPublicZernioWebhookTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/v1/$': {
       id: '/api/public/v1/$'
       path: '/api/public/v1/$'
@@ -1354,6 +1375,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksProcessMessageQueueRoute:
     ApiPublicHooksProcessMessageQueueRoute,
   ApiPublicV1SplatRoute: ApiPublicV1SplatRoute,
+  ApiPublicZernioWebhookTokenRoute: ApiPublicZernioWebhookTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
