@@ -2511,6 +2511,7 @@ export type Database = {
           ordem: number
           paddle_price_id: string | null
           paddle_product_id: string | null
+          periodo_meses: number
           preco_cents: number
           slug: string
           stripe_price_id: string | null
@@ -2538,6 +2539,7 @@ export type Database = {
           ordem?: number
           paddle_price_id?: string | null
           paddle_product_id?: string | null
+          periodo_meses?: number
           preco_cents?: number
           slug: string
           stripe_price_id?: string | null
@@ -2565,6 +2567,7 @@ export type Database = {
           ordem?: number
           paddle_price_id?: string | null
           paddle_product_id?: string | null
+          periodo_meses?: number
           preco_cents?: number
           slug?: string
           stripe_price_id?: string | null
