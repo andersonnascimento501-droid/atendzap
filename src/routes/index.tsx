@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { brand } from "@/config/brand";
+import { brand, supportWhatsappUrl } from "@/config/brand";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { fetchAtendaiPeriodos, formatBRL, periodoResumo, DEFAULT_PERIODO_SLUG, type AtendaiPeriodo } from "@/lib/atendai-plan";
@@ -646,6 +646,24 @@ function Pricing({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plano
           <p className="mt-2 text-center text-xs text-white/55">3 dias grátis, sem cartão.</p>
         </div>
         <p className="mt-5 text-center text-xs text-white/40">Limite de mensagens renovado todo mês em qualquer período. Implementação pela nossa equipe é opcional e cobrada à parte.</p>
+        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-7 flex flex-col md:flex-row md:items-center gap-5 md:gap-8">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-display text-xl md:text-2xl font-bold">Sua operação precisa de algo mais completo?</h3>
+            <p className="mt-2 text-sm text-white/70">Se sua empresa possui mais de um número de WhatsApp, filiais, equipes maiores, diferentes setores ou processos específicos, podemos montar uma solução personalizada para sua operação.</p>
+            <p className="mt-2 text-sm text-white/60">Nossa equipe analisa seu atendimento, estrutura os fluxos, configura os agentes e realiza a implementação completa.</p>
+          </div>
+          <div className="w-full md:w-auto md:shrink-0 text-center">
+            <a
+              href={`${supportWhatsappUrl}?text=${encodeURIComponent("Olá! Minha empresa possui uma operação maior e quero conhecer a solução personalizada.")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full md:w-auto px-5 py-3 rounded-xl font-semibold transition border border-[#25D366]/50 text-[#25D366] hover:bg-[#25D366]/10"
+            >
+              Quero uma solução personalizada
+            </a>
+            <p className="mt-2 text-xs text-white/55">Fale com um especialista para analisar sua operação.</p>
+          </div>
+        </div>
       </div>
     </section>
   );
