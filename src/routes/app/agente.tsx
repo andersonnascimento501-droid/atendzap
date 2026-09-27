@@ -1,4 +1,5 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
+import { TESTE_FLAG_KEY } from "@/lib/checklist";
 import { HelpTip } from "@/components/help-tip";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -181,6 +182,7 @@ function AgentePage() {
       // O que o cliente está vendo é o que ele testa (mesma montagem do WhatsApp real).
       const r = await test({ data: { message: testMsg, agentId: cfg?.id ?? null, config: cfg ?? null } });
       setTestReply(r.parts);
+      if (companyId) { try { localStorage.setItem(TESTE_FLAG_KEY(companyId), "1"); } catch {} }
     } catch (e: any) { toast.error(e?.message || "Falha"); }
     finally { setTesting(false); }
   }

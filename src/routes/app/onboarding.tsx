@@ -2,6 +2,7 @@
 // → teste → WhatsApp → pronto. Nada é apagado: endereço, identidade visual, etapas do
 // funil, permissões e materiais continuam existindo nas telas próprias.
 import { createFileRoute, useNavigate, useSearch, Link } from "@tanstack/react-router";
+import { TESTE_FLAG_KEY } from "@/lib/checklist";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -231,6 +232,7 @@ function Onboarding() {
       const r = await runTest({ data: { message: testMsg, agentId: agentId ?? null } });
       setTestReply(r.parts);
       setTestado(true);
+      try { localStorage.setItem(TESTE_FLAG_KEY(companyId), "1"); } catch {}
     } catch (e: any) {
       toast.error(e?.message || "Não foi possível testar agora.");
     } finally {
