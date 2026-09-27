@@ -196,7 +196,7 @@ export async function sendPartOnce(
     texto: string;
     autor?: string;
     job?: QueueJob;
-    send?: (target: any, texto: string) => Promise<any>;
+    send?: (target: any, texto: string, opts?: { idempotencyKey?: string | null }) => Promise<any>;
   },
 ): Promise<"sent" | "skipped" | "uncertain"> {
   const responseKey = `${args.jobId}:${args.index}`;
