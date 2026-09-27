@@ -18,7 +18,6 @@ export async function processDueCampaigns(admin: any, maxCampaigns = 10) {
     .lte("proximo_envio_em", nowIso)
     .limit(Math.min(25, Math.max(1, maxCampaigns)));
 
-  const { evoSendText } = await import("@/lib/evolution.server");
   const { isCompanyOperational } = await import("@/lib/billing-guard.server");
 
   const processed: any[] = [];
@@ -33,7 +32,7 @@ export async function processDueCampaigns(admin: any, maxCampaigns = 10) {
 
     const { data: inst } = await admin
       .from("whatsapp_instances")
-      .select("instance_name, status")
+      .select("instance_name, status, user_id")
       .eq("company_id", c.company_id)
       .maybeSingle();
     if (!inst || inst.status !== "open") {
@@ -69,38 +68,80 @@ export async function processDueCampaigns(admin: any, maxCampaigns = 10) {
 
     let enviados = 0;
     let falhas = 0;
+    const { sendPartOnce } = await import("@/lib/message-pipeline.server");
+    const { resolveChannelTarget } = await import("@/lib/channels.server");
+    const { campaignEligibility, isStopRequest, isDefinitiveSendFailure } = await import("@/lib/queue-logic");
+    const { getCompanyPlan } = await import("@/lib/plan-limits.server");
+    const finalize = (id: string, patch: Record<string, any>) =>
+      admin.from("campaign_target").update({ locked_at: null, locked_by: null, ...patch }).eq("id", id);
+
+    // Limite do plano: envios de campanha no mês não passam de limite_mensagens.
+    let restante = Infinity;
+    try {
+      const plan: any = await getCompanyPlan(c.company_id);
+      const inicioMes = new Date(); inicioMes.setUTCDate(1); inicioMes.setUTCHours(0, 0, 0, 0);
+      const { count } = await admin
+        .from("campaign_target").select("id", { count: "exact", head: true })
+        .eq("company_id", c.company_id).eq("status", "enviado").gte("enviado_em", inicioMes.toISOString());
+      restante = Number(plan?.limits?.mensagens ?? 1500) - (count ?? 0);
+    } catch (e: any) {
+      console.error("[campaign.limit]", e?.message);
+      restante = 0; // sem conseguir medir, não envia
+    }
+
     for (const t of targets) {
+      if (restante <= 0) {
+        await finalize(t.id, { status: "pendente", tentativas: Math.max(0, Number(t.tentativas ?? 1) - 1), erro: "limite do plano atingido" });
+        await admin.from("campaign").update({ status: "pausada" }).eq("id", c.id);
+        continue;
+      }
       try {
+        const [{ data: card }, { data: inbound }] = await Promise.all([
+          admin.from("crm_cards").select("campanha_consentimento_em, campanha_optout_em")
+            .eq("company_id", c.company_id).eq("numero", t.contato_numero).maybeSingle(),
+          admin.from("mensagens").select("texto").eq("company_id", c.company_id)
+            .eq("numero", t.contato_numero).eq("direcao", "entrada")
+            .order("created_at", { ascending: false }).limit(30),
+        ]);
+        const stop = ((inbound ?? []) as any[]).some((m) => isStopRequest(m.texto));
+        const elig = campaignEligibility(card as any, stop);
+        if (!elig.ok) { await finalize(t.id, { status: "pulado", erro: elig.motivo }); continue; }
+
+        const target = await resolveChannelTarget(admin, c.company_id, t.contato_numero);
+        if (!target.ready) throw new Error("canal desconectado");
         const texto = String(c.mensagem || "").replace(/\{\{nome\}\}/gi, t.contato_nome || "");
-        await evoSendText(inst.instance_name, t.contato_numero, texto);
-        await admin
-          .from("campaign_target")
-          .update({ status: "enviado", enviado_em: new Date().toISOString(), erro: null })
-          .eq("id", t.id);
-        if (c.created_by) {
-          await admin.from("mensagens").insert({
-            company_id: c.company_id,
-            user_id: c.created_by,
-            numero: t.contato_numero,
-            contato_nome: t.contato_nome,
-            direcao: "saida",
-            autor: "sistema",
-            texto,
-          });
+        // Chave única por campanha+destinatário: retry nunca reenvia.
+        const r = await sendPartOnce(admin, {
+          companyId: c.company_id,
+          userId: c.created_by ?? inst.user_id ?? c.company_id,
+          numero: t.contato_numero,
+          contatoNome: t.contato_nome ?? null,
+          target,
+          jobId: `camp:${c.id}:${t.contato_numero}`,
+          index: 0,
+          texto,
+          autor: "sistema",
+        });
+        if (r === "uncertain") {
+          await finalize(t.id, { status: "incerto", erro: "entrega não confirmada pelo provedor" });
+          continue;
         }
-        enviados++;
+        if (r === "skipped") {
+          const { data: prev } = await admin.from("mensagens").select("send_status")
+            .eq("company_id", c.company_id).eq("response_key", `camp:${c.id}:${t.contato_numero}:0`).maybeSingle();
+          const st = (prev as any)?.send_status;
+          await finalize(t.id, st === "sent" ? { status: "enviado", enviado_em: new Date().toISOString(), erro: null }
+            : { status: "incerto", erro: "tentativa anterior sem confirmação" });
+          continue;
+        }
+        await finalize(t.id, { status: "enviado", enviado_em: new Date().toISOString(), erro: null });
+        enviados++; restante--;
       } catch (e: any) {
         const msg = String(e?.message ?? e).slice(0, 500);
         const tentativas = Number(t.tentativas ?? 1);
-        await admin
-          .from("campaign_target")
-          .update(
-            tentativas >= 3
-              ? { status: "falhou", erro: msg }
-              : { status: "pendente", erro: msg, locked_at: null, locked_by: null },
-          )
-          .eq("id", t.id);
-        if (tentativas >= 3) falhas++;
+        const definitiva = isDefinitiveSendFailure(e) || tentativas >= 3;
+        await finalize(t.id, definitiva ? { status: "falhou", erro: msg } : { status: "pendente", erro: msg });
+        if (definitiva) falhas++;
       }
     }
 
