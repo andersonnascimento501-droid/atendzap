@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate, Link, useSearch } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchAtendaiPeriodos, formatBRL, periodoResumo, type AtendaiPeriodo } from "@/lib/atendai-plan";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
