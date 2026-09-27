@@ -36,7 +36,6 @@ export const Route = createFileRoute("/app/agente/avancado")({
 
 
 const DEFAULTS: any = {
-  ai_provider: "gemini", ai_model: "google/gemini-2.5-flash",
   nome_agente: "Atendente Virtual", nome_empresa: "",
   papel_objetivo: "Atender clientes, descobrir o que precisam, recomendar com sentido e ajudar a fechar a venda.",
   estilo_comunicacao: "Humano, simpático, consultivo e direto.",
@@ -58,22 +57,6 @@ const DEFAULTS: any = {
 };
 
 
-const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
-  gemini: [
-    { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (rápido — grátis)" },
-    { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (econômico)" },
-    { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (mais inteligente)" },
-  ],
-  openai: [
-    { value: "gpt-4o-mini", label: "GPT-4o mini (rápido e barato)" },
-    { value: "gpt-4o", label: "GPT-4o (premium)" },
-    { value: "gpt-4.1-mini", label: "GPT-4.1 mini" },
-  ],
-  anthropic: [
-    { value: "claude-3-5-haiku-latest", label: "Claude 3.5 Haiku (rápido)" },
-    { value: "claude-3-5-sonnet-latest", label: "Claude 3.5 Sonnet (premium)" },
-  ],
-};
 
 const BUFFER_PRESETS = [3, 5, 10, 20, 30];
 
@@ -125,8 +108,6 @@ function AgentePage() {
   const gStart = useServerFn(startGoogleOAuth);
   const gDisc = useServerFn(disconnectGoogle);
   const plan = usePlanFeatures();
-  const allowOpenAI = plan.features.providersIA.includes("openai");
-  const allowAnthropic = plan.features.providersIA.includes("anthropic");
   const allowGoogleCal = plan.features.googleCalendar;
   const [cfg, setCfg] = useState<any>(DEFAULTS);
   const [produtos, setProdutos] = useState<Produto[]>([]);
