@@ -81,7 +81,7 @@ function ConversasDemo() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] xl:grid-cols-[300px_1fr_260px] gap-0 border border-border rounded-2xl overflow-hidden h-[calc(100vh-180px)] min-h-[480px] bg-card">
+      <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_260px] gap-0 border border-border rounded-2xl overflow-hidden h-[calc(100vh-180px)] min-h-[480px] bg-card">
         {/* LISTA */}
         <aside className="border-r border-border flex flex-col min-h-0 min-w-0 bg-card">
           <div className="p-3 border-b border-border space-y-2">
