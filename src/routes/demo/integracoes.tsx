@@ -89,16 +89,16 @@ function IntegracoesDemo() {
             <div className="grid sm:grid-cols-3 gap-3">
               <Field label="Source" value="instagram" />
               <Field label="Medium" value="bio" />
-              <Field label="Campaign" value="botox-junho" />
+              <Field label="Campaign" value="botox" />
             </div>
             <div className="rounded-xl border border-[var(--brand-soft-strong)] bg-[var(--brand-soft)] p-3 font-mono text-[12px] break-all">
-              https://wa.me/5511999990000?text=Oi%21%20Vim%20pelo%20Insta%20[utm:instagram/bio/botox-junho]
+              https://wa.me/5511900000000?text=Oi%21%20Vim%20pelo%20Insta%20[utm:instagram/bio/botox]
             </div>
           </div>
           <div className="rounded-2xl border border-border bg-card p-5">
             <h3 className="font-display font-bold text-[14px] mb-2">Últimas atribuições</h3>
             <ul className="text-[13px] divide-y divide-border">
-              <li className="py-2 flex justify-between"><span>Mariana Costa</span><span className="text-muted-foreground font-mono text-[11.5px]">instagram · bio · botox-junho</span></li>
+              <li className="py-2 flex justify-between"><span>Mariana Costa</span><span className="text-muted-foreground font-mono text-[11.5px]">instagram · bio · botox</span></li>
               <li className="py-2 flex justify-between"><span>Beatriz Souza</span><span className="text-muted-foreground font-mono text-[11.5px]">google · ads · laser-promo</span></li>
               <li className="py-2 flex justify-between"><span>Letícia Moreira</span><span className="text-muted-foreground font-mono text-[11.5px]">tiktok · bio · harmonizacao</span></li>
             </ul>

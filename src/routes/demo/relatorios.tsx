@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { MiniAreaChart, type AreaPoint } from "@/components/dashboard/mini-area-chart";
 import { MessageCircle, Bot, Trophy, Target, Download, Lock, Star } from "lucide-react";
-import { demoCsat } from "@/lib/demo-data";
+import { demoCsat, demoStats, demoCards } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/demo/relatorios")({
   head: () => ({ meta: [{ title: `${brand.name} — Relatórios (demo)` }] }),
@@ -29,22 +29,28 @@ function RelatoriosDemo() {
     b: 4 + Math.round(Math.sin(i * 0.5) * 4 + i * 0.3 + Math.abs(Math.cos(i * 0.9)) * 3),
   }));
 
+  // Mesmos números do Dashboard para "Hoje"; 7 e 30 dias são ilustrativos e coerentes entre si.
+  const P = {
+    1: { msgs: demoStats.respostasIaHoje * 2, ia: demoStats.respostasIaHoje, agend: demoStats.ganho, receita: demoStats.valorAgendado },
+    7: { msgs: 96, ia: 71, agend: 9, receita: 6840 },
+    30: { msgs: 410, ia: 302, agend: 37, receita: 27950 },
+  }[days as 1 | 7 | 30];
   const atendentes = [
-    { nome: "IA Vivi", conv: 168, ganho: 52, taxa: 31 },
-    { nome: "Recepção (Patrícia)", conv: 34, ganho: 18, taxa: 53 },
-    { nome: "Dra. Helena", conv: 22, ganho: 14, taxa: 64 },
-  ];
+    { nome: "IA Vivi", conv: Math.round(P.ia / 4), ganho: Math.round(P.agend * 0.7) },
+    { nome: "Recepção", conv: Math.max(1, Math.round(P.ia / 20)), ganho: Math.round(P.agend * 0.2) },
+    { nome: "Comercial", conv: Math.max(1, Math.round(P.ia / 30)), ganho: Math.round(P.agend * 0.1) },
+  ].map((a) => ({ ...a, taxa: a.conv ? Math.round((a.ganho / a.conv) * 100) : 0 }));
   const distEtapas = [
-    { nome: "Conversas", q: 32, cor: "#22D3EE" },
-    { nome: "Negociando", q: 18, cor: "#FFB020" },
-    { nome: "Agendados", q: 21, cor: "#7C3AED" },
-    { nome: "Perda", q: 4, cor: "#FF5A5A" },
+    { nome: "Conversas", q: demoStats.conversas, cor: "#22D3EE" },
+    { nome: "Negociando", q: demoStats.negociando, cor: "#FFB020" },
+    { nome: "Agendados", q: demoStats.ganho, cor: "#7C3AED" },
+    { nome: "Perda", q: demoStats.perda, cor: "#FF5A5A" },
   ];
+  void demoCards;
   const totalEtapas = distEtapas.reduce((a, b) => a + b.q, 0);
 
   const csatMedia = (demoCsat.reduce((a, b) => a + b.score, 0) / demoCsat.length).toFixed(1);
 
-  const factor = days / 7;
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between gap-3 flex-wrap">
@@ -70,10 +76,10 @@ function RelatoriosDemo() {
       </header>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-5">
-        <KpiCard accent icon={<MessageCircle className="size-4" />} label="Mensagens" value={Math.round(412 * factor)} trend="+18% vs período anterior" />
-        <KpiCard icon={<Bot className="size-4" />} label="IA respondeu" value="89%" trend={`${Math.round(366 * factor)} respostas`} />
-        <KpiCard icon={<Target className="size-4" />} label="Agendados" value={Math.round(21 * factor)} trend="+5 esta semana" />
-        <KpiCard icon={<Trophy className="size-4" />} label="Receita ganha" value={`R$ ${Math.round(18400 * factor).toLocaleString("pt-BR")}`} trend="+27%" />
+        <KpiCard accent icon={<MessageCircle className="size-4" />} label="Mensagens" value={P.msgs} trend="recebidas + enviadas" />
+        <KpiCard icon={<Bot className="size-4" />} label="Respostas da IA" value={P.ia} trend="no período" />
+        <KpiCard icon={<Target className="size-4" />} label="Agendados" value={P.agend} trend="no período" />
+        <KpiCard icon={<Trophy className="size-4" />} label="Valor agendado" value={`R$ ${P.receita.toLocaleString("pt-BR")}`} trend="valor estimado nos cards" />
         <KpiCard icon={<Star className="size-4" />} label="CSAT médio" value={`${csatMedia} / 5`} trend={`${demoCsat.length} respostas`} />
       </div>
 
@@ -84,7 +90,7 @@ function RelatoriosDemo() {
           <MiniAreaChart data={series} />
         </div>
         <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="font-display text-[15px] font-semibold mb-3">Distribuição por etapa</h3>
+          <h3 className="font-display text-[15px] font-semibold mb-3">Funil atual</h3>
           <div className="space-y-2.5">
             {distEtapas.map((e) => (
               <div key={e.nome}>

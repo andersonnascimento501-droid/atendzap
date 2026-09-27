@@ -3,8 +3,8 @@ import { HelpTip } from "@/components/help-tip";
 import { useMemo } from "react";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { brand } from "@/config/brand";
-import { Sparkles } from "lucide-react";
-import { demoCards, type DemoCard } from "@/lib/demo-data";
+import { Sparkles, Hand, Calendar, Clock } from "lucide-react";
+import { demoCards, rotuloData, type DemoCard } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/demo/crm")({
   head: () => ({ meta: [{ title: `${brand.name} — CRM (demo)` }] }),
@@ -15,7 +15,7 @@ type Status = "conversas" | "negociando" | "ganho" | "perda";
 const COLUMNS: { id: Status; label: string; color: string }[] = [
   { id: "conversas", label: "Conversas", color: "#22D3EE" },
   { id: "negociando", label: "Negociando", color: "#FFB020" },
-  { id: "ganho", label: "Ganho", color: "#25D366" },
+  { id: "ganho", label: "Agendado", color: "#25D366" },
   { id: "perda", label: "Perda", color: "#FF5A5A" },
 ];
 
@@ -30,8 +30,8 @@ function CrmDemo() {
     <div className="space-y-4">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
         <div className="min-w-0">
-          <h1 className="font-display text-xl sm:text-2xl font-bold flex items-center gap-2">CRM Kanban <HelpTip text="Pipeline visual: do primeiro contato até o agendamento confirmado. Veja em qual etapa cada lead está parado." /></h1>
-          <p className="text-xs text-muted-foreground">A IA também move automaticamente entre as colunas — exemplo.</p>
+          <h1 className="font-display text-xl sm:text-2xl font-bold flex items-center gap-2">CRM Kanban <HelpTip text="Funil visual: do primeiro contato até o agendamento confirmado. Veja em qual etapa cada contato está." /></h1>
+          <p className="text-xs text-muted-foreground">A IA move os contatos entre as etapas conforme a conversa — exemplo, somente leitura.</p>
         </div>
       </header>
 
@@ -66,6 +66,18 @@ function CardBody({ card }: { card: DemoCard }) {
           <div className="text-[10.5px] text-muted-foreground font-mono truncate">{card.numero}</div>
         </div>
       </div>
+      <div className="text-[11px] font-semibold mt-2">{card.interesse}</div>
+      {card.precisa_humano && (
+        <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[var(--brand-soft)] text-[var(--brand-text)]">
+          <Hand className="size-2.5" /> Precisa de você · {card.setor_destino}
+        </span>
+      )}
+      {card.agendamento && (
+        <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1"><Calendar className="size-3" /> {rotuloData(card.agendamento)}</div>
+      )}
+      {card.proxima_acao && (
+        <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><Clock className="size-3" /> {card.proxima_acao}{card.follow_up ? ` · ${rotuloData(card.follow_up)}` : ""}</div>
+      )}
       {card.ultima_mensagem && (
         <p className="text-muted-foreground text-[12px] mt-2 line-clamp-2">{card.ultima_mensagem}</p>
       )}
@@ -79,7 +91,7 @@ function CardBody({ card }: { card: DemoCard }) {
           <Sparkles className="size-2.5" /> IA
         </span>
         <span className="ml-auto text-[10.5px] text-muted-foreground">
-          {card.ultima_em.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" })} {card.ultima_em.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+          {rotuloData(card.ultima_em)}
         </span>
       </div>
     </div>

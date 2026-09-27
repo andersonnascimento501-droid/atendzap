@@ -31,7 +31,7 @@ function ConexaoDemo() {
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3">
-            <Info label="Número" value="+55 11 99999-0000" />
+            <Info label="Número" value="+55 11 90000-0000" />
             <Info label="Instância" value="clinica-vitalis" />
             <Info label="Última atividade" value="agora mesmo" />
             <Info label="Sessão iniciada em" value="15/06/2026 às 09:12" />
