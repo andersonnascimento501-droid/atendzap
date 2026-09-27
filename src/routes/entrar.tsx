@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate, Link, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
+import { fetchAtendaiPeriodos, formatBRL, periodoResumo, type AtendaiPeriodo } from "@/lib/atendai-plan";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,10 @@ function EntrarPage() {
   const [needsPassword, setNeedsPassword] = useState(search.modo === "login");
   const [loading, setLoading] = useState(false);
 
-  const planInfo = search.plano ? PLAN_LABEL[search.plano] : null;
+  const [periodos, setPeriodos] = useState<AtendaiPeriodo[]>([]);
+  useEffect(() => { if (search.plano) fetchAtendaiPeriodos().then(setPeriodos).catch(() => {}); }, [search.plano]);
+  const pSel = periodos.find((p) => p.slug === search.plano);
+  const planInfo = search.plano ? (pSel ? { nome: `Plano AtendAi — ${pSel.nome}`, preco: `${formatBRL(pSel.preco_cents)} · ${periodoResumo(pSel)}` } : { nome: "Plano AtendAi", preco: "3 dias grátis, sem cartão" }) : null;
 
   async function routeAfterAuth() {
     const { data: u } = await supabase.auth.getUser();
