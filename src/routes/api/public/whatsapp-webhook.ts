@@ -57,7 +57,8 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             .eq("instance_name", instanceName)
             .maybeSingle();
           if (!inst) return new Response("unknown instance", { status: 200 });
-          if (!suppliedToken || suppliedToken !== (inst as any).webhook_token) {
+          const { safeTokenEqual } = await import("@/lib/queue-logic");
+          if (!safeTokenEqual(suppliedToken, (inst as any).webhook_token)) {
             return new Response("invalid webhook", { status: 401 });
           }
           const companyId = (inst as any).company_id as string;

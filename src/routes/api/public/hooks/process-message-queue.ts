@@ -171,16 +171,8 @@ async function refundIfNothingSent(
     .like("response_key", `${job.id}:%`);
   if (error) return console.error("[credits.refund.check]", error.message);
   if ((count ?? 0) > 0) return; // algo foi (ou pode ter sido) entregue: cobrança mantida
-  const { data: flagged, error: fErr } = await admin
-    .from("message_processing_queue")
-    .update({ credit_refunded: true })
-    .eq("id", job.id)
-    .eq("credit_refunded", false)
-    .select("id");
-  if (fErr || !flagged?.length) return;
-  const { error: rErr } = await admin.rpc("refund_ai_credit", {
-    _company_id: job.company_id,
-    _ref: `${job.numero}:${job.id}`,
-  });
+  // Operação única no banco: confere cobrança/estorno, devolve, registra e só então marca.
+  // Se falhar, nada é marcado e a próxima execução tenta de novo.
+  const { error: rErr } = await admin.rpc("refund_ai_credit_for_job", { _job_id: job.id });
   if (rErr) console.error("[credits.refund]", rErr.message);
 }

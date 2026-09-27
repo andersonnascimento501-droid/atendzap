@@ -54,3 +54,30 @@ export function isDefinitiveSendFailure(err: any): boolean {
   const msg = String(err?.message ?? "");
   return /não conectado|não configurado/i.test(msg);
 }
+
+/** Comparação de segredo em tempo constante (webhook do WhatsApp). Vazio nunca vale. */
+export function safeTokenEqual(provided: string | null | undefined, expected: string | null | undefined): boolean {
+  const a = String(provided ?? "");
+  const b = String(expected ?? "");
+  if (!a || !b) return false;
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
+/** Pedido de parada de campanha enviado pelo contato (ex.: "PARAR", "sair", "stop"). */
+export function isStopRequest(text: string | null | undefined): boolean {
+  const t = String(text ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  return /^(parar|pare|sair|stop|descadastrar|cancelar|remover|nao quero mais( receber)?)[.!\s]*$/.test(t);
+}
+
+export type CampaignEligibility = { ok: true } | { ok: false; motivo: string };
+
+/** Regra de envio de campanha por destinatário. Sem consentimento válido não envia. */
+export function campaignEligibility(card: { campanha_consentimento_em?: string | null; campanha_optout_em?: string | null } | null, stopRequested: boolean): CampaignEligibility {
+  if (stopRequested) return { ok: false, motivo: "pediu para parar" };
+  if (!card) return { ok: false, motivo: "sem consentimento" };
+  if (card.campanha_optout_em) return { ok: false, motivo: "descadastrado" };
+  if (!card.campanha_consentimento_em) return { ok: false, motivo: "sem consentimento" };
+  return { ok: true };
+}
