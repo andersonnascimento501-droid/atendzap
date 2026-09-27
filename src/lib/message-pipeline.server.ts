@@ -229,7 +229,7 @@ export async function sendPartOnce(
   const send = args.send ?? (await import("@/lib/channels.server")).sendChannelText;
   let res: any;
   try {
-    res = await send(args.target, args.texto);
+    res = await send(args.target, args.texto, { idempotencyKey: responseKey });
   } catch (e: any) {
     if (isDefinitiveSendFailure(e)) {
       const { error: delErr } = await admin.from("mensagens").delete().eq("id", rowId);
