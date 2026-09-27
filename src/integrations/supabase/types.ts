@@ -2171,6 +2171,7 @@ export type Database = {
           conectado: boolean
           created_at: string
           ig_user_id: string | null
+          instagram_provider: string
           page_access_token: string | null
           page_id: string | null
           page_name: string | null
@@ -2185,6 +2186,7 @@ export type Database = {
           conectado?: boolean
           created_at?: string
           ig_user_id?: string | null
+          instagram_provider?: string
           page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
@@ -2199,6 +2201,7 @@ export type Database = {
           conectado?: boolean
           created_at?: string
           ig_user_id?: string | null
+          instagram_provider?: string
           page_access_token?: string | null
           page_id?: string | null
           page_name?: string | null
@@ -2211,6 +2214,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "instagram_integration_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "company"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instagram_zernio: {
+        Row: {
+          account_display_name: string | null
+          account_id: string | null
+          account_username: string | null
+          api_key_enc: string | null
+          company_id: string
+          connected_by: string | null
+          created_at: string
+          profile_id: string | null
+          profile_name: string | null
+          status: string
+          ultimo_erro: string | null
+          updated_at: string
+          verificado_em: string | null
+          webhook_id: string | null
+          webhook_secret_enc: string | null
+          webhook_token: string | null
+        }
+        Insert: {
+          account_display_name?: string | null
+          account_id?: string | null
+          account_username?: string | null
+          api_key_enc?: string | null
+          company_id: string
+          connected_by?: string | null
+          created_at?: string
+          profile_id?: string | null
+          profile_name?: string | null
+          status?: string
+          ultimo_erro?: string | null
+          updated_at?: string
+          verificado_em?: string | null
+          webhook_id?: string | null
+          webhook_secret_enc?: string | null
+          webhook_token?: string | null
+        }
+        Update: {
+          account_display_name?: string | null
+          account_id?: string | null
+          account_username?: string | null
+          api_key_enc?: string | null
+          company_id?: string
+          connected_by?: string | null
+          created_at?: string
+          profile_id?: string | null
+          profile_name?: string | null
+          status?: string
+          ultimo_erro?: string | null
+          updated_at?: string
+          verificado_em?: string | null
+          webhook_id?: string | null
+          webhook_secret_enc?: string | null
+          webhook_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instagram_zernio_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: true
             referencedRelation: "company"
@@ -2328,6 +2396,7 @@ export type Database = {
           media_ref: Json | null
           midia: Json | null
           numero: string
+          provider_conversation_id: string | null
           provider_message_id: string | null
           response_key: string | null
           send_status: string | null
@@ -2348,6 +2417,7 @@ export type Database = {
           media_ref?: Json | null
           midia?: Json | null
           numero: string
+          provider_conversation_id?: string | null
           provider_message_id?: string | null
           response_key?: string | null
           send_status?: string | null
@@ -2368,6 +2438,7 @@ export type Database = {
           media_ref?: Json | null
           midia?: Json | null
           numero?: string
+          provider_conversation_id?: string | null
           provider_message_id?: string | null
           response_key?: string | null
           send_status?: string | null

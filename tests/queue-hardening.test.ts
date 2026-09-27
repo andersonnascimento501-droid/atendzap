@@ -13,7 +13,7 @@ const migration = readFileSync(
 const worker = readFileSync("src/routes/api/public/hooks/process-message-queue.ts", "utf8");
 const pipeline = readFileSync("src/lib/message-pipeline.server.ts", "utf8");
 const waHook = readFileSync("src/routes/api/public/whatsapp-webhook.ts", "utf8");
-const igHook = readFileSync("src/routes/api/public/instagram-webhook.ts", "utf8");
+const igHook = readFileSync("src/routes/api/public/instagram-webhook.ts", "utf8") + readFileSync("src/lib/instagram-ingest.server.ts", "utf8");
 
 // ---- Fake mínimo do cliente Supabase (apenas o que sendPartOnce usa)
 function fakeAdmin(opts: { conflict?: boolean; lease?: boolean } = {}) {

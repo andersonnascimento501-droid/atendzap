@@ -200,7 +200,7 @@ export async function sendOutbound(admin: any, input: OutboundInput, targetHint?
         ? [caption, String(input.texto || "").trim()].filter(Boolean).join("\n")
         : String(input.texto || "").trim();
     if (!body) throw new Error("Mensagem vazia.");
-    const res = await sendChannelText(target, body);
+    const res = await sendChannelText(target, body, { idempotencyKey: key });
     providerMessageId = extractProviderId(res);
     texto = body;
     if (input.kind === "link") midia = { tipo: "link", external_url: String(input.texto || "").trim() };
@@ -235,7 +235,7 @@ export async function sendOutbound(admin: any, input: OutboundInput, targetHint?
       mimeType: mime,
       fileName,
       caption,
-    });
+    }, { idempotencyKey: key });
     providerMessageId = extractProviderId(res);
     texto = caption || fallbackLabel(input.kind, fileName);
     midia = {

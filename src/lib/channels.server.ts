@@ -13,7 +13,51 @@ export type ChannelTarget = {
   userId: string | null;
   ready: boolean;
   reason?: string;
+  /** Instagram: provedor ativo da empresa. Ausente = meta (comportamento original). */
+  provider?: "meta" | "zernio";
+  /** Somente server-side, em memória. Nunca serializar/logar. */
+  zernio?: { apiKey: string; accountId: string; conversationId: string } | null;
 };
+
+export type SendOpts = { idempotencyKey?: string | null };
+
+async function resolveZernioTarget(admin: any, companyId: string, contactId: string, externalId: string, userId: string | null): Promise<ChannelTarget> {
+  const base = { channel: "instagram" as const, contactId, externalId, instanceName: null, token: null, provider: "zernio" as const };
+  const { data: z } = await admin
+    .from("instagram_zernio")
+    .select("api_key_enc, account_id, status, connected_by")
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (!z || (z as any).status !== "conectado" || !(z as any).account_id || !(z as any).api_key_enc) {
+    return { ...base, userId, ready: false, reason: "instagram desconectado", zernio: null };
+  }
+  const { decryptSecret } = await import("./secret-box.server");
+  let apiKey: string | null = null;
+  try {
+    apiKey = await decryptSecret((z as any).api_key_enc);
+  } catch {
+    apiKey = null;
+  }
+  if (!apiKey) return { ...base, userId, ready: false, reason: "instagram desconectado", zernio: null };
+  // Conversa Zernio mais recente deste contato (isolada por empresa).
+  const { data: conv } = await admin
+    .from("mensagens")
+    .select("provider_conversation_id")
+    .eq("company_id", companyId)
+    .eq("numero", contactId)
+    .not("provider_conversation_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  // A Zernio também aceita o id da plataforma (IGSID) nas rotas de conversa.
+  const conversationId = String((conv as any)?.provider_conversation_id || externalId);
+  return {
+    ...base,
+    userId: userId ?? (z as any).connected_by ?? null,
+    ready: true,
+    zernio: { apiKey, accountId: String((z as any).account_id), conversationId },
+  };
+}
 
 /** Resolve tudo o que é necessário para falar com o contato no canal dele. */
 export async function resolveChannelTarget(
@@ -28,9 +72,12 @@ export async function resolveChannelTarget(
   if (channel === "instagram") {
     const { data: ig } = await admin
       .from("instagram_integration")
-      .select("user_id, page_access_token, conectado")
+      .select("user_id, page_access_token, conectado, instagram_provider")
       .eq("company_id", companyId)
       .maybeSingle();
+    if ((ig as any)?.instagram_provider === "zernio") {
+      return resolveZernioTarget(admin, companyId, contactId, externalId, (ig as any)?.user_id ?? null);
+    }
     const token = ((ig as any)?.page_access_token || "").trim();
     return {
       channel,
@@ -39,6 +86,7 @@ export async function resolveChannelTarget(
       instanceName: null,
       token: token || null,
       userId: (ig as any)?.user_id ?? null,
+      provider: "meta",
       ready: !!token && !!(ig as any)?.conectado,
       reason: !token ? "instagram desconectado" : !(ig as any)?.conectado ? "instagram desconectado" : undefined,
     };
@@ -71,7 +119,12 @@ export async function resolveChannelTarget(
 }
 
 /** Envio de texto no canal correto. Devolve a resposta crua do provider. */
-export async function sendChannelText(target: ChannelTarget, texto: string): Promise<any> {
+export async function sendChannelText(target: ChannelTarget, texto: string, opts?: SendOpts): Promise<any> {
+  if (target.channel === "instagram" && target.provider === "zernio") {
+    if (!target.zernio) throw new Error("Instagram não conectado");
+    const { zernioSendText } = await import("./zernio.server");
+    return zernioSendText(target.zernio.apiKey, target.zernio.accountId, target.zernio.conversationId, texto, opts?.idempotencyKey);
+  }
   if (target.channel === "instagram") {
     if (!target.token) throw new Error("Instagram não conectado");
     const { igSendText } = await import("./instagram.server");
@@ -93,7 +146,24 @@ export async function sendChannelMedia(
     fileName?: string | null;
     caption?: string | null;
   },
+  opts?: SendOpts,
 ): Promise<any> {
+  if (target.channel === "instagram" && target.provider === "zernio") {
+    if (!target.zernio) throw new Error("Instagram não conectado");
+    if (!args.url) throw new Error("O Instagram exige um link acessível do arquivo. Tente novamente em instantes.");
+    if (args.kind === "document") throw Object.assign(new Error("Documento não suportado no Instagram via Zernio."), { providerStatus: 400 });
+    const { zernioSendAttachment, zernioSendText } = await import("./zernio.server");
+    const z = target.zernio;
+    const res = await zernioSendAttachment(z.apiKey, z.accountId, z.conversationId, args.kind, args.url, opts?.idempotencyKey);
+    if (args.caption) {
+      try {
+        await zernioSendText(z.apiKey, z.accountId, z.conversationId, args.caption, opts?.idempotencyKey ? `${opts.idempotencyKey}:cap` : null);
+      } catch (e: any) {
+        console.warn("[zernio.caption]", e?.message);
+      }
+    }
+    return res;
+  }
   if (target.channel === "instagram") {
     if (!target.token) throw new Error("Instagram não conectado");
     if (!args.url) {
@@ -141,6 +211,12 @@ export async function sendChannelMedia(
 /** "Digitando…" — best-effort nos dois canais. */
 export async function sendChannelTyping(target: ChannelTarget, ms: number) {
   try {
+    if (target.channel === "instagram" && target.provider === "zernio") {
+      if (!target.zernio) return;
+      const { zernioSendTyping } = await import("./zernio.server");
+      await zernioSendTyping(target.zernio.apiKey, target.zernio.accountId, target.zernio.conversationId);
+      return;
+    }
     if (target.channel === "instagram") {
       if (!target.token) return;
       const { igSendTyping } = await import("./instagram.server");
@@ -160,6 +236,12 @@ export async function downloadChannelMedia(
   target: ChannelTarget,
   media: any,
 ): Promise<{ base64: string; mimetype: string | null; fileName: string | null } | null> {
+  if (media?.provider === "zernio") {
+    if (!media?.url) return null;
+    const { zernioDownloadMedia } = await import("./zernio.server");
+    const dl = await zernioDownloadMedia(media.url);
+    return dl ? { base64: dl.base64, mimetype: dl.mimetype ?? media.mimetype ?? null, fileName: media.fileName ?? null } : null;
+  }
   if (media?.provider === "instagram" || target.channel === "instagram") {
     if (!media?.url) return null;
     const { igDownloadMedia } = await import("./instagram.server");

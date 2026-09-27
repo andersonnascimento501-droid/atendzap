@@ -43,11 +43,14 @@ export const getInstagramStatus = createServerFn({ method: "POST" })
     const companyId = await resolveCompanyId(supabase, userId);
     const { data } = await (supabase as any)
       .from("instagram_integration")
-      .select("ig_user_id, page_id, page_name, username, conectado, verify_token, ultimo_erro, updated_at")
+      .select("ig_user_id, page_id, page_name, username, conectado, verify_token, ultimo_erro, updated_at, instagram_provider")
       .eq("company_id", companyId)
       .maybeSingle();
+    const provider = ((data as any)?.instagram_provider as "meta" | "zernio") ?? "meta";
     return {
-      conectado: !!(data as any)?.conectado,
+      provider,
+      // "conectado" aqui é da API oficial da Meta (card da Meta).
+      conectado: provider === "meta" && !!(data as any)?.conectado,
       username: (data as any)?.username ?? null,
       pageName: (data as any)?.page_name ?? null,
       igUserId: (data as any)?.ig_user_id ?? null,
@@ -59,14 +62,25 @@ export const getInstagramStatus = createServerFn({ method: "POST" })
 
 export const connectInstagram = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { token: string }) => {
+  .inputValidator((d: { token: string; confirmSwitch?: boolean }) => {
     const token = String(d?.token ?? "").trim();
     if (token.length < 40) throw new Error("Cole um token de acesso válido do Meta.");
-    return { token };
+    return { token, confirmSwitch: !!d?.confirmSwitch };
   })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const companyId = await resolveCompanyId(supabase, userId);
+    // Somente um provedor ativo: se a Zernio está ativa e conectada, pede confirmação.
+    {
+      const { data: cur } = await (supabase as any)
+        .from("instagram_integration")
+        .select("instagram_provider, conectado")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if ((cur as any)?.instagram_provider === "zernio" && (cur as any)?.conectado && !data.confirmSwitch) {
+        return { ok: false as const, needsConfirm: true as const };
+      }
+    }
     const { igResolveAccount, igSubscribePage } = await import("./instagram.server");
 
     const account = await igResolveAccount(data.token);
@@ -81,6 +95,7 @@ export const connectInstagram = createServerFn({ method: "POST" })
         page_name: account.pageName,
         username: account.username,
         page_access_token: account.pageToken,
+        instagram_provider: "meta",
         conectado: true,
         ultimo_erro: null,
       },
@@ -95,7 +110,8 @@ export const connectInstagram = createServerFn({ method: "POST" })
       .maybeSingle();
 
     return {
-      ok: true,
+      ok: true as const,
+      needsConfirm: false as const,
       username: account.username,
       pageName: account.pageName,
       igUserId: account.igUserId,
@@ -109,10 +125,15 @@ export const disconnectInstagram = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     const companyId = await resolveCompanyId(supabase, userId);
-    const { error } = await (supabase as any)
+    const { data: cur } = await (supabase as any)
       .from("instagram_integration")
-      .update({ conectado: false, page_access_token: null })
-      .eq("company_id", companyId);
+      .select("instagram_provider")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    // Com a Zernio ativa, desconectar a Meta não derruba a conexão da Zernio.
+    const patch =
+      (cur as any)?.instagram_provider === "zernio" ? { page_access_token: null } : { conectado: false, page_access_token: null };
+    const { error } = await (supabase as any).from("instagram_integration").update(patch).eq("company_id", companyId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

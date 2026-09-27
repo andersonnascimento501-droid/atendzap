@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { PlanUsageBadge } from "@/components/plan-usage-badge";
+import { ZernioInstagramPanel } from "@/components/connections/zernio-instagram-panel";
 
 export const Route = createFileRoute("/app/conexao")({
   head: () => ({ meta: [{ title: `${brand.name} — Canais` }] }),
@@ -225,6 +226,28 @@ function WhatsappCard() {
 }
 
 function InstagramCard() {
+  const [modo, setModo] = useState<"zernio" | "meta">("zernio");
+  return (
+    <Card className="p-5 sm:p-6 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="size-11 rounded-xl bg-[#C13584]/15 grid place-items-center shrink-0">
+          <Instagram className="size-5 text-[#C13584]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold text-base">Instagram</h2>
+          <p className="text-sm text-muted-foreground">Receba mensagens do Instagram Direct no mesmo atendimento.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 rounded-xl bg-[color:var(--panel-2)] p-1">
+        <Button variant={modo === "zernio" ? "default" : "ghost"} size="sm" onClick={() => setModo("zernio")}>Conectar via Zernio</Button>
+        <Button variant={modo === "meta" ? "default" : "ghost"} size="sm" onClick={() => setModo("meta")}>API oficial da Meta</Button>
+      </div>
+      {modo === "zernio" ? <ZernioInstagramPanel /> : <MetaInstagramPanel />}
+    </Card>
+  );
+}
+
+function MetaInstagramPanel() {
   const statusFn = useServerFn(getInstagramStatus);
   const connectFn = useServerFn(connectInstagram);
   const disconnectFn = useServerFn(disconnectInstagram);
@@ -249,7 +272,12 @@ function InstagramCard() {
   async function doConnect() {
     setLoading(true);
     try {
-      await connectFn({ data: { token: token.trim() } });
+      let r: any = await connectFn({ data: { token: token.trim() } });
+      if (r?.needsConfirm) {
+        const ok = window.confirm("Esta empresa já possui uma conexão do Instagram pela Zernio. Deseja trocar o provedor ativo para a API oficial da Meta?");
+        if (!ok) return;
+        r = await connectFn({ data: { token: token.trim(), confirmSwitch: true } });
+      }
       setToken("");
       setAbrirConfig(false);
       toast.success("Instagram conectado!");
@@ -277,14 +305,14 @@ function InstagramCard() {
   const statusLabel = conectado ? "Conectado" : precisaReconectar ? "Precisa reconectar" : "Não conectado";
 
   return (
-    <Card className="p-5 sm:p-6 space-y-4">
+    <div className="space-y-4">
       <div className="flex items-start gap-3">
         <div className="size-11 rounded-xl bg-[#C13584]/15 grid place-items-center shrink-0">
           <Instagram className="size-5 text-[#C13584]" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="font-semibold text-base">Instagram</h2>
-          <p className="text-sm text-muted-foreground">Receba mensagens do Instagram Direct no mesmo atendimento.</p>
+          <h3 className="font-semibold text-sm">API oficial da Meta</h3>
+          <p className="text-sm text-muted-foreground">Conexão direta com o Meta usando o código de acesso da sua Página.</p>
           <div className="flex items-center gap-2 flex-wrap mt-2">
             <StatusPill tone={tone}>{statusLabel}</StatusPill>
             {conectado && info?.username && <span className="text-sm text-muted-foreground">@{info.username}</span>}
@@ -375,6 +403,6 @@ function InstagramCard() {
           {info?.ultimoErro && <p className="text-xs text-destructive">{info.ultimoErro}</p>}
         </div>
       )}
-    </Card>
+    </div>
   );
 }

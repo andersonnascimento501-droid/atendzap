@@ -196,7 +196,7 @@ export async function sendPartOnce(
     texto: string;
     autor?: string;
     job?: QueueJob;
-    send?: (target: any, texto: string) => Promise<any>;
+    send?: (target: any, texto: string, opts?: { idempotencyKey?: string | null }) => Promise<any>;
   },
 ): Promise<"sent" | "skipped" | "uncertain"> {
   const responseKey = `${args.jobId}:${args.index}`;
@@ -229,7 +229,7 @@ export async function sendPartOnce(
   const send = args.send ?? (await import("@/lib/channels.server")).sendChannelText;
   let res: any;
   try {
-    res = await send(args.target, args.texto);
+    res = await send(args.target, args.texto, { idempotencyKey: responseKey });
   } catch (e: any) {
     if (isDefinitiveSendFailure(e)) {
       const { error: delErr } = await admin.from("mensagens").delete().eq("id", rowId);
