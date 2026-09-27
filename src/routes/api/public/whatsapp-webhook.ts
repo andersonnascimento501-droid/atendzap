@@ -27,7 +27,8 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           const data = payload?.data ?? payload;
           const key = data?.key ?? {};
           const fromMe: boolean = !!key.fromMe;
-          const whatsappMessageId: string | null = typeof key.id === "string" && key.id.trim() ? key.id.trim() : null;
+          const whatsappMessageId: string | null =
+            typeof key.id === "string" && key.id.trim() ? key.id.trim() : null;
           const remoteJid: string = key.remoteJid || "";
           if (!remoteJid) return new Response("no jid", { status: 200 });
           if (remoteJid.endsWith("@g.us")) return new Response("group", { status: 200 });
@@ -47,7 +48,9 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           if (!text.trim() && !media) return new Response("no text", { status: 200 });
 
           const suppliedToken =
-            new URL(request.url).searchParams.get("t") || request.headers.get("x-webhook-token") || "";
+            new URL(request.url).searchParams.get("t") ||
+            request.headers.get("x-webhook-token") ||
+            "";
           const { data: inst } = await (supabaseAdmin as any)
             .from("whatsapp_instances")
             .select("company_id, user_id, instance_name, webhook_token")
@@ -65,10 +68,10 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             media?.kind === "audio"
               ? "[Áudio]"
               : media?.kind === "image"
-              ? "[Imagem]"
-              : media
-              ? `[Documento: ${media.fileName || "arquivo"}]`
-              : "";
+                ? "[Imagem]"
+                : media
+                  ? `[Documento: ${media.fileName || "arquivo"}]`
+                  : "";
           const storedText = text.trim() || `${label} (processando...)`;
 
           const { data: inserted, error: insertErr } = await (supabaseAdmin as any)
@@ -91,7 +94,9 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             if ((insertErr as any).code === "23505") {
               // Reentrega: a mensagem já está gravada, mas o job pode não ter sido criado da 1ª vez.
               const { error: reErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
-                _company_id: companyId, _numero: number, _instance_name: instanceName,
+                _company_id: companyId,
+                _numero: number,
+                _instance_name: instanceName,
                 _available_at: new Date(Date.now() + 3_000).toISOString(),
               });
               if (reErr) throw reErr;
@@ -111,7 +116,9 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             .limit(1)
             .maybeSingle();
           const palavraPausar = ((cmdCfg as any)?.palavra_pausar || "/pausar").toLowerCase().trim();
-          const palavraDespausar = ((cmdCfg as any)?.palavra_despausar || "/despausar").toLowerCase().trim();
+          const palavraDespausar = ((cmdCfg as any)?.palavra_despausar || "/despausar")
+            .toLowerCase()
+            .trim();
 
           // Cliente respondeu: cancela follow-up pendente imediatamente (Bloco 3)
           try {
@@ -152,7 +159,10 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
                 { onConflict: "company_id,numero" },
               );
             if (pErr) throw pErr;
-            const { error: mErr } = await (supabaseAdmin as any).from("mensagens").update({ ai_processed_at: new Date().toISOString() }).eq("id", inserted?.id);
+            const { error: mErr } = await (supabaseAdmin as any)
+              .from("mensagens")
+              .update({ ai_processed_at: new Date().toISOString() })
+              .eq("id", inserted?.id);
             if (mErr) throw mErr;
             return new Response("paused", { status: 200 });
           }
@@ -164,17 +174,26 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
                 { onConflict: "company_id,numero" },
               );
             if (pErr) throw pErr;
-            const { error: mErr } = await (supabaseAdmin as any).from("mensagens").update({ ai_processed_at: new Date().toISOString() }).eq("id", inserted?.id);
+            const { error: mErr } = await (supabaseAdmin as any)
+              .from("mensagens")
+              .update({ ai_processed_at: new Date().toISOString() })
+              .eq("id", inserted?.id);
             if (mErr) throw mErr;
             return new Response("resumed", { status: 200 });
           }
 
           // ---- Fila: 1 job por conversa. Nova mensagem só empurra a janela de debounce.
-          const bufferSec = Math.max(0, Math.min(20, Number((cmdCfg as any)?.segundos_buffer ?? 8)));
+          const bufferSec = Math.max(
+            0,
+            Math.min(20, Number((cmdCfg as any)?.segundos_buffer ?? 8)),
+          );
           const availableAt = new Date(Date.now() + bufferSec * 1000).toISOString();
           // Atômico (INSERT … ON CONFLICT): dois webhooks simultâneos resultam em 1 job ativo.
           const { error: qErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
-            _company_id: companyId, _numero: number, _instance_name: instanceName, _available_at: availableAt,
+            _company_id: companyId,
+            _numero: number,
+            _instance_name: instanceName,
+            _available_at: availableAt,
           });
           if (qErr) throw qErr;
           // job em "processing": a mensagem fica pendente e entra no próximo job/ciclo.
@@ -192,9 +211,22 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
   },
 });
 
-const OPT_OUT_WORDS = ["parar", "pare", "cancelar", "sair", "remover", "descadastrar", "stop", "unsubscribe"];
+const OPT_OUT_WORDS = [
+  "parar",
+  "pare",
+  "cancelar",
+  "sair",
+  "remover",
+  "descadastrar",
+  "stop",
+  "unsubscribe",
+];
 
 function isOptOutMessage(text: string) {
-  const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  const normalized = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
   return OPT_OUT_WORDS.some((word) => normalized === word || normalized.includes(` ${word} `));
 }

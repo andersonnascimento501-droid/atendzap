@@ -1,6 +1,13 @@
 // Regras puras (testáveis) da fila de mensagens: contexto da IA e classificação de falhas de envio.
 
-export type HistMsg = { id?: string; autor: string; direcao: string; texto: string; created_at: string; send_status?: string | null };
+export type HistMsg = {
+  id?: string;
+  autor: string;
+  direcao: string;
+  texto: string;
+  created_at: string;
+  send_status?: string | null;
+};
 export type ChatMsg = { role: "user" | "assistant"; content: string };
 
 export const HISTORY_LIMIT = 25;
@@ -10,7 +17,10 @@ export const HISTORY_LIMIT = 25;
  * inteiro consolidado numa única mensagem do cliente, uma vez só.
  * Saídas de atendente humano são marcadas para a IA distinguir de si mesma.
  */
-export function buildContextMessages(historyBeforeBatch: HistMsg[], batch: Array<{ id: string; texto: string }>): ChatMsg[] {
+export function buildContextMessages(
+  historyBeforeBatch: HistMsg[],
+  batch: Array<{ id: string; texto: string }>,
+): ChatMsg[] {
   const batchIds = new Set(batch.map((b) => b.id));
   const hist = historyBeforeBatch
     .filter((m) => !(m.id && batchIds.has(m.id)))
@@ -21,9 +31,15 @@ export function buildContextMessages(historyBeforeBatch: HistMsg[], batch: Array
     .map<ChatMsg>((m) =>
       m.direcao === "entrada"
         ? { role: "user", content: m.texto }
-        : { role: "assistant", content: m.autor === "humano" ? `[Atendente humano] ${m.texto}` : m.texto },
+        : {
+            role: "assistant",
+            content: m.autor === "humano" ? `[Atendente humano] ${m.texto}` : m.texto,
+          },
     );
-  const lote = batch.map((b) => (b.texto || "").trim()).filter(Boolean).join("\n");
+  const lote = batch
+    .map((b) => (b.texto || "").trim())
+    .filter(Boolean)
+    .join("\n");
   if (lote) hist.push({ role: "user", content: lote });
   return hist;
 }

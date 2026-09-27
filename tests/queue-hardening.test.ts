@@ -1,8 +1,15 @@
 import { describe, expect, test, mock } from "bun:test";
 import { readFileSync } from "node:fs";
-import { buildContextMessages, isDefinitiveSendFailure, HISTORY_LIMIT } from "../src/lib/queue-logic";
+import {
+  buildContextMessages,
+  isDefinitiveSendFailure,
+  HISTORY_LIMIT,
+} from "../src/lib/queue-logic";
 
-const migration = readFileSync("drizzle/migrations/0007_queue_lease_send_state_recovery.sql", "utf8");
+const migration = readFileSync(
+  "drizzle/migrations/0007_queue_lease_send_state_recovery.sql",
+  "utf8",
+);
 const worker = readFileSync("src/routes/api/public/hooks/process-message-queue.ts", "utf8");
 const pipeline = readFileSync("src/lib/message-pipeline.server.ts", "utf8");
 const waHook = readFileSync("src/routes/api/public/whatsapp-webhook.ts", "utf8");
@@ -38,7 +45,8 @@ function fakeAdmin(opts: { conflict?: boolean; lease?: boolean } = {}) {
             rows.push(row);
             return res({ data: { id: row.id }, error: null });
           }
-          if (op === "update") rows.filter((r) => r.id === id).forEach((r) => Object.assign(r, payload));
+          if (op === "update")
+            rows.filter((r) => r.id === id).forEach((r) => Object.assign(r, payload));
           if (op === "delete") rows.splice(0, rows.length, ...rows.filter((r) => r.id !== id));
           return res({ data: null, error: null });
         },
@@ -50,16 +58,31 @@ function fakeAdmin(opts: { conflict?: boolean; lease?: boolean } = {}) {
 }
 
 const baseArgs = (send: any, extra: any = {}) => ({
-  companyId: "c1", userId: "u1", numero: "5511", contatoNome: null,
-  target: { channel: "whatsapp" }, jobId: "job1", index: 0, texto: "oi", send, ...extra,
+  companyId: "c1",
+  userId: "u1",
+  numero: "5511",
+  contatoNome: null,
+  target: { channel: "whatsapp" },
+  jobId: "job1",
+  index: 0,
+  texto: "oi",
+  send,
+  ...extra,
 });
 
 describe("cron autenticado", () => {
   test("worker exige Bearer com segredo interno", async () => {
     process.env["LOVABLE_CRON_SECRET"] = "s".repeat(32);
-    mock.module("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) } }));
+    mock.module("@/integrations/supabase/client.server", () => ({
+      supabaseAdmin: {
+        from: () => ({
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+        }),
+      },
+    }));
     const { authenticateWorkerRequest } = await import("../src/lib/worker-auth.server");
-    const mk = (h?: string) => new Request("https://x/y", { method: "POST", headers: h ? { authorization: h } : {} });
+    const mk = (h?: string) =>
+      new Request("https://x/y", { method: "POST", headers: h ? { authorization: h } : {} });
     expect((await authenticateWorkerRequest(mk()))?.status).toBe(401);
     expect((await authenticateWorkerRequest(mk("Bearer sb_publishable_xxx")))?.status).toBe(401);
     expect(await authenticateWorkerRequest(mk(`Bearer ${"s".repeat(32)}`))).toBeNull();
@@ -68,8 +91,8 @@ describe("cron autenticado", () => {
 
 describe("webhooks", () => {
   test("falha após gravar entrada responde 500 (provedor reenvia) e não 200", () => {
-    expect(waHook).toContain('status: 500');
-    expect(igHook).toContain('status: 500');
+    expect(waHook).toContain("status: 500");
+    expect(igHook).toContain("status: 500");
     expect(waHook).not.toMatch(/return new Response\("error", \{ status: 200 \}\)/);
   });
   test("reentrega (23505) garante job; enfileiramento é atômico", () => {
@@ -77,7 +100,9 @@ describe("webhooks", () => {
       expect(src).toContain('rpc("mq_enqueue"');
       expect(src).not.toContain('.from("message_processing_queue")');
     }
-    expect(migration).toMatch(/ON CONFLICT \(company_id, numero\) WHERE status IN \('pending','processing'\)/);
+    expect(migration).toMatch(
+      /ON CONFLICT \(company_id, numero\) WHERE status IN \('pending','processing'\)/,
+    );
   });
 });
 
@@ -93,7 +118,12 @@ describe("fila: posse, recuperação e próximo ciclo", () => {
     const admin = fakeAdmin({ lease: false });
     const send = mock(async () => ({}));
     await expect(
-      sendPartOnce(admin, baseArgs(send, { job: { id: "job1", lease_token: "t", company_id: "c1", numero: "5511" } }) as any),
+      sendPartOnce(
+        admin,
+        baseArgs(send, {
+          job: { id: "job1", lease_token: "t", company_id: "c1", numero: "5511" },
+        }) as any,
+      ),
     ).rejects.toBeInstanceOf(LeaseLostError);
     expect(send).not.toHaveBeenCalled();
   });
@@ -121,7 +151,9 @@ describe("envio idempotente", () => {
   test("falha de rede após envio => uncertain, sem reenvio cego", async () => {
     const { sendPartOnce } = await import("../src/lib/message-pipeline.server");
     const admin = fakeAdmin();
-    const send = mock(async () => { throw Object.assign(new Error("indisponível"), { providerStatus: 0 }); });
+    const send = mock(async () => {
+      throw Object.assign(new Error("indisponível"), { providerStatus: 0 });
+    });
     expect(await sendPartOnce(admin, baseArgs(send) as any)).toBe("uncertain");
     expect(admin.rows[0].send_status).toBe("uncertain");
     expect(await sendPartOnce(admin, baseArgs(send) as any)).toBe("skipped");
@@ -130,7 +162,9 @@ describe("envio idempotente", () => {
   test("recusa explícita (4xx) libera a reserva para retry", async () => {
     const { sendPartOnce } = await import("../src/lib/message-pipeline.server");
     const admin = fakeAdmin();
-    const send = mock(async () => { throw Object.assign(new Error("Evolution API: bad"), { providerStatus: 400 }); });
+    const send = mock(async () => {
+      throw Object.assign(new Error("Evolution API: bad"), { providerStatus: 400 });
+    });
     await expect(sendPartOnce(admin, baseArgs(send) as any)).rejects.toThrow();
     expect(admin.rows.length).toBe(0);
     expect(isDefinitiveSendFailure({ providerStatus: 503 })).toBe(false);
@@ -158,9 +192,11 @@ describe("créditos", () => {
 describe("contexto da IA", () => {
   test("lote com mais de 25 mensagens entra inteiro, uma vez, em ordem", () => {
     const hist = Array.from({ length: 40 }, (_, i) => ({
-      id: `h${i}`, autor: i % 3 === 0 ? "humano" : i % 2 ? "ia" : "contato",
+      id: `h${i}`,
+      autor: i % 3 === 0 ? "humano" : i % 2 ? "ia" : "contato",
       direcao: i % 2 && i % 3 ? "saida" : i % 3 === 0 ? "saida" : "entrada",
-      texto: `h${i}`, created_at: new Date(2026, 0, 1, 0, i).toISOString(),
+      texto: `h${i}`,
+      created_at: new Date(2026, 0, 1, 0, i).toISOString(),
     }));
     const batch = Array.from({ length: 30 }, (_, i) => ({ id: `b${i}`, texto: `lote ${i}` }));
     const msgs = buildContextMessages(hist, batch);
@@ -173,7 +209,15 @@ describe("contexto da IA", () => {
   });
   test("lote já presente no histórico não é duplicado", () => {
     const msgs = buildContextMessages(
-      [{ id: "b0", autor: "contato", direcao: "entrada", texto: "[Áudio] quero agendar", created_at: "2026-01-01" }],
+      [
+        {
+          id: "b0",
+          autor: "contato",
+          direcao: "entrada",
+          texto: "[Áudio] quero agendar",
+          created_at: "2026-01-01",
+        },
+      ],
       [{ id: "b0", texto: "[Áudio] quero agendar" }],
     );
     expect(msgs).toEqual([{ role: "user", content: "[Áudio] quero agendar" }]);
