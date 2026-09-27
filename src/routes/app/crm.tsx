@@ -294,6 +294,11 @@ function CardBody({ card, dragging }: { card: LeadCard; dragging?: boolean }) {
       {card.ultima_mensagem && (
         <p className="text-muted-foreground text-[13px] mt-2.5 line-clamp-2 leading-snug">{card.ultima_mensagem}</p>
       )}
+      {(card as any).custom_data?.setor_destino && (
+        <span className="inline-flex mt-2 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-amber-500/15 text-amber-700">
+          Transferido: {(card as any).custom_data.setor_destino}
+        </span>
+      )}
       {card.proxima_acao && (
         <div className="text-[12px] text-muted-foreground mt-2 inline-flex items-center gap-1.5">
           <Target className="size-3" /> <span className="truncate">{card.proxima_acao}</span>
