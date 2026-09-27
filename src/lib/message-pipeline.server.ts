@@ -17,13 +17,18 @@ export type QueueJob = {
 };
 
 export class LeaseLostError extends Error {
-  constructor() { super("lease-lost"); }
+  constructor() {
+    super("lease-lost");
+  }
 }
 
 /** Renova a posse do job; se outro worker assumiu, aborta antes de qualquer efeito. */
 export async function assertLease(admin: any, job: QueueJob) {
   if (!job.lease_token) return; // chamadas fora da fila (testes/legado)
-  const { data, error } = await admin.rpc("mq_renew_lease", { _id: job.id, _token: job.lease_token });
+  const { data, error } = await admin.rpc("mq_renew_lease", {
+    _id: job.id,
+    _token: job.lease_token,
+  });
   if (error) throw new Error(`mq_renew_lease: ${error.message}`);
   if (!data) throw new LeaseLostError();
 }
@@ -57,7 +62,10 @@ async function loadPending(admin: any, companyId: string, numero: string): Promi
 
 async function markProcessed(admin: any, ids: string[]) {
   if (!ids.length) return;
-  const { error } = await admin.from("mensagens").update({ ai_processed_at: new Date().toISOString() }).in("id", ids);
+  const { error } = await admin
+    .from("mensagens")
+    .update({ ai_processed_at: new Date().toISOString() })
+    .in("id", ids);
   if (error) throw new Error(`markProcessed: ${error.message}`);
 }
 
@@ -82,18 +90,24 @@ async function resolveMedia(
   const openaiKey = ((keyCfg as any)?.openai_api_key || "").trim();
 
   const { downloadChannelMedia } = await import("@/lib/channels.server");
-  const { transcribeAudio, describeImage, readDocument, isSupportedDocument } = await import("@/lib/media.server");
+  const { transcribeAudio, describeImage, readDocument, isSupportedDocument } =
+    await import("@/lib/media.server");
 
   for (const m of withMedia) {
     const media = m.media_ref;
     let storedMedia: any = null;
     const label =
-      media.kind === "audio" ? "[Áudio]" : media.kind === "image" ? "[Imagem]" : `[Documento: ${media.fileName || "arquivo"}]`;
+      media.kind === "audio"
+        ? "[Áudio]"
+        : media.kind === "image"
+          ? "[Imagem]"
+          : `[Documento: ${media.fileName || "arquivo"}]`;
     let texto = m.texto;
     try {
       if (media.kind === "document" && !isSupportedDocument(media.mimetype, media.fileName)) {
         texto = `${label} (formato não suportado: ${media.mimetype})`;
-        notice = "Recebi seu arquivo, mas não consigo abrir esse formato por aqui. Pode me enviar em PDF, imagem ou descrever por texto?";
+        notice =
+          "Recebi seu arquivo, mas não consigo abrir esse formato por aqui. Pode me enviar em PDF, imagem ou descrever por texto?";
       } else {
         const dl = await downloadChannelMedia(target, media);
         if (!dl?.base64) throw new Error("mídia sem base64");
@@ -101,10 +115,20 @@ async function resolveMedia(
         // Guarda o binário no bucket privado da empresa para o atendente humano
         // poder VER/OUVIR/ABRIR o arquivo na Inbox.
         try {
-          const { storeMediaBase64, sanitizeFileName } = await import("@/lib/outbound-message.server");
-          const fileName = sanitizeFileName(dl.fileName || media.fileName, media.kind === "audio" ? "audio" : "arquivo");
+          const { storeMediaBase64, sanitizeFileName } =
+            await import("@/lib/outbound-message.server");
+          const fileName = sanitizeFileName(
+            dl.fileName || media.fileName,
+            media.kind === "audio" ? "audio" : "arquivo",
+          );
           const path = await storeMediaBase64(admin, companyId, dl.base64, mime, fileName);
-          storedMedia = { tipo: media.kind, storage_path: path, mime_type: mime, file_name: fileName, caption: media.caption ?? null };
+          storedMedia = {
+            tipo: media.kind,
+            storage_path: path,
+            mime_type: mime,
+            file_name: fileName,
+            caption: media.caption ?? null,
+          };
         } catch (e: any) {
           console.error("[media.store]", e?.message);
         }
@@ -117,7 +141,15 @@ async function resolveMedia(
           if (!d) throw new Error("descrição vazia");
           texto = `${label} ${d}${media.caption ? ` (legenda do cliente: ${media.caption})` : ""}`;
         } else {
-          const c = (await readDocument(dl.base64, mime, dl.fileName || media.fileName, media.caption, openaiKey)).trim();
+          const c = (
+            await readDocument(
+              dl.base64,
+              mime,
+              dl.fileName || media.fileName,
+              media.caption,
+              openaiKey,
+            )
+          ).trim();
           if (!c) throw new Error("documento sem conteúdo");
           texto = `${label} ${c}`;
         }
@@ -129,8 +161,8 @@ async function resolveMedia(
         media.kind === "audio"
           ? "Não consegui ouvir seu áudio agora. Pode me mandar por escrito, por favor?"
           : media.kind === "image"
-          ? "Não consegui abrir sua imagem agora. Pode reenviar ou me descrever por texto?"
-          : "Não consegui ler esse arquivo agora. Pode reenviar em PDF ou me contar o conteúdo por texto?";
+            ? "Não consegui abrir sua imagem agora. Pode reenviar ou me descrever por texto?"
+            : "Não consegui ler esse arquivo agora. Pode reenviar em PDF ou me contar o conteúdo por texto?";
     }
     m.texto = texto;
     // media_ref é limpo para que um retry não reprocesse (e não gaste) a mídia de novo.
@@ -140,7 +172,10 @@ async function resolveMedia(
         texto,
         media_ref: null,
         ...(storedMedia
-          ? { tipo: storedMedia.tipo, midia: { ...storedMedia, transcricao: media.kind === "audio" ? texto : null } }
+          ? {
+              tipo: storedMedia.tipo,
+              midia: { ...storedMedia, transcricao: media.kind === "audio" ? texto : null },
+            }
           : {}),
       })
       .eq("id", m.id);
@@ -148,7 +183,6 @@ async function resolveMedia(
   }
   return { notice };
 }
-
 
 /**
  * Envio idempotente em 3 estados (mensagens.send_status):
@@ -211,7 +245,10 @@ export async function sendPartOnce(
       if (delErr) console.error("[send.release]", delErr.message);
       throw e;
     }
-    const { error: uErr } = await admin.from("mensagens").update({ send_status: "uncertain" }).eq("id", rowId);
+    const { error: uErr } = await admin
+      .from("mensagens")
+      .update({ send_status: "uncertain" })
+      .eq("id", rowId);
     if (uErr) console.error("[send.uncertain]", uErr.message);
     console.warn("[send.uncertain]", args.companyId, args.numero, responseKey, e?.message);
     return "uncertain";
@@ -219,7 +256,10 @@ export async function sendPartOnce(
   const providerId = res?.key?.id ?? res?.message_id ?? res?.id ?? null;
   const { error: okErr } = await admin
     .from("mensagens")
-    .update({ send_status: "sent", provider_message_id: typeof providerId === "string" ? providerId : null })
+    .update({
+      send_status: "sent",
+      provider_message_id: typeof providerId === "string" ? providerId : null,
+    })
     .eq("id", rowId);
   if (okErr) console.error("[send.confirm]", okErr.message); // já entregue; a reserva impede reenvio
   return "sent";
@@ -230,13 +270,14 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   const number = job.numero;
 
   const { resolveChannelTarget } = await import("@/lib/channels.server");
-  const target = await resolveChannelTarget(admin, companyId, number, { instanceName: job.instance_name });
+  const target = await resolveChannelTarget(admin, companyId, number, {
+    instanceName: job.instance_name,
+  });
   const userId = target.userId as string;
   if (!target.ready || !userId) {
     return { status: "skipped", reason: target.reason ?? "channel-not-ready" };
   }
   const channel = target.channel;
-
 
   const pending = await loadPending(admin, companyId, number);
   if (!pending.length) return { status: "skipped", reason: "nothing-pending" };
@@ -260,7 +301,11 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   }
 
   const [{ data: stagesRows }, { data: produtosRows }, { data: companyRow }] = await Promise.all([
-    admin.from("crm_stage").select("id, nome, tipo, ordem").eq("company_id", companyId).order("ordem", { ascending: true }),
+    admin
+      .from("crm_stage")
+      .select("id, nome, tipo, ordem")
+      .eq("company_id", companyId)
+      .order("ordem", { ascending: true }),
     admin
       .from("produto")
       .select("nome, preco, descricao, ativo, ordem")
@@ -269,13 +314,22 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
       .order("ordem", { ascending: true }),
     admin
       .from("company")
-      .select("nome,nome_fantasia,telefone,email_corporativo,site,rua,numero,bairro,cidade,estado,cep,segmento")
+      .select(
+        "nome,nome_fantasia,telefone,email_corporativo,site,rua,numero,bairro,cidade,estado,cep,segmento",
+      )
       .eq("id", companyId)
       .maybeSingle(),
   ]);
-  const stages = (stagesRows ?? []) as Array<{ id: string; nome: string; tipo: "normal" | "ganho" | "perda" }>;
-  const produtos = (produtosRows ?? []).map((p: any) => ({ nome: p.nome, preco: p.preco, descricao: p.descricao }));
-
+  const stages = (stagesRows ?? []) as Array<{
+    id: string;
+    nome: string;
+    tipo: "normal" | "ganho" | "perda";
+  }>;
+  const produtos = (produtosRows ?? []).map((p: any) => ({
+    nome: p.nome,
+    preco: p.preco,
+    descricao: p.descricao,
+  }));
 
   // ---- Human takeover: nada de IA, nada de crédito.
   const { data: pauseRow } = await admin
@@ -287,7 +341,15 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   if (pauseRow?.pausado) {
     await resolveMediaSafe(admin, pending);
     await markProcessed(admin, ids);
-    await upsertCard(admin, companyId, userId, number, pushName, pending[pending.length - 1]!.texto, stages);
+    await upsertCard(
+      admin,
+      companyId,
+      userId,
+      number,
+      pushName,
+      pending[pending.length - 1]!.texto,
+      stages,
+    );
     return { status: "skipped", reason: "paused-contact" };
   }
 
@@ -321,11 +383,20 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
         .limit(1)
         .maybeSingle();
       const ultimaFoiFora =
-        ultimaSaida && ultimaSaida.texto === msgFora && Date.now() - new Date(ultimaSaida.created_at).getTime() < 6 * 60 * 60_000;
+        ultimaSaida &&
+        ultimaSaida.texto === msgFora &&
+        Date.now() - new Date(ultimaSaida.created_at).getTime() < 6 * 60 * 60_000;
       if (!ultimaFoiFora) {
         await sendPartOnce(admin, {
-          companyId, userId, numero: number, contatoNome: pushName ?? null,
-          target, jobId: job.id, index: 0, texto: msgFora, job,
+          companyId,
+          userId,
+          numero: number,
+          contatoNome: pushName ?? null,
+          target,
+          jobId: job.id,
+          index: 0,
+          texto: msgFora,
+          job,
         });
       }
       await markProcessed(admin, ids);
@@ -339,8 +410,15 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   // ---- mídia ilegível: resposta curta, sem IA
   if (mediaFailureNotice) {
     await sendPartOnce(admin, {
-      companyId, userId, numero: number, contatoNome: pushName ?? null,
-      target, jobId: job.id, index: 0, texto: mediaFailureNotice, job,
+      companyId,
+      userId,
+      numero: number,
+      contatoNome: pushName ?? null,
+      target,
+      jobId: job.id,
+      index: 0,
+      texto: mediaFailureNotice,
+      job,
     });
     await markProcessed(admin, ids);
     await upsertCard(admin, companyId, userId, number, pushName, lastText, stages);
@@ -392,7 +470,9 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     .maybeSingle();
 
   // ---- Supervisor / multiagente (Bloco 1 preservado). Em retry, reaproveita o agente já decidido.
-  const alreadyRouted = job.routed_agent_id ? activeAgents.find((a: any) => a.id === job.routed_agent_id) : null;
+  const alreadyRouted = job.routed_agent_id
+    ? activeAgents.find((a: any) => a.id === job.routed_agent_id)
+    : null;
   if (alreadyRouted) {
     cfg = alreadyRouted;
   } else if (activeAgents.length > 1) {
@@ -407,7 +487,15 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
       });
       if (decision) {
         cfg = decision.agent;
-        console.info("[router]", companyId, number, decision.agent.slug, decision.intent, decision.confidence, decision.supervised ? "supervisor" : "direto");
+        console.info(
+          "[router]",
+          companyId,
+          number,
+          decision.agent.slug,
+          decision.intent,
+          decision.confidence,
+          decision.supervised ? "supervisor" : "direto",
+        );
       }
     } catch (e: any) {
       console.error("[router]", e?.message);
@@ -416,24 +504,42 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     try {
       const { persistConversationState } = await import("@/lib/supervisor.server");
       await persistConversationState(admin, companyId, number, {
-        agentId: cfg.id, intent: null, confidence: 1, reason: "único agente ativo",
+        agentId: cfg.id,
+        intent: null,
+        confidence: 1,
+        reason: "único agente ativo",
       });
     } catch {}
   }
   if (cfg?.id && cfg.id !== job.routed_agent_id) {
-    const q = admin.from("message_processing_queue").update({ routed_agent_id: cfg.id }).eq("id", job.id);
+    const q = admin
+      .from("message_processing_queue")
+      .update({ routed_agent_id: cfg.id })
+      .eq("id", job.id);
     const { error: rErr } = job.lease_token ? await q.eq("lease_token", job.lease_token) : await q;
     if (rErr) console.error("[router.persist]", rErr.message);
   }
 
   // ---- Tools (Bloco 2 preservado) + tools de agenda quando o agendamento está ativo
-  const { normalizeToolList, loadCustomFields, buildToolsPromptBlock, DEFAULT_ALLOWED_TOOLS, withAgendaTools, isAgendaTool, withMaterialTool, loadMaterials } = await import(
-    "@/lib/agent-tools.server"
-  );
-  const materials = cfg?.id ? await loadMaterials(admin, companyId, (cfg?.id as string) ?? null) : [];
+  const {
+    normalizeToolList,
+    loadCustomFields,
+    buildToolsPromptBlock,
+    DEFAULT_ALLOWED_TOOLS,
+    withAgendaTools,
+    isAgendaTool,
+    withMaterialTool,
+    loadMaterials,
+  } = await import("@/lib/agent-tools.server");
+  const materials = cfg?.id
+    ? await loadMaterials(admin, companyId, (cfg?.id as string) ?? null)
+    : [];
   const allowedTools = cfg?.id
     ? withMaterialTool(
-        withAgendaTools(normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS), !!(cfg as any)?.agendamento_ativo),
+        withAgendaTools(
+          normalizeToolList(cfg?.allowed_tools ?? DEFAULT_ALLOWED_TOOLS),
+          !!(cfg as any)?.agendamento_ativo,
+        ),
         materials.length > 0,
       )
     : [];
@@ -452,9 +558,6 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     materialsAvailable: materials.length > 0,
     company: (companyRow ?? undefined) as any,
   });
-
-
-
 
   const customFields = cfg?.id ? await loadCustomFields(admin, companyId, cfg.id) : [];
   const toolCtx = {
@@ -503,7 +606,10 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   // Se o job falhar de vez sem ter enviado nada, o worker estorna (refund_ai_credit).
   if (!job.credit_consumed) {
     await assertLease(admin, job);
-    const { data: hasCredit, error: cErr } = await admin.rpc("consume_ai_credit", { _company_id: companyId, _ref: `${number}:${job.id}` });
+    const { data: hasCredit, error: cErr } = await admin.rpc("consume_ai_credit", {
+      _company_id: companyId,
+      _ref: `${number}:${job.id}`,
+    });
     if (cErr) throw new Error(`consume_ai_credit: ${cErr.message}`);
     if (hasCredit !== true) {
       await markProcessed(admin, ids);
@@ -512,7 +618,10 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
       return { status: "skipped", reason: "no_credits" };
     }
     job.credit_consumed = true;
-    let q = admin.from("message_processing_queue").update({ credit_consumed: true }).eq("id", job.id);
+    let q = admin
+      .from("message_processing_queue")
+      .update({ credit_consumed: true })
+      .eq("id", job.id);
     if (job.lease_token) q = q.eq("lease_token", job.lease_token);
     const { data: upd, error: uErr } = await q.select("id");
     if (uErr || !upd?.length) {
@@ -564,7 +673,10 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     rawReply = "Já chamei alguém do time pra continuar seu atendimento por aqui.";
   }
 
-  const { parts, stage, agendar } = parseAiOutput(rawReply, stages.map((s) => ({ nome: s.nome, tipo: s.tipo })));
+  const { parts, stage, agendar } = parseAiOutput(
+    rawReply,
+    stages.map((s) => ({ nome: s.nome, tipo: s.tipo })),
+  );
   const finalParts = sanitizeAiParts(responderEmPartes ? parts : [parts.join(" ")]);
 
   // LEGADO [AGENDAR: ...]: só roda quando as tools de agenda NÃO estão disponíveis,
@@ -589,7 +701,6 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     }
   }
 
-
   const { sendChannelTyping } = await import("@/lib/channels.server");
   for (let i = 0; i < finalParts.length; i++) {
     const part = finalParts[i];
@@ -599,19 +710,40 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     await sendChannelTyping(target, typingMs);
     await new Promise((r) => setTimeout(r, typingMs));
     await sendPartOnce(admin, {
-      companyId, userId, numero: number, contatoNome: pushName ?? null,
-      target, jobId: job.id, index: i, texto: part, job,
+      companyId,
+      userId,
+      numero: number,
+      contatoNome: pushName ?? null,
+      target,
+      jobId: job.id,
+      index: i,
+      texto: part,
+      job,
     });
-    if (i < finalParts.length - 1) await new Promise((r) => setTimeout(r, 700 + Math.floor(Math.random() * 800)));
+    if (i < finalParts.length - 1)
+      await new Promise((r) => setTimeout(r, 700 + Math.floor(Math.random() * 800)));
   }
 
   await markProcessed(admin, ids);
-  await upsertCard(admin, companyId, userId, number, pushName, finalParts[finalParts.length - 1] || lastText, stages, stage);
+  await upsertCard(
+    admin,
+    companyId,
+    userId,
+    number,
+    pushName,
+    finalParts[finalParts.length - 1] || lastText,
+    stages,
+    stage,
+  );
 
   // BLOCO 3 — follow-up só DEPOIS da resposta efetivamente enviada.
   try {
     const { scheduleFollowup } = await import("@/lib/followup.server");
-    await scheduleFollowup(admin, { companyId, numero: number, agentId: (cfg?.id as string) ?? null });
+    await scheduleFollowup(admin, {
+      companyId,
+      numero: number,
+      agentId: (cfg?.id as string) ?? null,
+    });
   } catch (e: any) {
     console.error("[followup.schedule]", e?.message);
   }
@@ -624,7 +756,10 @@ async function resolveMediaSafe(admin: any, pending: PendingMsg[]) {
     await admin
       .from("mensagens")
       .update({ media_ref: null })
-      .in("id", pending.filter((m) => m.media_ref?.kind).map((m) => m.id));
+      .in(
+        "id",
+        pending.filter((m) => m.media_ref?.kind).map((m) => m.id),
+      );
   } catch {}
 }
 
@@ -636,8 +771,11 @@ export function sanitizeAiParts(parts: string[]) {
     .slice(0, 3);
 }
 
-
-export async function getAiThrottleReason(admin: any, companyId: string, numero: string): Promise<string | null> {
+export async function getAiThrottleReason(
+  admin: any,
+  companyId: string,
+  numero: string,
+): Promise<string | null> {
   const now = Date.now();
   const [contactRecent, companyRecent] = await Promise.all([
     admin
@@ -683,7 +821,8 @@ export async function upsertCard(
 
   const currentStage = existing?.stage_id ? stageById.get(existing.stage_id) : undefined;
   const currentTipo =
-    currentStage?.tipo ?? (existing?.status ? stageByName.get(String(existing.status).toLowerCase())?.tipo : undefined);
+    currentStage?.tipo ??
+    (existing?.status ? stageByName.get(String(existing.status).toLowerCase())?.tipo : undefined);
   const isLocked = currentTipo === "ganho" || currentTipo === "perda";
   const proposed = proposedStageName ? stageByName.get(proposedStageName.toLowerCase()) : undefined;
 

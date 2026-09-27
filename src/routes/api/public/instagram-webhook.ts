@@ -17,7 +17,8 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
         const mode = url.searchParams.get("hub.mode");
         const token = url.searchParams.get("hub.verify_token") || "";
         const challenge = url.searchParams.get("hub.challenge") || "";
-        if (mode !== "subscribe" || !token) return new Response("AtendAI Instagram webhook online", { status: 200 });
+        if (mode !== "subscribe" || !token)
+          return new Response("AtendAI Instagram webhook online", { status: 200 });
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const envToken = (process.env["META_VERIFY_TOKEN"] || "").trim();
@@ -42,7 +43,9 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
           // permaneceria aberto silenciosamente, então falhamos fechado.
           const appSecret = (process.env["META_APP_SECRET"] || "").trim();
           if (!appSecret) {
-            console.error("[instagram-webhook] META_APP_SECRET ausente — webhook recusado (fail-closed)");
+            console.error(
+              "[instagram-webhook] META_APP_SECRET ausente — webhook recusado (fail-closed)",
+            );
             return new Response("webhook signature not configured", { status: 503 });
           }
           {
@@ -64,7 +67,6 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
             payload = {};
           }
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
 
           const entries: any[] = Array.isArray(payload?.entry) ? payload.entry : [];
           if (!entries.length) return new Response("ok", { status: 200 });
@@ -93,7 +95,8 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
               if (!userId) continue;
 
               const contactId = igContactId(senderId);
-              const mid: string | null = typeof message.mid === "string" && message.mid.trim() ? message.mid.trim() : null;
+              const mid: string | null =
+                typeof message.mid === "string" && message.mid.trim() ? message.mid.trim() : null;
 
               // ---- mídia
               const att = Array.isArray(message.attachments) ? message.attachments[0] : null;
@@ -105,18 +108,23 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
                   attType === "audio"
                     ? "audio"
                     : attType === "image" || attType === "story_mention" || attType === "share"
-                    ? "image"
-                    : attType === "video"
-                    ? "document"
-                    : attType === "file"
-                    ? "document"
-                    : null;
+                      ? "image"
+                      : attType === "video"
+                        ? "document"
+                        : attType === "file"
+                          ? "document"
+                          : null;
                 if (kind) {
                   media = {
                     kind,
                     provider: "instagram",
                     url: attUrl,
-                    mimetype: attType === "audio" ? "audio/mp4" : attType === "image" ? "image/jpeg" : "application/octet-stream",
+                    mimetype:
+                      attType === "audio"
+                        ? "audio/mp4"
+                        : attType === "image"
+                          ? "image/jpeg"
+                          : "application/octet-stream",
                     fileName: null,
                     caption: typeof message.text === "string" ? message.text : null,
                   };
@@ -126,7 +134,14 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
               const text: string = typeof message.text === "string" ? message.text : "";
               if (!text.trim() && !media) continue;
 
-              const label = media?.kind === "audio" ? "[Áudio]" : media?.kind === "image" ? "[Imagem]" : media ? "[Arquivo]" : "";
+              const label =
+                media?.kind === "audio"
+                  ? "[Áudio]"
+                  : media?.kind === "image"
+                    ? "[Imagem]"
+                    : media
+                      ? "[Arquivo]"
+                      : "";
               const storedText = text.trim() || `${label} (processando...)`;
 
               // Nome do contato (best-effort, uma vez por conversa).
@@ -141,7 +156,8 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
               if (!contatoNome && (ig as any).page_access_token) {
                 try {
                   const { igFetchContact } = await import("@/lib/instagram.server");
-                  contatoNome = (await igFetchContact((ig as any).page_access_token, senderId)).nome;
+                  contatoNome = (await igFetchContact((ig as any).page_access_token, senderId))
+                    .nome;
                 } catch {}
               }
 
@@ -165,7 +181,9 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
                 if ((insertErr as any).code !== "23505") throw insertErr;
                 // Reentrega da Meta: garante que existe job para a conversa.
                 const { error: reErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
-                  _company_id: companyId, _numero: contactId, _instance_name: null,
+                  _company_id: companyId,
+                  _numero: contactId,
+                  _instance_name: null,
                   _available_at: new Date(Date.now() + 3_000).toISOString(),
                 });
                 if (reErr) throw reErr;
@@ -181,8 +199,12 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
                 .order("is_default", { ascending: false })
                 .limit(1)
                 .maybeSingle();
-              const palavraPausar = ((cmdCfg as any)?.palavra_pausar || "/pausar").toLowerCase().trim();
-              const palavraDespausar = ((cmdCfg as any)?.palavra_despausar || "/despausar").toLowerCase().trim();
+              const palavraPausar = ((cmdCfg as any)?.palavra_pausar || "/pausar")
+                .toLowerCase()
+                .trim();
+              const palavraDespausar = ((cmdCfg as any)?.palavra_despausar || "/despausar")
+                .toLowerCase()
+                .trim();
 
               // Cliente respondeu → cancela follow-up pendente (Bloco 3).
               try {
@@ -204,10 +226,12 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
               } catch {}
 
               if (lower === palavraPausar) {
-                const { error: pErr } = await (supabaseAdmin as any).from("contact_pause").upsert(
-                  { company_id: companyId, user_id: userId, numero: contactId, pausado: true },
-                  { onConflict: "company_id,numero" },
-                );
+                const { error: pErr } = await (supabaseAdmin as any)
+                  .from("contact_pause")
+                  .upsert(
+                    { company_id: companyId, user_id: userId, numero: contactId, pausado: true },
+                    { onConflict: "company_id,numero" },
+                  );
                 if (pErr) throw pErr;
                 const { error: mErr } = await (supabaseAdmin as any)
                   .from("mensagens")
@@ -217,10 +241,12 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
                 continue;
               }
               if (lower === palavraDespausar) {
-                const { error: pErr } = await (supabaseAdmin as any).from("contact_pause").upsert(
-                  { company_id: companyId, user_id: userId, numero: contactId, pausado: false },
-                  { onConflict: "company_id,numero" },
-                );
+                const { error: pErr } = await (supabaseAdmin as any)
+                  .from("contact_pause")
+                  .upsert(
+                    { company_id: companyId, user_id: userId, numero: contactId, pausado: false },
+                    { onConflict: "company_id,numero" },
+                  );
                 if (pErr) throw pErr;
                 const { error: mErr } = await (supabaseAdmin as any)
                   .from("mensagens")
@@ -231,10 +257,16 @@ export const Route = createFileRoute("/api/public/instagram-webhook")({
               }
 
               // ---- Fila (Bloco 4): 1 job por conversa, debounce por empresa.
-              const bufferSec = Math.max(0, Math.min(20, Number((cmdCfg as any)?.segundos_buffer ?? 8)));
+              const bufferSec = Math.max(
+                0,
+                Math.min(20, Number((cmdCfg as any)?.segundos_buffer ?? 8)),
+              );
               const availableAt = new Date(Date.now() + bufferSec * 1000).toISOString();
               const { error: qErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
-                _company_id: companyId, _numero: contactId, _instance_name: null, _available_at: availableAt,
+                _company_id: companyId,
+                _numero: contactId,
+                _instance_name: null,
+                _available_at: availableAt,
               });
               if (qErr) throw qErr;
               queued++;

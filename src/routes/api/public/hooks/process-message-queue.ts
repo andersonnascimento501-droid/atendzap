@@ -21,19 +21,34 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
         if (denied) return denied;
 
         const started = Date.now();
-        const stats = { recovered: 0, claimed: 0, completed: 0, skipped: 0, retried: 0, failed: 0, leaseLost: 0 };
+        const stats = {
+          recovered: 0,
+          claimed: 0,
+          completed: 0,
+          skipped: 0,
+          retried: 0,
+          failed: 0,
+          leaseLost: 0,
+        };
 
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { processConversationJob, LeaseLostError } = await import("@/lib/message-pipeline.server");
+          const { processConversationJob, LeaseLostError } =
+            await import("@/lib/message-pipeline.server");
           const admin = supabaseAdmin as any;
           const worker = `w-${Math.random().toString(36).slice(2, 8)}`;
 
-          const { data: rec, error: recErr } = await admin.rpc("mq_recover_orphans", { _limit: 50 });
+          const { data: rec, error: recErr } = await admin.rpc("mq_recover_orphans", {
+            _limit: 50,
+          });
           if (recErr) console.error("[mq.recover]", recErr.message);
           else stats.recovered = Number(rec ?? 0);
 
-          const finish = async (job: any, status: "completed" | "failed" | "pending", extra: { error?: string; retryAt?: string; attempts?: number } = {}) => {
+          const finish = async (
+            job: any,
+            status: "completed" | "failed" | "pending",
+            extra: { error?: string; retryAt?: string; attempts?: number } = {},
+          ) => {
             const { data, error } = await admin.rpc("mq_finish", {
               _id: job.id,
               _token: job.lease_token,
@@ -48,7 +63,10 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
           };
 
           while (Date.now() - started < DRAIN_MS) {
-            const { data: jobs, error } = await admin.rpc("mq_claim_due", { _limit: BATCH, _worker: worker });
+            const { data: jobs, error } = await admin.rpc("mq_claim_due", {
+              _limit: BATCH,
+              _worker: worker,
+            });
             if (error) throw error;
             const list = (jobs ?? []) as any[];
             if (!list.length) {
@@ -77,7 +95,14 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
                     if (out.status === "completed") stats.completed++;
                     else stats.skipped++;
                   }
-                  console.info("[mq]", job.company_id, job.numero, out.status, out.reason ?? "", `${Date.now() - jobStart}ms`);
+                  console.info(
+                    "[mq]",
+                    job.company_id,
+                    job.numero,
+                    out.status,
+                    out.reason ?? "",
+                    `${Date.now() - jobStart}ms`,
+                  );
                 } catch (e: any) {
                   if (e instanceof LeaseLostError) {
                     stats.leaseLost++;
@@ -97,8 +122,15 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
                     } else {
                       const delayMin = BACKOFF_MIN[Math.min(attempts - 1, BACKOFF_MIN.length - 1)]!;
                       const retryAt = new Date(Date.now() + delayMin * 60_000).toISOString();
-                      if (await finish(job, "pending", { error: msg, attempts, retryAt })) stats.retried++;
-                      console.warn("[mq.retry]", job.company_id, job.numero, `tentativa ${attempts}/${max} em ${delayMin}min`, msg);
+                      if (await finish(job, "pending", { error: msg, attempts, retryAt }))
+                        stats.retried++;
+                      console.warn(
+                        "[mq.retry]",
+                        job.company_id,
+                        job.numero,
+                        `tentativa ${attempts}/${max} em ${delayMin}min`,
+                        msg,
+                      );
                     }
                   } catch (fe: any) {
                     // Sem posse gravada o job expira em 5 min e é reclamado de novo; nada é perdido.
@@ -112,7 +144,9 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
           return Response.json({ ok: true, ...stats, ms: Date.now() - started });
         } catch (e: any) {
           console.error("[process-message-queue]", e?.message);
-          return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
+          return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), {
+            status: 500,
+          });
         }
       },
     },
@@ -120,8 +154,15 @@ export const Route = createFileRoute("/api/public/hooks/process-message-queue")(
 });
 
 /** Regra de cobrança: job que falhou de vez sem nenhuma resposta enviada tem o crédito estornado. */
-async function refundIfNothingSent(admin: any, job: { id: string; company_id: string; numero: string; credit_consumed: boolean }) {
-  const { data: row } = await admin.from("message_processing_queue").select("credit_consumed, credit_refunded").eq("id", job.id).maybeSingle();
+async function refundIfNothingSent(
+  admin: any,
+  job: { id: string; company_id: string; numero: string; credit_consumed: boolean },
+) {
+  const { data: row } = await admin
+    .from("message_processing_queue")
+    .select("credit_consumed, credit_refunded")
+    .eq("id", job.id)
+    .maybeSingle();
   if (!row?.credit_consumed || row?.credit_refunded) return;
   const { count, error } = await admin
     .from("mensagens")
@@ -137,6 +178,9 @@ async function refundIfNothingSent(admin: any, job: { id: string; company_id: st
     .eq("credit_refunded", false)
     .select("id");
   if (fErr || !flagged?.length) return;
-  const { error: rErr } = await admin.rpc("refund_ai_credit", { _company_id: job.company_id, _ref: `${job.numero}:${job.id}` });
+  const { error: rErr } = await admin.rpc("refund_ai_credit", {
+    _company_id: job.company_id,
+    _ref: `${job.numero}:${job.id}`,
+  });
   if (rErr) console.error("[credits.refund]", rErr.message);
 }
