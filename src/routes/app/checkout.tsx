@@ -199,7 +199,7 @@ function CheckoutPage() {
     : "Comece grátis em segundos";
   const headerSubtitle = paywallMode
     ? "Seus dados ficam aqui esperando. Assim que o pagamento for confirmado, seu acesso é liberado automaticamente."
-    : "Todas as funcionalidades estão incluídas. O que muda é somente o período contratado. Você não precisa pagar agora — só vai cobrar no final do período de teste, se quiser continuar.";
+    : "Todas as funcionalidades estão incluídas. O que muda é somente o período contratado. 3 dias grátis, sem cartão. Nada é cobrado durante o teste.";
 
   return (
     <div className="min-h-screen bg-background">
