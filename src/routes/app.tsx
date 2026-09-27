@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
+import { AssistantWidget } from "@/components/assistant-widget";
 import { Button } from "@/components/ui/button";
 import type { CompanyRow, Membership } from "@/lib/tenant";
 
@@ -128,6 +129,7 @@ function AppLayout() {
       )}
       <AppShell company={ctx.company} membership={ctx.membership} email={ctx.user.email} isSuperAdmin={ctx.isSuperAdmin}>
         <Outlet />
+        <AssistantWidget />
       </AppShell>
     </>
   );
