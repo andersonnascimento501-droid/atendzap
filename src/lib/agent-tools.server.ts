@@ -642,6 +642,22 @@ export async function executeTool(
             { onConflict: "company_id,numero" },
           );
 
+        // Conversa volta para "aberta" (entra em "Precisa de você" na caixa de entrada).
+        try {
+          const now = new Date().toISOString();
+          const { data: st } = await admin
+            .from("conversation_state")
+            .update({ fila: "aberta", resolvido_em: null, resolvido_por: null, updated_at: now })
+            .eq("company_id", ctx.companyId)
+            .eq("numero", ctx.numero)
+            .select("numero");
+          if (!st?.length) {
+            await admin.from("conversation_state").insert({ company_id: ctx.companyId, numero: ctx.numero, fila: "aberta" });
+          }
+        } catch (e: any) {
+          console.error("[handoff.state]", e?.message);
+        }
+
         // BLOCO 3) atendimento humano: cancela follow-ups pendentes deste contato
         try {
           const { cancelFollowups } = await import("./followup.server");

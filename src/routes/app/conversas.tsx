@@ -36,7 +36,7 @@ interface Msg {
 }
 
 type Filter =
-  | "todas" | "nao_lidas" | "nao_atribuidas" | "minhas" | "do_time"
+  | "todas" | "precisa_voce" | "nao_lidas" | "nao_atribuidas" | "minhas" | "do_time"
   | "aguardando" | "ia_ativa" | "resolvidas";
 
 const ESPERA_ALERTA_MIN = 30;
@@ -348,6 +348,7 @@ function ConversasPage() {
     const resolvida = st?.fila === "resolvida" || tipo === "ganho" || tipo === "perda";
     const owner = st?.owner_id ?? card?.owner_id ?? null;
     switch (f) {
+      case "precisa_voce": return !iaAtiva && !resolvida && !!(card?.custom_data as any)?.setor_destino;
       case "nao_lidas": return (unread[numero] ?? 0) > 0 && !resolvida;
       case "nao_atribuidas": return !owner && !resolvida;
       case "minhas": return owner === userId && !resolvida;
@@ -516,6 +517,15 @@ function ConversasPage() {
                           return (
                             <span title={`Cliente esperando há ${txt}`} className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold text-amber-600">
                               <Clock className="size-3" />{txt}
+                            </span>
+                          );
+                        })()}
+                        {(() => {
+                          const setor = (cards[c.numero]?.custom_data as any)?.setor_destino;
+                          if (!setor || iaAtiva) return null;
+                          return (
+                            <span title={`Transferido para ${setor}`} className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-amber-500/15 text-amber-700 whitespace-nowrap">
+                              {setor}
                             </span>
                           );
                         })()}
@@ -956,13 +966,14 @@ function ChannelTabs({ value, onChange }: { value: "todos" | Channel; onChange: 
 }
 
 type FilterCounts = {
-  nao_lidas: number; nao_atribuidas: number; minhas: number;
+  precisa_voce: number; nao_lidas: number; nao_atribuidas: number; minhas: number;
   do_time: number; aguardando: number; resolvidas: number;
 };
 
 function FilterTabs({ value, onChange, counts }: { value: Filter; onChange: (f: Filter) => void; counts: FilterCounts }) {
   const opts: { v: Filter; label: string; badge?: number }[] = [
     { v: "todas", label: "Todas" },
+    { v: "precisa_voce", label: "Precisa de você", badge: counts.precisa_voce },
     { v: "nao_lidas", label: "Não lidas", badge: counts.nao_lidas },
     { v: "nao_atribuidas", label: "Não atribuídas", badge: counts.nao_atribuidas },
     { v: "minhas", label: "Minhas", badge: counts.minhas },
