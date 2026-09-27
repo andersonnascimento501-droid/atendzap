@@ -20,6 +20,8 @@ export interface LeadCard {
   origem: string | null; owner_id: string | null;
   tags: string[]; proxima_acao: string | null; follow_up: string | null;
   custom_data?: Record<string, any> | null;
+  campanha_consentimento_em?: string | null;
+  campanha_optout_em?: string | null;
 }
 export interface Stage { id: string; nome: string; cor: string; }
 export interface Member { user_id: string; email?: string | null; nome?: string | null; }
@@ -48,6 +50,8 @@ export function LeadDrawer({
       status: stage?.nome ?? local.status, origem: local.origem, owner_id: local.owner_id,
       tags: local.tags, proxima_acao: local.proxima_acao, follow_up: local.follow_up,
       observacao: local.observacao,
+      campanha_consentimento_em: local.campanha_consentimento_em ?? null,
+      campanha_optout_em: local.campanha_optout_em ?? null,
     }).eq("id", local.id);
     if (error) return toast.error(error.message);
     await supabase.from("lead_evento").insert({
@@ -126,6 +130,20 @@ export function LeadDrawer({
               <Label>Observação</Label>
               <Textarea value={local.observacao ?? ""} onChange={(e) => set("observacao", e.target.value)} rows={3} />
             </div>
+            <label className="flex items-start gap-2 text-sm rounded-md border border-[var(--border)] p-3">
+              <input type="checkbox" className="mt-0.5"
+                checked={!!local.campanha_consentimento_em && !local.campanha_optout_em}
+                onChange={(e) => {
+                  set("campanha_consentimento_em", e.target.checked ? new Date().toISOString() : null);
+                  set("campanha_optout_em", e.target.checked ? null : (local.campanha_consentimento_em ? new Date().toISOString() : null));
+                }} />
+              <span>
+                Aceita receber campanhas
+                <span className="block text-xs text-muted-foreground">
+                  {local.campanha_optout_em ? "Pediu para não receber mais." : "Marque só se o contato autorizou. Sem isso, ele não recebe campanhas."}
+                </span>
+              </span>
+            </label>
             <Button onClick={save} className="w-full"><Save className="size-4 mr-2" />Salvar</Button>
           </TabsContent>
 
