@@ -9,6 +9,8 @@ import { Sparkles, Lock, Pencil, Trash2, Plus, Download } from "lucide-react";
 import { HelpTip } from "@/components/help-tip";
 import { brand } from "@/config/brand";
 import { FinKpiGrid, fmtBRL } from "@/components/financeiro/fin-kpis";
+import { demoNow } from "@/lib/demo-data";
+const iso = (days: number) => new Date(demoNow - 3 * 3600000 + days * 86400000).toISOString().slice(0, 10);
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/demo/financeiro")({
@@ -26,13 +28,13 @@ const MOCK_SERIES = [
 ];
 
 const MOCK_LANC = [
-  { id: "1", tipo: "receita", descricao: "Venda Pacote Vitalis — Maria S.", valor_cents: 189000, status: "pago", vencimento: "2026-06-10", pago_em: "2026-06-10", categoria: { nome: "Vendas", cor: "#22B85F" }, crm_card_id: "x" },
-  { id: "2", tipo: "receita", descricao: "Venda Drenagem 10x — João P.", valor_cents: 99000, status: "pendente", vencimento: "2026-06-22", categoria: { nome: "Vendas", cor: "#22B85F" }, crm_card_id: "x" },
-  { id: "3", tipo: "receita", descricao: "Pacote anual — Empresa Beta", valor_cents: 1200000, status: "pendente", vencimento: "2026-06-25", categoria: { nome: "Vendas", cor: "#22B85F" } },
-  { id: "4", tipo: "despesa", descricao: "Anúncios Meta — Junho", valor_cents: 350000, status: "pago", vencimento: "2026-06-05", pago_em: "2026-06-05", categoria: { nome: "Marketing", cor: "#FFB020" } },
-  { id: "5", tipo: "despesa", descricao: "Folha de pagamento", valor_cents: 820000, status: "pendente", vencimento: "2026-06-30", categoria: { nome: "Folha de pagamento", cor: "#FF7A59" } },
-  { id: "6", tipo: "despesa", descricao: "Aluguel da clínica", valor_cents: 450000, status: "pago", vencimento: "2026-06-10", pago_em: "2026-06-10", categoria: { nome: "Operacional", cor: "#FF5A5A" } },
-  { id: "7", tipo: "despesa", descricao: "Servidor + WhatsApp API", valor_cents: 78000, status: "pago", vencimento: "2026-06-08", pago_em: "2026-06-08", categoria: { nome: "Infraestrutura", cor: "#A36BFF" } },
+  { id: "1", tipo: "receita", descricao: "Venda Pacote Vitalis — Juliana A.", valor_cents: 189000, status: "pago", vencimento: iso(-5), pago_em: iso(-5), categoria: { nome: "Vendas", cor: "#22B85F" }, crm_card_id: "x" },
+  { id: "2", tipo: "receita", descricao: "Venda Drenagem 10x — João P.", valor_cents: 99000, status: "pendente", vencimento: iso(3), categoria: { nome: "Vendas", cor: "#22B85F" }, crm_card_id: "x" },
+  { id: "3", tipo: "receita", descricao: "Pacote anual — Empresa Beta", valor_cents: 1200000, status: "pendente", vencimento: iso(8), categoria: { nome: "Vendas", cor: "#22B85F" } },
+  { id: "4", tipo: "despesa", descricao: "Anúncios Meta — mês atual", valor_cents: 350000, status: "pago", vencimento: iso(-10), pago_em: iso(-10), categoria: { nome: "Marketing", cor: "#FFB020" } },
+  { id: "5", tipo: "despesa", descricao: "Folha de pagamento", valor_cents: 820000, status: "pendente", vencimento: iso(12), categoria: { nome: "Folha de pagamento", cor: "#FF7A59" } },
+  { id: "6", tipo: "despesa", descricao: "Aluguel da clínica", valor_cents: 450000, status: "pago", vencimento: iso(-5), pago_em: iso(-5), categoria: { nome: "Operacional", cor: "#FF5A5A" } },
+  { id: "7", tipo: "despesa", descricao: "Servidor + WhatsApp API", valor_cents: 78000, status: "pago", vencimento: iso(-7), pago_em: iso(-7), categoria: { nome: "Infraestrutura", cor: "#A36BFF" } },
 ];
 
 const MOCK_CATS = [
@@ -186,7 +188,7 @@ function DemoFinanceiro() {
 }
 
 function DemoList({ items }: { items: any[] }) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = iso(0);
   return (
     <Card className="divide-y">
       {items.map((l) => {
@@ -205,8 +207,8 @@ function DemoList({ items }: { items: any[] }) {
                 {l.crm_card_id && <Badge variant="outline">do CRM</Badge>}
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Vence em {new Date(l.vencimento).toLocaleDateString("pt-BR")}
-                {l.pago_em && ` · Pago em ${new Date(l.pago_em).toLocaleDateString("pt-BR")}`}
+                Vence em {new Date(l.vencimento + "T12:00:00Z").toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                {l.pago_em && ` · Pago em ${new Date(l.pago_em + "T12:00:00Z").toLocaleDateString("pt-BR", { timeZone: "UTC" })}`}
               </div>
             </div>
             <div className={`font-semibold ${l.tipo === "receita" ? "text-emerald-600" : "text-rose-600"}`}>
