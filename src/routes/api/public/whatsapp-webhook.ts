@@ -108,6 +108,17 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
 
           const lower = storedText.toLowerCase().trim();
 
+          // Pedido de parada: bloqueia campanhas para este contato (a conversa normal segue).
+          const { isStopRequest } = await import("@/lib/queue-logic");
+          if (isStopRequest(storedText)) {
+            const { error: optErr } = await (supabaseAdmin as any)
+              .from("crm_cards")
+              .update({ campanha_optout_em: new Date().toISOString() })
+              .eq("company_id", companyId)
+              .eq("numero", number);
+            if (optErr) console.error("[campaign.optout]", optErr.message);
+          }
+
           // Comandos instantâneos (sem IA, sem fila)
           const { data: cmdCfg } = await (supabaseAdmin as any)
             .from("agent_config")
