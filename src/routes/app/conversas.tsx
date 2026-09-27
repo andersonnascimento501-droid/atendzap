@@ -364,6 +364,7 @@ function ConversasPage() {
     const numeros = Array.from(new Set(msgs.map((m) => m.numero)));
     const count = (f: Filter) => numeros.filter((n) => matchFilter(n, f)).length;
     return {
+      precisa_voce: count("precisa_voce"),
       nao_lidas: Object.values(unread).reduce((a, b) => a + b, 0),
       nao_atribuidas: count("nao_atribuidas"),
       minhas: count("minhas"),
