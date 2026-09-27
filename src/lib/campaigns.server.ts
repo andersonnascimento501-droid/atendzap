@@ -83,7 +83,7 @@ export async function processDueCampaigns(admin: any, maxCampaigns = 10) {
       const { count } = await admin
         .from("campaign_target").select("id", { count: "exact", head: true })
         .eq("company_id", c.company_id).eq("status", "enviado").gte("enviado_em", inicioMes.toISOString());
-      restante = Number(plan?.limits?.mensagens ?? 1500) - (count ?? 0);
+      restante = Number(plan?.limites?.mensagens ?? 1500) - (count ?? 0);
     } catch (e: any) {
       console.error("[campaign.limit]", e?.message);
       restante = 0; // sem conseguir medir, não envia
