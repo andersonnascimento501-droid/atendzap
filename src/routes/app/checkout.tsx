@@ -25,9 +25,6 @@ export const Route = createFileRoute("/app/checkout")({
   component: CheckoutPage,
 });
 
-function formatBRL(cents: number) {
-  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
 function defaultCompanyName(email?: string | null) {
   const local = email?.split("@")[0]?.replace(/[._-]+/g, " ").trim();
   return local ? `Empresa de ${local}` : "Minha empresa";
@@ -75,7 +72,7 @@ function CheckoutPage() {
   const search = useSearch({ from: "/app/checkout" }) as Search;
   const createCompany = useServerFn(createCheckoutCompany);
 
-  const [plans, setPlans] = useState<Plano[]>([]);
+  const [plans, setPlans] = useState<AtendaiPeriodo[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [plansError, setPlansError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(search.plano ?? null);
@@ -100,9 +97,7 @@ function CheckoutPage() {
     setLoadingPlans(true);
     setPlansError(null);
     try {
-      const { data, error } = await supabase.from("plan").select("*").eq("ativo", true).order("ordem");
-      if (error) throw error;
-      const list = (data ?? []) as Plano[];
+      const list = await fetchAtendaiPeriodos();
       setPlans(list);
       if (list.length === 0) {
         setPlansError("Nenhum plano disponível no momento.");
