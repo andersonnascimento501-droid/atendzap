@@ -263,45 +263,11 @@ function AgentePage() {
             </TabsList>
 
             <TabsContent value="modelo" className="space-y-3">
-              <Section title="Cérebro da IA" icon={<Sparkles className="size-3.5" />}>
-                <div className="space-y-1.5">
-                  <Label>Provedor</Label>
-                  <Select value={cfg.ai_provider} onValueChange={(v) => { up("ai_provider", v); up("ai_model", PROVIDER_MODELS[v]?.[0]?.value || ""); }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gemini">Google Gemini — incluso, sem custo extra</SelectItem>
-                      <SelectItem value="openai" disabled={!allowOpenAI}>
-                        OpenAI (GPT) — sua chave{!allowOpenAI ? " · Pro/Business" : ""}
-                      </SelectItem>
-                      <SelectItem value="anthropic" disabled={!allowAnthropic}>
-                        Anthropic (Claude) — sua chave{!allowAnthropic ? " · Pro/Business" : ""}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Gemini é o padrão e já vem incluso. {(!allowOpenAI || !allowAnthropic) && (
-                      <>GPT e Claude exigem o plano Pro. <Link to="/app/checkout" className="underline">Fazer upgrade</Link>.</>
-                    )}
-                  </p>
-                </div>
+              <Section title="Ritmo das respostas" icon={<Sparkles className="size-3.5" />}>
+                <p className="text-xs text-muted-foreground">
+                  A inteligência do atendente já vem inclusa e configurada pela plataforma. Você não precisa escolher nada aqui.
+                </p>
 
-                <div className="space-y-1.5">
-                  <Label>Modelo</Label>
-                  <Select value={cfg.ai_model} onValueChange={(v) => up("ai_model", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(PROVIDER_MODELS[cfg.ai_provider] || PROVIDER_MODELS.gemini).map((m) => (
-                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {(cfg.ai_provider === "openai" || cfg.ai_provider === "anthropic") && (
-                  <p className="text-xs text-muted-foreground">
-                    As chaves privadas deste provedor ficam guardadas apenas no servidor. Fale com o suporte para configurá-las.
-                  </p>
-                )}
 
                 <div className="space-y-2 pt-2">
                   <Label>Tempo de espera antes de responder</Label>
