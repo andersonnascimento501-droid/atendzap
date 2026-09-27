@@ -13,26 +13,9 @@ import {
 import { createCheckoutCompany } from "@/lib/checkout.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { trialDaysLeft } from "@/lib/tenant";
-import { periodoResumo } from "@/lib/atendai-plan";
+import { fetchAtendaiPeriodos, formatBRL, periodoResumo, type AtendaiPeriodo } from "@/lib/atendai-plan";
 
 type Search = { plano?: string };
-
-type Plano = {
-  id: string;
-  slug: string;
-  nome: string;
-  descricao: string | null;
-  preco_cents: number;
-  trial_days: number;
-  periodo_meses: number;
-  checkout_url: string | null;
-  destaque: boolean;
-  limite_mensagens: number;
-  limite_instancias: number;
-  limite_usuarios: number;
-  limite_contatos: number;
-  features: string[];
-};
 
 export const Route = createFileRoute("/app/checkout")({
   validateSearch: (s: Record<string, unknown>): Search => ({
@@ -42,9 +25,6 @@ export const Route = createFileRoute("/app/checkout")({
   component: CheckoutPage,
 });
 
-function formatBRL(cents: number) {
-  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
 function defaultCompanyName(email?: string | null) {
   const local = email?.split("@")[0]?.replace(/[._-]+/g, " ").trim();
   return local ? `Empresa de ${local}` : "Minha empresa";
@@ -92,7 +72,7 @@ function CheckoutPage() {
   const search = useSearch({ from: "/app/checkout" }) as Search;
   const createCompany = useServerFn(createCheckoutCompany);
 
-  const [plans, setPlans] = useState<Plano[]>([]);
+  const [plans, setPlans] = useState<AtendaiPeriodo[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [plansError, setPlansError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(search.plano ?? null);
@@ -117,9 +97,7 @@ function CheckoutPage() {
     setLoadingPlans(true);
     setPlansError(null);
     try {
-      const { data, error } = await supabase.from("plan").select("*").eq("ativo", true).order("ordem");
-      if (error) throw error;
-      const list = (data ?? []) as Plano[];
+      const list = await fetchAtendaiPeriodos();
       setPlans(list);
       if (list.length === 0) {
         setPlansError("Nenhum plano disponível no momento.");

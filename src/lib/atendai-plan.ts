@@ -12,8 +12,10 @@ export type AtendaiPeriodo = {
   trial_days: number;
   destaque: boolean;
   limite_mensagens: number;
+  limite_instancias: number;
   limite_usuarios: number;
   limite_contatos: number;
+  features: string[];
   checkout_url: string | null;
 };
 
@@ -35,7 +37,7 @@ export function periodoResumo(p: { preco_cents: number; periodo_meses: number })
 export async function fetchAtendaiPeriodos(): Promise<AtendaiPeriodo[]> {
   const { data, error } = await supabase
     .from("plan")
-    .select("id, slug, nome, descricao, preco_cents, periodo_meses, trial_days, destaque, limite_mensagens, limite_usuarios, limite_contatos, checkout_url")
+    .select("id, slug, nome, descricao, preco_cents, periodo_meses, trial_days, destaque, limite_mensagens, limite_instancias, limite_usuarios, limite_contatos, features, checkout_url")
     .eq("ativo", true)
     .order("ordem");
   if (error) throw error;
