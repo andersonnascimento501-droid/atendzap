@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-rout
 import { brand } from "@/config/brand";
 import {
   Sparkles, LayoutDashboard, Inbox, KanbanSquare, Bot, Zap, LogIn,
-  Contact, BarChart3, Smartphone, Users, Settings, Megaphone, Plug, Wallet,
+  Contact, BarChart3, Smartphone, Users, Settings, Megaphone, Plug, Wallet, CalendarDays,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileBottomNav, type MobileNavItem } from "@/components/mobile-bottom-nav";
@@ -18,22 +18,23 @@ const sections: { label: string; items: { to: string; label: string; icon: any; 
       { to: "/demo/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/demo/conversas", label: "Conversas", icon: Inbox },
       { to: "/demo/crm", label: "CRM Kanban", icon: KanbanSquare },
-      { to: "/demo/agente", label: "Agente IA", icon: Bot, tag: "IA" },
+      { to: "/demo/agenda", label: "Agenda", icon: CalendarDays },
+      { to: "/demo/agente", label: "Agente IA", icon: Bot },
     ],
   },
   {
     label: "Crescimento",
     items: [
-      { to: "/demo/campanhas", label: "Campanhas", icon: Megaphone, tag: "NOVO" },
+      { to: "/demo/campanhas", label: "Campanhas", icon: Megaphone },
       { to: "/demo/relatorios", label: "Relatórios", icon: BarChart3 },
-      { to: "/demo/integracoes", label: "Integrações", icon: Plug, tag: "NOVO" },
+      { to: "/demo/integracoes", label: "Integrações", icon: Plug },
     ],
   },
   {
     label: "Gestão",
     items: [
       { to: "/demo/contatos", label: "Contatos", icon: Contact },
-      { to: "/demo/financeiro", label: "Financeiro", icon: Wallet, tag: "PRO" },
+      { to: "/demo/financeiro", label: "Financeiro", icon: Wallet },
       { to: "/demo/conexao", label: "Conexão", icon: Smartphone },
       { to: "/demo/equipe", label: "Equipe", icon: Users },
       { to: "/demo/configuracoes", label: "Configurações", icon: Settings },
@@ -66,8 +67,9 @@ function DemoLayout() {
         <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
           <Link to="/entrar" className="text-[12.5px] md:text-sm font-semibold px-3 py-1.5 rounded-md bg-gradient-brand text-primary-foreground hover:opacity-90 whitespace-nowrap">
-            Criar conta
+            Começar 3 dias grátis
           </Link>
+          <span className="hidden sm:inline text-[11.5px] text-muted-foreground">Sem cartão</span>
         </div>
       </header>
 

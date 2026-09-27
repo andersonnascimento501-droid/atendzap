@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { brand } from "@/config/brand";
-import { Hand, MessageSquareText, Send, Sparkles, User, Star, Bell } from "lucide-react";
+import { Hand, MessageSquareText, Send, Sparkles, User, Star, Bell, Info } from "lucide-react";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
 import { AuthorBadge } from "@/components/dashboard/message-timeline";
-import { demoMensagens, demoCards, type DemoMsg } from "@/lib/demo-data";
+import { demoMensagens, demoCards, rotuloData, type DemoMsg } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/demo/conversas")({
   head: () => ({ meta: [{ title: `${brand.name} — Conversas (demo)` }] }),
@@ -24,6 +24,7 @@ const STAGE_COLORS: Record<string, { bg: string; fg: string; label: string }> = 
 
 const FILTERS = [
   { id: "todas", label: "Todas" },
+  { id: "precisa", label: "Precisa de você" },
   { id: "minhas", label: "Minhas" },
   { id: "nao-lidas", label: "Não lidas" },
   { id: "ia", label: "IA respondeu" },
@@ -48,8 +49,10 @@ function ConversasDemo() {
       const q = search.toLowerCase();
       list = list.filter((c) => c.nome.toLowerCase().includes(q) || c.numero.includes(q));
     }
+    if (filter === "precisa") list = list.filter((c) => demoCards.find((k) => k.numero === c.numero)?.precisa_humano);
+    if (filter === "ia") list = list.filter((c) => c.last.autor === "ia");
     return list;
-  }, [search]);
+  }, [search, filter]);
 
   const thread = useMemo(() =>
     [...demoMensagens].filter((m) => m.numero === active).sort((a, b) => +a.quando - +b.quando),
@@ -70,8 +73,8 @@ function ConversasDemo() {
     <div className="space-y-4">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
         <div className="min-w-0">
-          <h1 className="font-display text-xl sm:text-2xl font-bold flex items-center gap-2">Conversas <HelpTip text="Inbox unificada do WhatsApp. O agente IA responde sozinho e você assume quando quiser. Filtros, tags e envio de pesquisa CSAT." /></h1>
-          <p className="text-xs text-muted-foreground">Inbox em tempo real do WhatsApp — exemplo.</p>
+          <h1 className="font-display text-xl sm:text-2xl font-bold flex items-center gap-2">Conversas <HelpTip text="Caixa de entrada do WhatsApp. A IA responde, transfere para um setor quando precisa e você assume quando quiser." /></h1>
+          <p className="text-xs text-muted-foreground">Caixa de entrada do WhatsApp — exemplo, somente leitura.</p>
         </div>
         <div className="hidden sm:flex items-center gap-1.5 text-[11.5px] text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
           <Bell className="size-3" /> Notificações ativadas
@@ -114,10 +117,18 @@ function ConversasDemo() {
                       <div className="flex items-center gap-1.5">
                         <b className="text-[13px] truncate">{c.nome}</b>
                         <span className="ml-auto text-[10.5px] text-muted-foreground whitespace-nowrap">
-                          {c.last.quando.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+                          {rotuloData(c.last.quando)}
                         </span>
                       </div>
                       <p className="text-[12px] text-muted-foreground truncate mt-0.5">{c.last.texto}</p>
+                      {(() => {
+                        const k = demoCards.find((x) => x.numero === c.numero);
+                        return k?.precisa_humano ? (
+                          <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[var(--brand-soft)] text-[var(--brand-text)]">
+                            <Hand className="size-2.5" /> {k.setor_destino}
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                   </button>
                 </li>
@@ -143,7 +154,7 @@ function ConversasDemo() {
                 <div className="ml-auto flex items-center gap-3">
                   <label className="hidden sm:flex items-center gap-2 text-[12px] text-muted-foreground">
                     IA ativa
-                    <Switch checked={iaActive} onCheckedChange={setIaActive} />
+                    <Switch checked={iaActive && !activeCard?.precisa_humano} onCheckedChange={setIaActive} />
                   </label>
                   <Button
                     size="sm"
@@ -160,13 +171,22 @@ function ConversasDemo() {
                 </div>
               </header>
               <div ref={threadRef} className="flex-1 overflow-auto p-4 flex flex-col gap-2.5">
-                {thread.map((m) => <Bubble key={m.id} m={m} />)}
+                {thread.map((m) => (
+                  <div key={m.id} className="flex flex-col gap-1.5">
+                    <Bubble m={m} />
+                    {m.sistema && (
+                      <div className="self-center inline-flex items-center gap-1.5 text-[10.5px] font-semibold text-muted-foreground bg-card border border-border px-2.5 py-1 rounded-full">
+                        <Info className="size-3" /> {m.sistema}
+                      </div>
+                    )}
+                  </div>
+                ))}
                 {csatSent && (
                   <div className="flex justify-end">
                     <div className="max-w-[78%] bg-gradient-to-br from-[#6D28D9] to-[#7C3AED] text-primary-foreground rounded-2xl rounded-br-md px-3.5 py-2.5 text-[13px] font-medium">
                       <span className="block text-[9.5px] font-bold opacity-80 mb-1 uppercase tracking-wider">⭐ Pesquisa CSAT</span>
                       Oi! Como foi seu atendimento de hoje? Avalie de 1 a 5 ⭐
-                      <div className="mt-1.5 opacity-90 text-[11px]">https://atendezap.live/csat/8f3a…</div>
+                      <div className="mt-1.5 opacity-90 text-[11px]">https://app.atendai.tech/csat/exemplo</div>
                     </div>
                   </div>
                 )}
@@ -221,6 +241,31 @@ function ConversasDemo() {
                   </span>
                 ))}
               </div>
+              {activeCard?.precisa_humano && (
+                <div className="rounded-xl border border-[var(--brand-soft-strong)] bg-[var(--brand-soft)]/40 p-3 space-y-1.5">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1"><Hand className="size-3" /> Precisa de você</div>
+                  <div className="text-[12.5px]"><b>Setor:</b> {activeCard.setor_destino}</div>
+                  <div className="text-[12.5px]"><b>Motivo:</b> {activeCard.transfer_motivo}</div>
+                  <div className="text-[12px] text-muted-foreground"><b className="text-foreground">Resumo:</b> {activeCard.transfer_resumo}</div>
+                  <div className="text-[11px] text-muted-foreground">IA pausada nesta conversa · follow-ups cancelados</div>
+                </div>
+              )}
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Interesse</div>
+                <div className="text-[12.5px]">{activeCard?.interesse ?? "—"}</div>
+              </div>
+              {activeCard?.agendamento && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Agendamento</div>
+                  <div className="text-[12.5px] font-semibold">{rotuloData(activeCard.agendamento)}</div>
+                </div>
+              )}
+              {activeCard?.proxima_acao && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Próximo acompanhamento</div>
+                  <div className="text-[12.5px]">{activeCard.proxima_acao}{activeCard.follow_up ? ` · ${rotuloData(activeCard.follow_up)}` : ""}</div>
+                </div>
+              )}
               {activeCard?.valor != null && (
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Valor estimado</div>
@@ -264,7 +309,7 @@ function Bubble({ m }: { m: DemoMsg }) {
         {!isOut && <span className="block mb-1"><AuthorBadge autor={m.autor} /></span>}
         <div className="whitespace-pre-wrap break-words">{m.texto}</div>
         <div className={`text-[10px] mt-1 ${isOut ? "opacity-70" : "text-muted-foreground"}`}>
-          {m.quando.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
+          {rotuloData(m.quando)}
         </div>
       </div>
     </div>

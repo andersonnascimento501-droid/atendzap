@@ -41,6 +41,7 @@ import { Route as DemoConfiguracoesRouteImport } from './routes/demo/configuraco
 import { Route as DemoConexaoRouteImport } from './routes/demo/conexao'
 import { Route as DemoCampanhasRouteImport } from './routes/demo/campanhas'
 import { Route as DemoAgenteRouteImport } from './routes/demo/agente'
+import { Route as DemoAgendaRouteImport } from './routes/demo/agenda'
 import { Route as CsatTokenRouteImport } from './routes/csat.$token'
 import { Route as AppTarefasRouteImport } from './routes/app/tarefas'
 import { Route as AppRelatoriosRouteImport } from './routes/app/relatorios'
@@ -230,6 +231,11 @@ const DemoAgenteRoute = DemoAgenteRouteImport.update({
   path: '/agente',
   getParentRoute: () => DemoRoute,
 } as any)
+const DemoAgendaRoute = DemoAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => DemoRoute,
+} as any)
 const CsatTokenRoute = CsatTokenRouteImport.update({
   id: '/csat/$token',
   path: '/csat/$token',
@@ -406,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/tarefas': typeof AppTarefasRoute
   '/csat/$token': typeof CsatTokenRoute
+  '/demo/agenda': typeof DemoAgendaRoute
   '/demo/agente': typeof DemoAgenteRoute
   '/demo/campanhas': typeof DemoCampanhasRoute
   '/demo/conexao': typeof DemoConexaoRoute
@@ -466,6 +473,7 @@ export interface FileRoutesByTo {
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/tarefas': typeof AppTarefasRoute
   '/csat/$token': typeof CsatTokenRoute
+  '/demo/agenda': typeof DemoAgendaRoute
   '/demo/agente': typeof DemoAgenteRoute
   '/demo/campanhas': typeof DemoCampanhasRoute
   '/demo/conexao': typeof DemoConexaoRoute
@@ -529,6 +537,7 @@ export interface FileRoutesById {
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/tarefas': typeof AppTarefasRoute
   '/csat/$token': typeof CsatTokenRoute
+  '/demo/agenda': typeof DemoAgendaRoute
   '/demo/agente': typeof DemoAgenteRoute
   '/demo/campanhas': typeof DemoCampanhasRoute
   '/demo/conexao': typeof DemoConexaoRoute
@@ -593,6 +602,7 @@ export interface FileRouteTypes {
     | '/app/relatorios'
     | '/app/tarefas'
     | '/csat/$token'
+    | '/demo/agenda'
     | '/demo/agente'
     | '/demo/campanhas'
     | '/demo/conexao'
@@ -653,6 +663,7 @@ export interface FileRouteTypes {
     | '/app/relatorios'
     | '/app/tarefas'
     | '/csat/$token'
+    | '/demo/agenda'
     | '/demo/agente'
     | '/demo/campanhas'
     | '/demo/conexao'
@@ -715,6 +726,7 @@ export interface FileRouteTypes {
     | '/app/relatorios'
     | '/app/tarefas'
     | '/csat/$token'
+    | '/demo/agenda'
     | '/demo/agente'
     | '/demo/campanhas'
     | '/demo/conexao'
@@ -997,6 +1009,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoAgenteRouteImport
       parentRoute: typeof DemoRoute
     }
+    '/demo/agenda': {
+      id: '/demo/agenda'
+      path: '/agenda'
+      fullPath: '/demo/agenda'
+      preLoaderRoute: typeof DemoAgendaRouteImport
+      parentRoute: typeof DemoRoute
+    }
     '/csat/$token': {
       id: '/csat/$token'
       path: '/csat/$token'
@@ -1253,6 +1272,7 @@ const AppRouteChildren: AppRouteChildren = {
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface DemoRouteChildren {
+  DemoAgendaRoute: typeof DemoAgendaRoute
   DemoAgenteRoute: typeof DemoAgenteRoute
   DemoCampanhasRoute: typeof DemoCampanhasRoute
   DemoConexaoRoute: typeof DemoConexaoRoute
@@ -1269,6 +1289,7 @@ interface DemoRouteChildren {
 }
 
 const DemoRouteChildren: DemoRouteChildren = {
+  DemoAgendaRoute: DemoAgendaRoute,
   DemoAgenteRoute: DemoAgenteRoute,
   DemoCampanhasRoute: DemoCampanhasRoute,
   DemoConexaoRoute: DemoConexaoRoute,
