@@ -96,6 +96,7 @@ function ConversasPage() {
   const [composer, setComposer] = useState("");
   const [drawerCard, setDrawerCard] = useState<LeadCard | null>(null);
   const [sending, setSending] = useState(false);
+  const sendKeyRef = useRef<{ sig: string; key: string }>({ sig: "", key: "" });
   const threadRef = useRef<HTMLDivElement>(null);
 
   // Trabalho em time: situação da conversa, notas internas e etiquetas.
@@ -452,11 +453,12 @@ function ConversasPage() {
     try {
       const r: any = await sendFn({ data: { numero: active, texto: txt, contatoNome: activeConv?.nome ?? null, clientKey: sendKeyRef.current.key } });
       if (r?.status === "uncertain") {
+        // Mantém a chave: repetir a mesma mensagem não reenvia às cegas.
         toast.warning("Não conseguimos confirmar a entrega. Confira no WhatsApp antes de enviar de novo.");
-      } else if (r?.status === "skipped") {
-        toast.info("Essa mensagem já tinha sido enviada.");
+      } else {
+        if (r?.status === "skipped") toast.info("Essa mensagem já tinha sido enviada.");
+        sendKeyRef.current = { sig: "", key: "" };
       }
-      sendKeyRef.current = { sig: "", key: "" };
       setComposer("");
     } catch (e: any) {
       toast.error(e?.message ?? "Mensagem não enviada");
