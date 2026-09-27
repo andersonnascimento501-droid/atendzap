@@ -17,23 +17,24 @@ export const Route = createFileRoute("/demo/agente")({
   component: AgenteDemo,
 });
 
-const DESCRICAO_DEMO = `Clínica de estética e bem-estar em Pinheiros, São Paulo. Atendemos seg a sex 9h-20h e sáb 9h-15h. Oferecemos limpeza de pele, botox, preenchimento, harmonização facial, drenagem linfática, depilação a laser e peeling. Equipe formada por dermatologista (Dra. Helena) e esteticistas. Quero que a Vivi atenda no WhatsApp: cumprimente com elegância, descubra o procedimento desejado, qualifique o lead (avaliação ou agendamento direto), confirme data/horário e mande nossa localização. Pode oferecer o desconto de 5% no Pix à vista quando fizer sentido.`;
+const DESCRICAO_DEMO = `Clínica fictícia de estética e bem-estar em São Paulo. Atendemos seg a sex 9h-20h e sáb 9h-15h. Oferecemos limpeza de pele, botox, preenchimento, harmonização facial, drenagem linfática, depilação a laser e peeling. Equipe formada por dermatologista (Dra. Helena) e esteticistas. Quero que a Vivi atenda no WhatsApp: cumprimente com elegância, descubra o procedimento desejado, qualifique o lead (avaliação ou agendamento direto), confirme data/horário e mande nossa localização. Informe só preços cadastrados, nunca dê diagnóstico nem prometa resultado. Quando for assunto de saúde, negociação de valores ou reclamação, transfira para o setor certo.`;
 
 const CFG: any = {
   nome_agente: "Vivi",
   nome_empresa: "Clínica Vitalis",
   segmento: "Estética & Bem-estar",
-  regiao_horario: "Pinheiros, São Paulo — seg a sex 9h-20h, sáb 9h-15h",
-  papel_objetivo: "Atender no WhatsApp, qualificar lead, agendar avaliação ou procedimento e enviar localização.",
-  sobre_empresa: "Clínica em Pinheiros (SP). Equipe dermato (Dra. Helena) + esteticistas. Foco em pele, corpo e harmonização — procedimentos não invasivos.",
+  regiao_horario: "São Paulo — seg a sex 9h-20h, sáb 9h-15h",
+  papel_objetivo: "Atender no WhatsApp, qualificar o contato e agendar avaliação ou procedimento.",
+  sobre_empresa: "Clínica fictícia em São Paulo. Equipe dermato (Dra. Helena) + esteticistas. Foco em pele, corpo e harmonização — procedimentos não invasivos.",
   produtos_servicos: "Limpeza de pele, botox, preenchimento, harmonização facial, drenagem linfática, depilação a laser, peeling, massagens relaxantes.",
-  como_vender: "1) Cumprimenta com elegância. 2) Descobre o procedimento. 3) Explica como funciona e o preço. 4) Sugere avaliação grátis ou agendamento direto. 5) Confirma data/horário e manda localização.",
-  pode_fazer: "Mostrar procedimentos, informar preços, agendar avaliação, oferecer 5% off Pix, mandar endereço.",
-  nao_pode_fazer: "Não prescreve, não promete resultado, não atende emergência médica, não fala mal de concorrentes, não agenda fora do horário.",
+  como_vender: "1) Cumprimenta com elegância. 2) Descobre o procedimento. 3) Explica como funciona e o preço. 4) Sugere avaliação ou agendamento direto. 5) Confirma data e horário disponíveis na agenda.",
+  pode_fazer: "Informar procedimentos e preços cadastrados, agendar, reagendar e cancelar avaliações.",
+  nao_pode_fazer: "Não diagnostica, não prescreve, não promete resultado, não oferece desconto não cadastrado, não inventa horários ou preços.",
+  quando_transferir: "Pergunta de saúde (gestação, medicação, alergia) → Responsável. Pedido de desconto ou condição especial → Comercial. Dúvida de pagamento → Financeiro. Reclamação → Recepção.",
   estilo_comunicacao: "Acolhedor, elegante e profissional. Emojis com moderação (💜 ✨).",
   apresentacao: "Oi! Aqui é a Vivi, da Clínica Vitalis 💜 Como posso te ajudar hoje?",
   tamanho_resposta: "curtas",
-  telefone_transferencia: "+55 11 99999-0000",
+  telefone_transferencia: "+55 11 90000-0000",
   palavra_pausar: "/pausar",
   palavra_despausar: "/despausar",
   responder_em_partes: true,
@@ -54,6 +55,12 @@ const CFG: any = {
   evitar_palavras: "barato, milagre, garantido",
   segundos_buffer: 10,
 };
+
+const AGENTES_DEMO = [
+  { nome: "Vivi", funcao: "Atendimento e qualificação (principal)", principal: true },
+  { nome: "Agenda Vitalis", funcao: "Agendamentos e remarcações", principal: false },
+  { nome: "Pós-venda Vitalis", funcao: "Retorno após procedimento", principal: false },
+];
 
 const PRESETS_DEMO = [
   { value: "padrao",       label: "Padrão",       emoji: "🤝", desc: "Equilibrado — simpático e profissional." },
@@ -80,7 +87,7 @@ const BUFFER_DEMO = [
 
 const DEMO_REPLIES = [
   "Oi! Que bom te ver por aqui 💜",
-  "Posso te agendar uma avaliação grátis com a Dra. Helena. Prefere manhã ou tarde?",
+  "A aplicação de botox é a partir de R$ 1.200 e começa com uma avaliação com a Dra. Helena. Quer que eu veja um horário?",
 ];
 
 function AgenteDemo() {
@@ -95,8 +102,9 @@ function AgenteDemo() {
 
   const prompt = buildSystemPrompt(CFG, { responderEmPartes: true, produtos: [
     { nome: "Limpeza de pele profunda", preco: 280, descricao: "Sessão de 60min com Dra. Helena." },
-    { nome: "Pacote drenagem (10 sessões)", preco: 1890, descricao: "Esteticista Paula. Resultado a partir da 4ª sessão." },
-    { nome: "Depilação laser axilas+virilha (8x)", preco: 2400, descricao: "Diodo de alta potência. Parcela em 12x." },
+    { nome: "Botox (a partir de)", preco: 1200, descricao: "Inicia com avaliação da Dra. Helena." },
+    { nome: "Pacote drenagem (10 sessões)", preco: 1890, descricao: "Esteticista Paula. 10 sessões." },
+    { nome: "Depilação laser axilas+virilha (8x)", preco: 2400, descricao: "8 sessões. Até 12x no cartão." },
   ]});
 
   return (
@@ -114,6 +122,19 @@ function AgenteDemo() {
         </div>
         <Button disabled title="Indisponível no demo">Salvar</Button>
       </header>
+
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="font-display text-[12px] font-semibold uppercase tracking-wider text-[var(--brand-text)] mb-3">Atendentes da empresa</div>
+        <div className="grid sm:grid-cols-3 gap-2">
+          {AGENTES_DEMO.map((a) => (
+            <div key={a.nome} className={`rounded-xl border p-3 ${a.principal ? "border-[var(--brand)] bg-[var(--brand)]/10" : "border-border bg-muted/40"}`}>
+              <div className="font-semibold text-sm">{a.nome}</div>
+              <div className="text-[11px] text-muted-foreground">{a.funcao}</div>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-2">A IA é fornecida pela plataforma — não é preciso escolher modelo nem informar chave.</p>
+      </div>
 
       <Collapsible>
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -142,6 +163,8 @@ function AgenteDemo() {
             <SummaryRow label="Como vende" value={CFG.como_vender} multiline />
             <SummaryRow label="Pode fazer" value={CFG.pode_fazer} multiline />
             <SummaryRow label="Não pode fazer" value={CFG.nao_pode_fazer} multiline />
+            <SummaryRow label="Quando chamar uma pessoa" value={CFG.quando_transferir} multiline />
+            <SummaryRow label="Setores disponíveis" value="Recepção, Comercial, Agendamento, Financeiro, Suporte, Responsável" />
           </Section>
 
           <Section title="Personalidade do agente" icon={<Sparkles className="size-3.5" />}>
