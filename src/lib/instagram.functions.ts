@@ -119,7 +119,7 @@ export const disconnectInstagram = createServerFn({ method: "POST" })
 
 export const sendChannelMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { numero: string; texto: string; contatoNome?: string | null }) => d)
+  .inputValidator((d: { numero: string; texto: string; contatoNome?: string | null; clientKey?: string | null }) => d)
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const companyId = await resolveCompanyId(supabase, userId);
@@ -162,30 +162,34 @@ export const sendChannelMessage = createServerFn({ method: "POST" })
 
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { resolveChannelTarget, sendChannelText } = await import("./channels.server");
+    const { resolveChannelTarget } = await import("./channels.server");
     const target = await resolveChannelTarget(supabaseAdmin, companyId, data.numero);
     if (!target.ready) throw new Error(target.reason === "instagram desconectado" ? "Instagram não conectado" : "WhatsApp não conectado");
-    try {
-      await sendChannelText(target, data.texto);
-    } catch (e: any) {
-      throw new Error(`Falha ao enviar: ${e?.message ?? e}`);
-    }
 
-    const { error } = await supabase.from("mensagens").insert({
-      company_id: companyId,
-      user_id: userId,
-      numero: data.numero,
-      channel,
-      contato_nome: data.contatoNome ?? null,
-      direcao: "saida",
-      autor: "humano",
-      texto: data.texto,
-    } as any);
-    if (error) throw new Error(error.message);
+    // Mesmo padrão das respostas da IA: reserva (sending) → envia → sent | uncertain | libera em 4xx.
+    // A chave vem do navegador e é a mesma em cada novo clique da mesma mensagem → sem duplicar.
+    const clientKey = String(data.clientKey || crypto.randomUUID()).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64);
+    const { sendPartOnce } = await import("./message-pipeline.server");
+    let status: "sent" | "skipped" | "uncertain";
+    try {
+      status = await sendPartOnce(supabaseAdmin, {
+        companyId,
+        userId,
+        numero: data.numero,
+        contatoNome: data.contatoNome ?? null,
+        target,
+        jobId: `human:${companyId}:${clientKey}`,
+        index: 0,
+        texto: data.texto,
+        autor: "humano",
+      });
+    } catch (e: any) {
+      throw new Error(`Não foi enviada: ${e?.message ?? e}`);
+    }
 
     await supabase.from("contact_pause").upsert(
       { company_id: companyId, user_id: userId, numero: data.numero, pausado: true },
       { onConflict: "company_id,numero" },
     );
-    return { ok: true };
+    return { ok: true, status };
   });

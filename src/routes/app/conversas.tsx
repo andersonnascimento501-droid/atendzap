@@ -444,13 +444,22 @@ function ConversasPage() {
 
   async function sendMsg(text?: string) {
     const txt = (text ?? composer).trim();
-    if (!txt || !active || !companyId) return;
+    if (!txt || !active || !companyId || sending) return;
+    // Mesma mensagem reenviada (novo clique após erro) reaproveita a chave → não duplica.
+    const sig = `${active}|${txt}`;
+    if (sendKeyRef.current.sig !== sig) sendKeyRef.current = { sig, key: crypto.randomUUID() };
     setSending(true);
     try {
-      await sendFn({ data: { numero: active, texto: txt, contatoNome: activeConv?.nome ?? null } });
+      const r: any = await sendFn({ data: { numero: active, texto: txt, contatoNome: activeConv?.nome ?? null, clientKey: sendKeyRef.current.key } });
+      if (r?.status === "uncertain") {
+        toast.warning("Não conseguimos confirmar a entrega. Confira no WhatsApp antes de enviar de novo.");
+      } else if (r?.status === "skipped") {
+        toast.info("Essa mensagem já tinha sido enviada.");
+      }
+      sendKeyRef.current = { sig: "", key: "" };
       setComposer("");
     } catch (e: any) {
-      toast.error(e?.message ?? "Falha ao enviar");
+      toast.error(e?.message ?? "Mensagem não enviada");
     } finally {
       setSending(false);
     }
