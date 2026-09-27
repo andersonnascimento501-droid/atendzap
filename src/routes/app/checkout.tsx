@@ -13,6 +13,7 @@ import {
 import { createCheckoutCompany } from "@/lib/checkout.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { trialDaysLeft } from "@/lib/tenant";
+import { periodoResumo } from "@/lib/atendai-plan";
 
 type Search = { plano?: string };
 
@@ -23,6 +24,7 @@ type Plano = {
   descricao: string | null;
   preco_cents: number;
   trial_days: number;
+  periodo_meses: number;
   checkout_url: string | null;
   destaque: boolean;
   limite_mensagens: number;
@@ -197,7 +199,7 @@ function CheckoutPage() {
     : "Comece grátis em segundos";
   const headerSubtitle = paywallMode
     ? "Seus dados ficam aqui esperando. Assim que o pagamento for confirmado, seu acesso é liberado automaticamente."
-    : "Escolha um plano para começar. Você não precisa pagar agora — só vai cobrar no final do período de teste, se quiser continuar.";
+    : "Todas as funcionalidades estão incluídas. O que muda é somente o período contratado. 3 dias grátis, sem cartão. Nada é cobrado durante o teste.";
 
   return (
     <div className="min-h-screen bg-background">
@@ -250,13 +252,13 @@ function CheckoutPage() {
                     {p.destaque && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                         <Badge className="bg-primary text-primary-foreground hover:bg-primary px-3 py-1 text-[10px] uppercase tracking-wider font-bold shadow-sm">
-                          <TrendingUp className="size-3 mr-1" /> Mais popular
+                          <TrendingUp className="size-3 mr-1" /> Melhor condição
                         </Badge>
                       </div>
                     )}
                     <div className="mb-5">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{p.nome}</span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Plano AtendAi — {p.nome} · Preço promocional</span>
                         {isSelected && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary">
                             <Check className="size-3" /> Selecionado
@@ -265,9 +267,8 @@ function CheckoutPage() {
                       </div>
                       <div className="flex items-baseline gap-1">
                         <span className="font-display text-4xl font-bold">{formatBRL(p.preco_cents)}</span>
-                        <span className="text-muted-foreground text-sm">/mês</span>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-2 min-h-[2.5rem]">{p.descricao}</p>
+                      <p className="text-sm text-muted-foreground mt-2 min-h-[2.5rem]">{periodoResumo(p)}</p>
                       {!paywallMode && (
                         <p className="text-[11px] text-primary font-semibold mt-1">
                           {p.trial_days} dias grátis — sem cartão
@@ -277,7 +278,7 @@ function CheckoutPage() {
                     <div className="grid grid-cols-2 gap-2 mb-5">
                       <Limit label="WhatsApp" v={1} />
                       <Limit label="Usuários" v={p.limite_usuarios} />
-                      <Limit label="Conversas/mês" v={p.limite_mensagens} />
+                      <Limit label="Mensagens enviadas/mês" v={p.limite_mensagens} />
                       <Limit label="Contatos" v={p.limite_contatos} />
                     </div>
                     <ul className="space-y-2.5 text-sm flex-1 mb-6">
@@ -333,7 +334,7 @@ function CheckoutPage() {
                     </div>
                     <p className="text-sm text-muted-foreground mb-5">
                       Plano selecionado: <span className="font-semibold text-foreground">{plano?.nome}</span> —{" "}
-                      {formatBRL(plano?.preco_cents ?? 0)}/mês. Pagamento por cartão, Pix ou boleto via Kiwify.
+                      {formatBRL(plano?.preco_cents ?? 0)} — {plano ? periodoResumo(plano) : ""} Pagamento por cartão, Pix ou boleto via Kiwify.
                     </p>
                     <Button
                       onClick={pagarAgora}

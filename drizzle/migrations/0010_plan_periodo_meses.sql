@@ -1,0 +1,2 @@
+ALTER TABLE public.plan ADD COLUMN IF NOT EXISTS periodo_meses integer NOT NULL DEFAULT 1;
+COMMENT ON COLUMN public.plan.periodo_meses IS 'Meses cobertos por um pagamento. Limites continuam renovando mensalmente.';

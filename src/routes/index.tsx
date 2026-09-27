@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { brand } from "@/config/brand";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { fetchAtendaiPeriodos, formatBRL, periodoResumo, DEFAULT_PERIODO_SLUG, type AtendaiPeriodo } from "@/lib/atendai-plan";
 import {
   Zap,
   Play,
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Conecte seu número de WhatsApp em 2 minutos. A IA do AtendZap responde, qualifica e move cada lead no funil automaticamente. 3 dias grátis para testar.",
+          "Conecte seu número de WhatsApp em 2 minutos. A IA do AtendAi responde, qualifica e move cada lead no funil automaticamente. 3 dias grátis, sem cartão.",
       },
       { property: "og:title", content: `${brand.name} — WhatsApp + IA + CRM no automático` },
       {
@@ -43,7 +44,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
-  async function cta(path: "/entrar" | "/demo/dashboard" | "#planos", plano: string = "pro") {
+  async function cta(path: "/entrar" | "/demo/dashboard" | "#planos", plano: string = "atendai-semestral") {
     if (path === "#planos") {
       const el = document.getElementById("planos");
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -365,7 +366,7 @@ function Hero({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#planos",
           </div>
 
           <ul className="mt-7 flex flex-wrap justify-center lg:justify-start gap-x-5 gap-y-2 text-sm text-white/65 font-medium">
-            <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> 3 dias grátis</li>
+            <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> 3 dias grátis, sem cartão</li>
             <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> Conecta em 2 minutos</li>
             <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> Cancele quando quiser</li>
           </ul>
@@ -407,7 +408,7 @@ function PhoneMock() {
               A
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate">AtendZap • IA</div>
+              <div className="text-sm font-semibold truncate">AtendAi • IA</div>
               <div className="text-[10px] text-[#25D366] flex items-center gap-1.5">
                 <span className="size-1.5 rounded-full bg-[#25D366]" /> online agora
               </div>
@@ -521,7 +522,7 @@ function Pain() {
         </h2>
         <p className="mt-6 text-lg md:text-xl text-white/65 leading-relaxed">
           A primeira empresa a responder vende. Sempre. Enquanto você está dirigindo, atendendo na loja
-          ou dormindo, os leads do anúncio que você pagou estão sumindo na fila. O AtendZap responde
+          ou dormindo, os leads do anúncio que você pagou estão sumindo na fila. O AtendAi responde
           em segundos, qualifica e já te entrega o lead pronto pra fechar.
         </p>
       </div>
@@ -532,30 +533,18 @@ function Pain() {
 /* ===================== HOW IT WORKS ===================== */
 function HowItWorks() {
   const steps = [
-    {
-      n: "01",
-      t: "Conecte o WhatsApp",
-      d: "Escaneia o QR Code uma vez e pronto. Funciona com o número que você já usa.",
-      icon: <MessageSquareText className="size-5" />,
-    },
-    {
-      n: "02",
-      t: "Treine sua IA",
-      d: "Uma tela com a personalidade da empresa, produtos, regras. Salvou? Já tá atendendo.",
-      icon: <Bot className="size-5" />,
-    },
-    {
-      n: "03",
-      t: "A IA atende e organiza o CRM",
-      d: "Responde no automático, qualifica, e move o card no kanban — você só fecha.",
-      icon: <KanbanSquare className="size-5" />,
-    },
+    { n: "01", t: "Informe os dados da empresa", d: "Cadastre as informações, serviços, horários e regras do negócio.", icon: <Users className="size-5" /> },
+    { n: "02", t: "Configure o atendente", d: "Defina como a IA deve atender, qualificar, vender e quando transferir para uma pessoa.", icon: <Bot className="size-5" /> },
+    { n: "03", t: "Teste o atendimento", d: "Converse com o atendente antes de colocá-lo em funcionamento.", icon: <Play className="size-5" /> },
+    { n: "04", t: "Conecte o WhatsApp", d: "Faça a conexão seguindo as instruções exibidas na plataforma.", icon: <MessageSquareText className="size-5" /> },
+    { n: "05", t: "Comece a atender", d: "O AtendAi começa a atender, organizar os contatos e atualizar o CRM.", icon: <KanbanSquare className="size-5" /> },
   ];
   return (
     <section id="como" className="px-5 md:px-8 py-24 md:py-28">
       <div className="mx-auto max-w-6xl">
-        <SectionTitle eyebrow="Como funciona" title={<>Em 3 passos. <span className="text-grad">Sério.</span></>} />
-        <div className="mt-12 grid md:grid-cols-3 gap-5">
+        <SectionTitle eyebrow="Como funciona" title={<>Em 5 passos, <span className="text-grad">você mesmo configura</span>.</>} />
+        <p className="text-center text-white/55 max-w-2xl mx-auto mt-4 text-[15px]">Configure o AtendAi seguindo o passo a passo da própria plataforma. Se preferir, você também pode contratar nossa equipe para realizar a implementação — serviço opcional, cobrado à parte e não incluído na assinatura.</p>
+        <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {steps.map((s) => (
             <div key={s.n} className="glass border-sheen rounded-2xl p-7 relative reveal" data-reveal>
               <div className="font-display text-5xl text-white/10 absolute right-5 top-4">{s.n}</div>
@@ -575,12 +564,12 @@ function HowItWorks() {
 /* ===================== FEATURES ===================== */
 function Features() {
   const items = [
-    { t: "Inbox unificado", d: "Todas as conversas em um só lugar, com histórico completo por contato.", icon: <MessageSquareText className="size-5" /> },
-    { t: "IA que responde como você", d: "Treinada com o tom da sua empresa. Faz uma pergunta por vez, não soa robô.", icon: <Bot className="size-5" /> },
-    { t: "CRM kanban automático", d: "A IA classifica e move: Conversas, Negociando, Ganho, Perda. Sem digitar.", icon: <KanbanSquare className="size-5" /> },
-    { t: "Multi-atendente", d: "Convide seu time. Cada um vê o que importa, com papéis e permissões.", icon: <Users className="size-5" /> },
-    { t: "Pausa por palavra", d: "Digitou /pausar? A IA cala a boca e você assume aquele contato.", icon: <PauseCircle className="size-5" /> },
-    { t: "Relatórios que mostram o dinheiro", d: "Tempo de resposta, conversão, taxa de ganho. Decisão em segundos.", icon: <LineChart className="size-5" /> },
+    { t: "IA incluída que atende e vende", d: "Atendimento inicial, qualificação de contatos, apoio em vendas e apresentação de produtos e serviços.", icon: <Bot className="size-5" /> },
+    { t: "Multiagentes", d: "Vários atendentes de IA, cada um com seu papel, dentro da mesma empresa.", icon: <Sparkles className="size-5" /> },
+    { t: "Agenda completa", d: "Agendamento, reagendamento, cancelamento e lembretes automáticos.", icon: <LineChart className="size-5" /> },
+    { t: "Follow-up e campanhas", d: "Retome contatos que pararam de responder e envie campanhas para quem autorizou.", icon: <PauseCircle className="size-5" /> },
+    { t: "CRM com funil", d: "A IA move os cards no funil conforme o atendimento avança.", icon: <KanbanSquare className="size-5" /> },
+    { t: "Caixa de entrada da equipe", d: "Transferência para setor ou atendente humano, com resumo da conversa.", icon: <MessageSquareText className="size-5" /> },
   ];
   return (
     <section id="recursos" className="px-5 md:px-8 py-24 md:py-28">
@@ -604,104 +593,59 @@ function Features() {
 
 /* ===================== PRICING ===================== */
 function Pricing({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#planos", plano?: string) => void }) {
-  const plans = [
-    {
-      slug: "starter",
-      n: "Starter",
-      p: "R$ 97",
-      d: "Pra autônomo testando a operação.",
-      f: [
-        "1 número de WhatsApp",
-        "1 usuário",
-        "1.500 conversas/mês",
-        "1.000 contatos",
-        "CRM Kanban + IA Gemini",
-        "Suporte por email",
-      ],
-      cta: "Começar 3 dias grátis",
-    },
-    {
-      slug: "pro",
-      n: "Pro",
-      p: "R$ 197",
-      d: "Pra time que já vende todo dia. O mais escolhido.",
-      f: [
-        "1 número de WhatsApp",
-        "5 usuários no painel",
-        "6.000 conversas/mês",
-        "5.000 contatos",
-        "IA Gemini + GPT + Claude",
-        "Google Agenda + Relatórios",
-        "Suporte prioritário",
-      ],
-      highlight: true,
-      cta: "Quero o Pro — 3 dias grátis",
-      badge: "Economize 2 meses no anual",
-    },
-    {
-      slug: "business",
-      n: "Business",
-      p: "R$ 497",
-      d: "Pra operação alta performance e múltiplas equipes.",
-      f: [
-        "1 número de WhatsApp",
-        "20 usuários no painel",
-        "30.000 conversas/mês",
-        "25.000 contatos",
-        "API + Webhooks",
-        "Onboarding 1:1 + Gerente dedicado",
-        "SLA 99,9% + Suporte 24/7",
-      ],
-      cta: "Falar com vendas",
-    },
+  const [periodos, setPeriodos] = useState<AtendaiPeriodo[]>([]);
+  const [sel, setSel] = useState<string>(DEFAULT_PERIODO_SLUG);
+  useEffect(() => { fetchAtendaiPeriodos().then(setPeriodos).catch(() => setPeriodos([])); }, []);
+  const atual = periodos.find((p) => p.slug === sel) ?? periodos[0];
+  const inclui = [
+    "IA incluída",
+    "Multiagentes",
+    atual ? `${atual.limite_mensagens.toLocaleString("pt-BR")} mensagens enviadas por mês` : "Mensagens enviadas por mês",
+    atual ? `${atual.limite_usuarios} usuários no painel` : "Usuários no painel",
+    atual ? `${atual.limite_contatos.toLocaleString("pt-BR")} contatos` : "Contatos",
+    "Agendamento, reagendamento, cancelamento e lembretes",
+    "Follow-up e campanhas",
+    "CRM com funil e caixa de entrada da equipe",
+    "Transferência para setor ou atendente humano",
   ];
   return (
     <section id="planos" className="px-5 md:px-8 py-24 md:py-28">
-      <div className="mx-auto max-w-6xl">
-        <SectionTitle eyebrow="Planos" title={<>Quanto mais <span className="text-grad">cresce</span>, mais <span className="text-grad">economiza</span>.</>} />
-        <p className="text-center text-white/55 max-w-2xl mx-auto mt-4 text-[15px]">Todos os planos têm 3 dias grátis. Cancele antes do fim do trial e não é cobrado.</p>
-        <div className="mt-12 grid md:grid-cols-3 gap-5 items-stretch">
-          {plans.map((pl) => (
-            <div
-              key={pl.n}
-              className={`relative rounded-2xl p-7 flex flex-col reveal ${pl.highlight ? "glass-strong" : "glass"}`}
-              data-reveal
-              style={pl.highlight ? { boxShadow: "0 20px 60px -20px rgba(37,211,102,0.5), 0 0 0 1px rgba(37,211,102,0.4) inset" } : undefined}
-            >
-              {pl.highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full text-black whitespace-nowrap" style={{ background: "linear-gradient(135deg,#25D366,#a3e635)" }}>
-                  Mais popular · 4× mais conversas
-                </div>
-              )}
-              <div className="text-sm text-white/60 font-semibold uppercase tracking-wider">{pl.n}</div>
-              <div className="font-display text-4xl mt-2">
-                {pl.p}
-                <span className="text-base text-white/50 font-normal">/mês</span>
-              </div>
-              <p className="text-sm text-white/60 mt-2 min-h-[40px]">{pl.d}</p>
-              <ul className="mt-6 space-y-2.5 text-sm flex-1">
-                {pl.f.map((x) => (
-                  <li key={x} className="flex gap-2.5">
-                    <span className="mt-0.5 size-4 rounded-full grid place-items-center shrink-0" style={{ background: "rgba(37,211,102,0.2)" }}>
-                      <Check className="size-2.5 text-[#25D366]" strokeWidth={3} />
-                    </span>
-                    <span className="text-white/80">{x}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => onCta("/entrar", pl.slug)}
-                className={`mt-7 w-full px-4 py-3 rounded-xl font-semibold transition ${
-                  pl.highlight ? "text-black btn-glow" : "glass-strong text-white hover:bg-white/10"
-                }`}
-                style={pl.highlight ? { background: "linear-gradient(135deg,#25D366,#16a34a)" } : undefined}
-              >
-                {pl.cta}
-              </button>
-            </div>
-          ))}
+      <div className="mx-auto max-w-4xl">
+        <SectionTitle eyebrow="Plano AtendAi" title={<>Um plano. <span className="text-grad">Tudo incluído</span>.</>} />
+        <p className="text-center text-white/55 max-w-2xl mx-auto mt-4 text-[15px]">Todas as funcionalidades estão incluídas. O que muda é somente o período contratado.</p>
+        <div className="mt-10 rounded-2xl p-7 glass-strong reveal" data-reveal style={{ boxShadow: "0 20px 60px -20px rgba(37,211,102,0.5), 0 0 0 1px rgba(37,211,102,0.4) inset" }}>
+          <div className="text-center text-[11px] uppercase tracking-wider text-white/50 font-semibold">Preço promocional</div>
+          <div className="mt-4 grid sm:grid-cols-3 gap-3">
+            {periodos.map((p) => {
+              const on = p.slug === atual?.slug;
+              return (
+                <button key={p.id} onClick={() => setSel(p.slug)} className={`relative rounded-xl p-4 text-left transition ${on ? "glass-strong" : "glass hover:bg-white/5"}`} style={on ? { boxShadow: "0 0 0 2px #25D366 inset" } : undefined}>
+                  {p.destaque && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full text-black whitespace-nowrap" style={{ background: "linear-gradient(135deg,#25D366,#a3e635)" }}>Melhor condição</div>
+                  )}
+                  <div className="text-sm text-white/60 font-semibold uppercase tracking-wider">{p.nome}</div>
+                  <div className="font-display text-3xl mt-1">{formatBRL(p.preco_cents)}</div>
+                  <p className="text-xs text-white/55 mt-1">{periodoResumo(p)}</p>
+                </button>
+              );
+            })}
+          </div>
+          <ul className="mt-7 grid sm:grid-cols-2 gap-2.5 text-sm">
+            {inclui.map((x) => (
+              <li key={x} className="flex gap-2.5">
+                <span className="mt-0.5 size-4 rounded-full grid place-items-center shrink-0" style={{ background: "rgba(37,211,102,0.2)" }}>
+                  <Check className="size-2.5 text-[#25D366]" strokeWidth={3} />
+                </span>
+                <span className="text-white/80">{x}</span>
+              </li>
+            ))}
+          </ul>
+          <button onClick={() => onCta("/entrar", atual?.slug ?? DEFAULT_PERIODO_SLUG)} className="mt-7 w-full px-4 py-3 rounded-xl font-semibold transition text-black btn-glow" style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}>
+            Começar 3 dias grátis
+          </button>
+          <p className="mt-2 text-center text-xs text-white/55">3 dias grátis, sem cartão.</p>
         </div>
-        <p className="mt-5 text-center text-xs text-white/40">Cartão é exigido apenas para liberar o trial. Cancele em até 3 dias e não pagamos nada.</p>
+        <p className="mt-5 text-center text-xs text-white/40">Limite de mensagens renovado todo mês em qualquer período. Implementação pela nossa equipe é opcional e cobrada à parte.</p>
       </div>
     </section>
   );
@@ -809,7 +753,7 @@ function FinalCta({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plan
             Pare de perder venda no <span className="text-grad">"oi, sumiu"</span>.
           </h2>
           <p className="mt-6 text-white/70 max-w-xl mx-auto text-lg sm:text-xl">
-            3 dias grátis pra ver a IA atendendo seu WhatsApp e fechando lead sozinha. Cancele antes e não paga nada.
+            3 dias grátis pra ver a IA atendendo seu WhatsApp e fechando lead sozinha. Sem cartão.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row flex-wrap justify-center gap-3">
             <button
@@ -817,7 +761,7 @@ function FinalCta({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plan
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-black font-bold text-base sm:text-lg btn-glow"
               style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}
             >
-              Começar agora, de graça <ArrowRight className="size-5" />
+              Começar 3 dias grátis <ArrowRight className="size-5" />
             </button>
             <button onClick={() => onCta("/demo/dashboard")} className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl glass-strong text-white hover:bg-white/10 text-base sm:text-lg font-medium">
               <Play className="size-4" /> Ver demonstração

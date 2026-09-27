@@ -38,7 +38,7 @@ export const createCheckoutCompany = createServerFn({ method: "POST" })
       const { data: starter } = await supabaseAdmin
         .from("plan")
         .select("trial_days, slug")
-        .eq("slug", "starter")
+        .eq("slug", "atendai-mensal")
         .maybeSingle();
       if (starter?.trial_days != null) trialDays = Number(starter.trial_days) || trialDays;
       planSlug = starter?.slug ?? null;

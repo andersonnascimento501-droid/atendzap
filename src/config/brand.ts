@@ -1,6 +1,6 @@
 // Branding centralizado. Troque aqui pra renomear/recolorir o app inteiro.
 export const brand = {
-  name: "AtendZap",
+  name: "AtendAi",
   tagline: "Seu WhatsApp atendendo por você.",
   // WhatsApp green
   primary: "#22C55E",

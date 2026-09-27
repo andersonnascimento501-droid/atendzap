@@ -46,7 +46,7 @@ export async function getCompanyPlan(companyId: string): Promise<CompanyPlan> {
     const { data: fallback } = await supabaseAdmin
       .from("plan")
       .select("slug, nome, limite_instancias, limite_mensagens, limite_usuarios, limite_contatos")
-      .eq("slug", "starter")
+      .eq("slug", "atendai-mensal")
       .maybeSingle();
     row = fallback;
   }
