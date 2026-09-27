@@ -633,20 +633,8 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     }
   }
 
-  const plan = await getCompanyPlan(companyId);
-  let providerChoice = ((cfg as any)?.ai_provider || "gemini") as string;
-  let modelChoice = ((cfg as any)?.ai_model || "google/gemini-2.5-flash") as string;
-  if (!allowsProvider(plan.slug, providerChoice)) {
-    providerChoice = "gemini";
-    modelChoice = "google/gemini-2.5-flash";
-  }
-
-  const aiConfig = {
-    provider: providerChoice,
-    model: modelChoice,
-    openaiKey: (cfg as any)?.openai_api_key || "",
-    anthropicKey: (cfg as any)?.anthropic_api_key || "",
-  };
+  // IA única da plataforma: OpenAI com chave e modelo do servidor. Colunas antigas ignoradas.
+  const aiConfig = {};
   const { lovableAiChat } = await import("@/lib/lovable-ai.server");
   await assertLease(admin, job);
   let rawReply = "";
