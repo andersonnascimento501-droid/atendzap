@@ -185,7 +185,7 @@ describe("créditos", () => {
   });
   test("falha definitiva sem envio estorna uma única vez", () => {
     expect(worker).toContain("refund_ai_credit");
-    expect(worker).toContain('.eq("credit_refunded", false)');
+    expect(worker).toContain('refund_ai_credit_for_job');
   });
 });
 
