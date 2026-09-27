@@ -78,6 +78,13 @@
       "when": 1790476433725,
       "tag": "0010_plan_periodo_meses",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790539608789,
+      "tag": "0011_instagram_zernio_provider",
+      "breakpoints": true
     }
   ]
 }
