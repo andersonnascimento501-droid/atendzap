@@ -39,9 +39,9 @@ function ConfigDemo() {
           <Card title="Empresa" icon={<Building2 className="size-4" />}>
             <RO label="Nome da empresa" value="Clínica Vitalis" />
             <RO label="CNPJ" value="12.345.678/0001-00" />
-            <div className="space-y-1.5"><Label>Endereço</Label><Textarea readOnly rows={2} value="Rua dos Pinheiros, 1500 — Pinheiros — São Paulo/SP" /></div>
+            <div className="space-y-1.5"><Label>Endereço</Label><Textarea readOnly rows={2} value="Rua Exemplo, 100 — São Paulo/SP (fictício)" /></div>
             <div className="grid sm:grid-cols-2 gap-3">
-              <RO label="Telefone" value="+55 11 99999-0000" />
+              <RO label="Telefone" value="+55 11 90000-0000" />
               <RO label="E-mail" value="contato@clinicavitalis.com.br" />
             </div>
           </Card>
@@ -154,7 +154,7 @@ function ConfigDemo() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-sm">Conectado</div>
-                <div className="text-[11px] text-muted-foreground font-mono">+55 11 99999-0000</div>
+                <div className="text-[11px] text-muted-foreground font-mono">+55 11 90000-0000</div>
               </div>
               <Button variant="outline" size="sm" disabled>Desconectar</Button>
             </div>
@@ -165,7 +165,7 @@ function ConfigDemo() {
               </div>
               <Switch checked disabled />
             </div>
-            <RO label="Webhook URL" value="https://atendezap.live/api/public/whatsapp-webhook" />
+            <RO label="Webhook URL" value="https://app.atendai.tech/api/public/whatsapp-webhook" />
           </Card>
         </TabsContent>
 
