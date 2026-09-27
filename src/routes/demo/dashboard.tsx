@@ -56,7 +56,7 @@ function DemoDashboard() {
           <p className="text-xs text-muted-foreground mb-3">recebidas vs respondidas pela IA (ilustrativo)</p>
           <MiniAreaChart data={series} />
         </div>
-        <AgentStatusCard status="connected" numero="+55 11 90000-0000" />
+        <AgentStatusCard status="connected" numero="+55 11 90000-0000" tempoMedio="espera 10s (configurado)" taxaQualificacao={`${Math.round((demoStats.qualificados / demoCards.length) * 100)}%`} />
       </div>
 
       <div className="grid lg:grid-cols-[1.2fr_1fr] gap-4">

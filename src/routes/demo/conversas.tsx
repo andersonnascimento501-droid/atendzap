@@ -81,9 +81,9 @@ function ConversasDemo() {
         </div>
       </header>
 
-      <div className="grid md:grid-cols-[300px_1fr] xl:grid-cols-[300px_1fr_260px] gap-0 border border-border rounded-2xl overflow-hidden h-[calc(100vh-180px)] min-h-[480px] bg-card">
+      <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] xl:grid-cols-[300px_1fr_260px] gap-0 border border-border rounded-2xl overflow-hidden h-[calc(100vh-180px)] min-h-[480px] bg-card">
         {/* LISTA */}
-        <aside className="border-r border-border flex flex-col min-h-0 bg-card">
+        <aside className="border-r border-border flex flex-col min-h-0 min-w-0 bg-card">
           <div className="p-3 border-b border-border space-y-2">
             <Input placeholder="Buscar contato…" value={search} onChange={(e) => setSearch(e.target.value)} />
             <div className="flex gap-1 overflow-x-auto -mx-0.5 px-0.5 scrollbar-none">
@@ -138,7 +138,7 @@ function ConversasDemo() {
         </aside>
 
         {/* THREAD */}
-        <section className="flex flex-col min-h-0 bg-muted/30">
+        <section className="flex flex-col min-h-0 min-w-0 bg-muted/30">
           {!active ? (
             <div className="flex-1 grid place-items-center text-muted-foreground text-sm">
               <div className="text-center"><MessageSquareText className="mx-auto mb-2 size-6" />Selecione uma conversa</div>
