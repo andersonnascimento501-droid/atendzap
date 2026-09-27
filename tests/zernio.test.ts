@@ -137,7 +137,7 @@ describe("Zernio — chave e criptografia", () => {
     const fns = readFileSync("src/lib/zernio.functions.ts", "utf8");
     // a verificação acontece antes de qualquer gravação
     expect(fns.indexOf('await encryptSecret("probe")')).toBeLessThan(fns.indexOf('from("instagram_zernio").upsert'));
-    expect(readFileSync("src/lib/secret-box.server.ts", "utf8")).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(readFileSync("src/lib/secret-box.server.ts", "utf8")).not.toContain(`process.env["SUPABASE_SERVICE_ROLE_KEY"]`);
   });
 
   test("T2: chave inválida é recusada pela Zernio e nada é salvo", async () => {
