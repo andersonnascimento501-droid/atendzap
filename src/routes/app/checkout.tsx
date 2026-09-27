@@ -13,26 +13,9 @@ import {
 import { createCheckoutCompany } from "@/lib/checkout.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { trialDaysLeft } from "@/lib/tenant";
-import { periodoResumo } from "@/lib/atendai-plan";
+import { fetchAtendaiPeriodos, formatBRL, periodoResumo, type AtendaiPeriodo } from "@/lib/atendai-plan";
 
 type Search = { plano?: string };
-
-type Plano = {
-  id: string;
-  slug: string;
-  nome: string;
-  descricao: string | null;
-  preco_cents: number;
-  trial_days: number;
-  periodo_meses: number;
-  checkout_url: string | null;
-  destaque: boolean;
-  limite_mensagens: number;
-  limite_instancias: number;
-  limite_usuarios: number;
-  limite_contatos: number;
-  features: string[];
-};
 
 export const Route = createFileRoute("/app/checkout")({
   validateSearch: (s: Record<string, unknown>): Search => ({
