@@ -135,7 +135,7 @@ export function parseZernioInbound(payload: any): ZernioInbound | null {
 export function isPrivateHost(host: string): boolean {
   const h = host.toLowerCase().replace(/^\[|\]$/g, "");
   if (!h || h === "localhost" || h.endsWith(".localhost") || h.endsWith(".internal") || h.endsWith(".local")) return true;
-  if (h === "::1" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80") || h === "::") return h.includes(":") || h === "::";
+  if (h.includes(":")) return true; // IPv6 literal: bloqueado (CDNs usam nomes)
   const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (!m) return false;
   const [a, b] = [Number(m[1]), Number(m[2])];
