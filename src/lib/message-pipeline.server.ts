@@ -139,7 +139,6 @@ async function resolveMedia(
               mime,
               dl.fileName || media.fileName,
               media.caption,
-              openaiKey,
             )
           ).trim();
           if (!c) throw new Error("documento sem conteúdo");
