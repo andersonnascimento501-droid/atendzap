@@ -143,13 +143,10 @@ export async function routeToAgent(
   let parsed: any = null;
   try {
     const { lovableAiChat } = await import("./lovable-ai.server");
-    const raw = await lovableAiChat(
-      [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      { provider: "gemini", model: "google/gemini-2.5-flash-lite" },
-    );
+    const raw = await lovableAiChat([
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ]);
     parsed = extractJson(raw);
   } catch (e: any) {
     console.error("[supervisor]", e?.message);

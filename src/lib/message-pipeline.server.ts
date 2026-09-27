@@ -80,14 +80,6 @@ async function resolveMedia(
   const withMedia = pend.filter((m) => m.media_ref?.kind);
   if (!withMedia.length) return { notice };
 
-  const { data: keyCfg } = await admin
-    .from("agent_config")
-    .select("openai_api_key")
-    .eq("company_id", companyId)
-    .order("is_default", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const openaiKey = ((keyCfg as any)?.openai_api_key || "").trim();
 
   const { downloadChannelMedia } = await import("@/lib/channels.server");
   const { transcribeAudio, describeImage, readDocument, isSupportedDocument } =
@@ -133,11 +125,11 @@ async function resolveMedia(
           console.error("[media.store]", e?.message);
         }
         if (media.kind === "audio") {
-          const t = (await transcribeAudio(dl.base64, mime, openaiKey)).trim();
+          const t = (await transcribeAudio(dl.base64, mime)).trim();
           if (!t) throw new Error("transcrição vazia");
           texto = `${label} ${t}`;
         } else if (media.kind === "image") {
-          const d = (await describeImage(dl.base64, mime, media.caption, openaiKey)).trim();
+          const d = (await describeImage(dl.base64, mime, media.caption)).trim();
           if (!d) throw new Error("descrição vazia");
           texto = `${label} ${d}${media.caption ? ` (legenda do cliente: ${media.caption})` : ""}`;
         } else {
@@ -147,7 +139,6 @@ async function resolveMedia(
               mime,
               dl.fileName || media.fileName,
               media.caption,
-              openaiKey,
             )
           ).trim();
           if (!c) throw new Error("documento sem conteúdo");
@@ -581,8 +572,6 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   ];
 
   // ---- Créditos: 1 por interação, nunca 2 por causa de retry.
-  const { getCompanyPlan } = await import("@/lib/plan-limits.server");
-  const { allowsProvider } = await import("@/lib/plan-features");
   // Empresa suspensa/inadimplente: IA não responde e nenhum crédito é consumido.
   {
     const { isCompanyOperational } = await import("@/lib/billing-guard.server");
@@ -633,20 +622,8 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     }
   }
 
-  const plan = await getCompanyPlan(companyId);
-  let providerChoice = ((cfg as any)?.ai_provider || "gemini") as string;
-  let modelChoice = ((cfg as any)?.ai_model || "google/gemini-2.5-flash") as string;
-  if (!allowsProvider(plan.slug, providerChoice)) {
-    providerChoice = "gemini";
-    modelChoice = "google/gemini-2.5-flash";
-  }
-
-  const aiConfig = {
-    provider: providerChoice,
-    model: modelChoice,
-    openaiKey: (cfg as any)?.openai_api_key || "",
-    anthropicKey: (cfg as any)?.anthropic_api_key || "",
-  };
+  // IA única da plataforma: OpenAI com chave e modelo do servidor. Colunas antigas ignoradas.
+  const aiConfig = {};
   const { lovableAiChat } = await import("@/lib/lovable-ai.server");
   await assertLease(admin, job);
   let rawReply = "";

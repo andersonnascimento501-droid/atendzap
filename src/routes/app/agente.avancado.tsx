@@ -36,7 +36,6 @@ export const Route = createFileRoute("/app/agente/avancado")({
 
 
 const DEFAULTS: any = {
-  ai_provider: "gemini", ai_model: "google/gemini-2.5-flash",
   nome_agente: "Atendente Virtual", nome_empresa: "",
   papel_objetivo: "Atender clientes, descobrir o que precisam, recomendar com sentido e ajudar a fechar a venda.",
   estilo_comunicacao: "Humano, simpático, consultivo e direto.",
@@ -58,22 +57,6 @@ const DEFAULTS: any = {
 };
 
 
-const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
-  gemini: [
-    { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (rápido — grátis)" },
-    { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (econômico)" },
-    { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (mais inteligente)" },
-  ],
-  openai: [
-    { value: "gpt-4o-mini", label: "GPT-4o mini (rápido e barato)" },
-    { value: "gpt-4o", label: "GPT-4o (premium)" },
-    { value: "gpt-4.1-mini", label: "GPT-4.1 mini" },
-  ],
-  anthropic: [
-    { value: "claude-3-5-haiku-latest", label: "Claude 3.5 Haiku (rápido)" },
-    { value: "claude-3-5-sonnet-latest", label: "Claude 3.5 Sonnet (premium)" },
-  ],
-};
 
 const BUFFER_PRESETS = [3, 5, 10, 20, 30];
 
@@ -125,8 +108,6 @@ function AgentePage() {
   const gStart = useServerFn(startGoogleOAuth);
   const gDisc = useServerFn(disconnectGoogle);
   const plan = usePlanFeatures();
-  const allowOpenAI = plan.features.providersIA.includes("openai");
-  const allowAnthropic = plan.features.providersIA.includes("anthropic");
   const allowGoogleCal = plan.features.googleCalendar;
   const [cfg, setCfg] = useState<any>(DEFAULTS);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -263,45 +244,11 @@ function AgentePage() {
             </TabsList>
 
             <TabsContent value="modelo" className="space-y-3">
-              <Section title="Cérebro da IA" icon={<Sparkles className="size-3.5" />}>
-                <div className="space-y-1.5">
-                  <Label>Provedor</Label>
-                  <Select value={cfg.ai_provider} onValueChange={(v) => { up("ai_provider", v); up("ai_model", PROVIDER_MODELS[v]?.[0]?.value || ""); }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gemini">Google Gemini — incluso, sem custo extra</SelectItem>
-                      <SelectItem value="openai" disabled={!allowOpenAI}>
-                        OpenAI (GPT) — sua chave{!allowOpenAI ? " · Pro/Business" : ""}
-                      </SelectItem>
-                      <SelectItem value="anthropic" disabled={!allowAnthropic}>
-                        Anthropic (Claude) — sua chave{!allowAnthropic ? " · Pro/Business" : ""}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Gemini é o padrão e já vem incluso. {(!allowOpenAI || !allowAnthropic) && (
-                      <>GPT e Claude exigem o plano Pro. <Link to="/app/checkout" className="underline">Fazer upgrade</Link>.</>
-                    )}
-                  </p>
-                </div>
+              <Section title="Ritmo das respostas" icon={<Sparkles className="size-3.5" />}>
+                <p className="text-xs text-muted-foreground">
+                  A inteligência do atendente já vem inclusa e configurada pela plataforma. Você não precisa escolher nada aqui.
+                </p>
 
-                <div className="space-y-1.5">
-                  <Label>Modelo</Label>
-                  <Select value={cfg.ai_model} onValueChange={(v) => up("ai_model", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(PROVIDER_MODELS[cfg.ai_provider] || PROVIDER_MODELS.gemini).map((m) => (
-                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {(cfg.ai_provider === "openai" || cfg.ai_provider === "anthropic") && (
-                  <p className="text-xs text-muted-foreground">
-                    As chaves privadas deste provedor ficam guardadas apenas no servidor. Fale com o suporte para configurá-las.
-                  </p>
-                )}
 
                 <div className="space-y-2 pt-2">
                   <Label>Tempo de espera antes de responder</Label>

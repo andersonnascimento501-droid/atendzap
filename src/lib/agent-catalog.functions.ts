@@ -188,8 +188,6 @@ export const installTemplate = createServerFn({ method: "POST" })
         papel_objetivo: tpl.descricao_curta || tpl.descricao || "",
         prompt_custom: tpl.prompt_base || "",
 
-        ai_provider: tpl.provider_default,
-        ai_model: tpl.model_default,
         nome_empresa: (companyRow as any)?.nome ?? "",
         segmento: tpl.categoria,
       } as any)

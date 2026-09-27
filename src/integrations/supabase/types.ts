@@ -1519,6 +1519,8 @@ export type Database = {
       }
       crm_cards: {
         Row: {
+          campanha_consentimento_em: string | null
+          campanha_optout_em: string | null
           channel: string
           company_id: string
           custom_data: Json
@@ -1543,6 +1545,8 @@ export type Database = {
           valor: number
         }
         Insert: {
+          campanha_consentimento_em?: string | null
+          campanha_optout_em?: string | null
           channel?: string
           company_id: string
           custom_data?: Json
@@ -1567,6 +1571,8 @@ export type Database = {
           valor?: number
         }
         Update: {
+          campanha_consentimento_em?: string | null
+          campanha_optout_em?: string | null
           channel?: string
           company_id?: string
           custom_data?: Json
@@ -3048,6 +3054,7 @@ export type Database = {
         Args: { _company_id: string; _ref?: string }
         Returns: boolean
       }
+      refund_ai_credit_for_job: { Args: { _job_id: string }; Returns: boolean }
       seed_fin_categorias: { Args: { _company_id: string }; Returns: undefined }
       topup_plan_credits: {
         Args: { _company_id: string; _plan_slug: string }
@@ -3069,6 +3076,7 @@ export type Database = {
         | "falhou"
         | "pulado"
         | "enviando"
+        | "incerto"
       fin_forma:
         | "pix"
         | "boleto"
@@ -3222,6 +3230,7 @@ export const Constants = {
         "falhou",
         "pulado",
         "enviando",
+        "incerto",
       ],
       fin_forma: [
         "pix",

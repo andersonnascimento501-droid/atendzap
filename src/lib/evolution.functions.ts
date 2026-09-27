@@ -323,33 +323,13 @@ export const testAiReply = createServerFn({ method: "POST" })
       );
     }
 
-    // Enforcement: provider precisa estar liberado no plano (Starter = Gemini)
-    const { getCompanyPlan } = await import("./plan-limits.server");
-    const { allowsProvider, PLAN_LABEL } = await import("./plan-features");
-    const plan = await getCompanyPlan(companyId);
-    const provider = ((cfg as any)?.ai_provider || "gemini") as string;
-    const model = ((cfg as any)?.ai_model || "google/gemini-2.5-flash") as string;
-    if (!allowsProvider(plan.slug, provider)) {
-      throw new Error(
-        `O provedor ${provider.toUpperCase()} não está incluso no plano ${PLAN_LABEL[plan.slug]}. Faça upgrade para Pro para usar GPT/Claude.`,
-      );
-    }
-
+    // IA única da plataforma (OpenAI no servidor); configs antigas de provedor são ignoradas.
     const stages = ctxAgent.stages.map((s) => ({ nome: s.nome, tipo: s.tipo }));
-    const raw = await lovableAiChat(
-      [
-        { role: "system", content: ctxAgent.system },
-        ...(toolsPrompt ? [{ role: "system" as const, content: toolsPrompt }] : []),
-        { role: "user", content: data.message },
-      ],
-      {
-        provider,
-        model,
-        ...(provider === "gemini"
-          ? {}
-          : await (await import("./agents")).fetchAgentProviderKeys(companyId, (cfg as any)?.id ?? null)),
-      },
-    );
+    const raw = await lovableAiChat([
+      { role: "system", content: ctxAgent.system },
+      ...(toolsPrompt ? [{ role: "system" as const, content: toolsPrompt }] : []),
+      { role: "user", content: data.message },
+    ]);
     const { parts, stage } = parseAiOutput(raw, stages);
     const { sanitizeAiParts } = await import("./message-pipeline.server");
     const finalParts = sanitizeAiParts(parts);

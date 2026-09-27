@@ -459,13 +459,6 @@ async function buildAiMessage(admin: any, seq: SequenceRow, state: StateRow, ste
       })),
       { role: "user", content: "(sem resposta do cliente)" },
     ],
-    {
-      provider: cfg.ai_provider || "gemini",
-      model: cfg.ai_model || "google/gemini-2.5-flash",
-      ...(String(cfg.ai_provider || "gemini") === "gemini"
-        ? {}
-        : await (await import("./agents")).fetchAgentProviderKeys(seq.company_id, cfg.id ?? null)),
-    },
   );
   const { parts } = parseAiOutput(raw, []);
   return (parts.join(" ") || "").replace(/\s+/g, " ").trim().slice(0, 700);

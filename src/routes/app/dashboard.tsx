@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useWhatsappStatus } from "@/hooks/use-whatsapp-status";
 import { CreditsBadge } from "@/components/credits-badge";
+import { buildChecklist, TESTE_FLAG_KEY, type ChecklistItem } from "@/lib/checklist";
 
 export const Route = createFileRoute("/app/dashboard")({
   head: () => ({
@@ -42,8 +43,9 @@ function Home() {
   const [clientesHoje, setClientesHoje] = useState(0);
   const [oportunidades, setOportunidades] = useState(0);
   const [aguardando, setAguardando] = useState(0);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
 
-  useEffect(() => { if (companyId) void load(companyId); }, [companyId]);
+  useEffect(() => { if (companyId) void load(companyId); }, [companyId, whatsapp]);
 
   async function load(cid: string) {
     const inicioDia = new Date(); inicioDia.setHours(0, 0, 0, 0);
@@ -51,13 +53,37 @@ function Home() {
 
     const [{ data: ig }, { data: agentes }, { data: msgs }, { data: cards }, { data: stages }] = await Promise.all([
       supabase.from("instagram_integration").select("conectado").eq("company_id", cid).maybeSingle(),
-      supabase.from("agent_config").select("ativo").eq("company_id", cid),
+      supabase.from("agent_config").select("ativo,papel_objetivo,quando_transferir,horarios_atendimento,agendamento_ativo").eq("company_id", cid),
       supabase.from("mensagens").select("numero,direcao,created_at").eq("company_id", cid).gte("created_at", inicioISO),
       supabase.from("crm_cards").select("stage_id,ultima_em").eq("company_id", cid),
       supabase.from("crm_stage").select("id,tipo").eq("company_id", cid),
     ]);
 
     setIgConectado(!!ig?.conectado);
+
+    // Checklist operacional (itens opcionais não bloqueiam nada).
+    const [{ data: janelas }, { data: servicos }, { data: seqs }] = await Promise.all([
+      supabase.from("agenda_janela").select("id").eq("company_id", cid).eq("ativo", true).limit(1),
+      supabase.from("agenda_servico").select("id").eq("company_id", cid).eq("ativo", true).limit(1),
+      supabase.from("followup_sequence").select("id,ativo").eq("company_id", cid),
+    ]);
+    const ags = (agentes ?? []) as any[];
+    const seqAtivas = ((seqs ?? []) as any[]).filter((q) => q.ativo);
+    let testado = false;
+    try { testado = localStorage.getItem(TESTE_FLAG_KEY(cid)) === "1"; } catch {}
+    setChecklist(buildChecklist({
+      whatsappConectado: whatsapp === "connected",
+      agenteAtivo: ags.some((a) => a.ativo),
+      agenteConfigurado: ags.some((a) => String(a.papel_objetivo ?? "").trim().length > 0),
+      testeRealizado: testado,
+      etapasFunil: (stages ?? []).length,
+      horariosConfigurados: ags.some((a) => !!a.horarios_atendimento?.enabled),
+      agendaAtiva: ags.some((a) => a.agendamento_ativo),
+      agendaConfigurada: (janelas ?? []).length > 0 && (servicos ?? []).length > 0,
+      followupAtivo: seqAtivas.length > 0,
+      followupConfigurado: seqAtivas.length > 0,
+      transferenciaDisponivel: ags.some((a) => String(a.quando_transferir ?? "").trim().length > 0),
+    }));
     setTemAgente((agentes ?? []).length > 0);
     setIaAtiva((agentes ?? []).some((a: any) => a.ativo));
 
@@ -183,6 +209,27 @@ function Home() {
           <CheckCircle2 className="size-4 text-[color:var(--brand)]" />
           Nada precisa da sua atenção agora.
         </div>
+      )}
+
+      {/* 4b. Checklist operacional */}
+      {checklist.some((c) => !c.ok) && (
+        <section className="rounded-3xl border border-[color:var(--hairline)] bg-[color:var(--panel)] p-5 md:p-6">
+          <h2 className="font-display text-[17px] font-semibold">Deixe tudo pronto</h2>
+          <div className="mt-3 flex flex-col gap-1.5">
+            {checklist.map((c) => (
+              <Link key={c.id} to={c.to}
+                className="flex items-center gap-3 rounded-xl px-3 py-2 text-[13.5px] hover:bg-[color:var(--panel-2)]">
+                {c.ok
+                  ? <CheckCircle2 className="size-4 text-[color:var(--brand)] shrink-0" />
+                  : <span className="size-4 rounded-full border-2 border-muted-foreground/50 shrink-0" />}
+                <span className={`flex-1 ${c.ok ? "text-muted-foreground" : ""}`}>
+                  {c.label}{c.opcional && !c.ok ? <span className="text-muted-foreground"> (opcional)</span> : null}
+                </span>
+                {!c.ok && <ArrowRight className="size-4 text-muted-foreground shrink-0" />}
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* 5. Ações rápidas */}

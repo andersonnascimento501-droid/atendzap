@@ -16,11 +16,11 @@ export type AgentRow = Record<string, any> & {
 // Colunas seguras de agent_config para clientes (navegador/servidor autenticado).
 // As credenciais openai_api_key/anthropic_api_key NUNCA saem do servidor
 // (privilégio revogado no banco para anon/authenticated).
-export const AGENT_SAFE_COLUMNS = "prompt_custom,user_id,nome_agente,nome_empresa,papel_objetivo,estilo_comunicacao,sobre_empresa,produtos_servicos,pode_fazer,nao_pode_fazer,quando_transferir,telefone_transferencia,palavra_pausar,palavra_despausar,updated_at,company_id,segundos_buffer,responder_em_partes,segmento,descricao_negocio,diferenciais,publico_alvo,regiao_horario,ofertas,cupom,como_vender,objecoes,formas_pagamento,ticket_medio,faq,politicas,posvenda_msg,pedir_avaliacao,reativar_cliente,tom,formalidade,usar_emojis,tamanho_resposta,apresentacao,agendamento_ativo,servicos_agendaveis,duracao_padrao,horarios_disponiveis,antecedencia_min,ai_provider,ai_model,horarios_atendimento,mensagem_fora_horario,personalidade,foco_atendimento,emoji_intensidade,usar_girias,chamar_por_nome,perguntar_uma_por_vez,pode_brincar,assinar_mensagens,proatividade,velocidade_resposta,evitar_palavras,idioma,id,slug,descricao,ativo,prioridade,is_default,created_at,allowed_tools,source_template_id,channels";
+export const AGENT_SAFE_COLUMNS = "prompt_custom,user_id,nome_agente,nome_empresa,papel_objetivo,estilo_comunicacao,sobre_empresa,produtos_servicos,pode_fazer,nao_pode_fazer,quando_transferir,telefone_transferencia,palavra_pausar,palavra_despausar,updated_at,company_id,segundos_buffer,responder_em_partes,segmento,descricao_negocio,diferenciais,publico_alvo,regiao_horario,ofertas,cupom,como_vender,objecoes,formas_pagamento,ticket_medio,faq,politicas,posvenda_msg,pedir_avaliacao,reativar_cliente,tom,formalidade,usar_emojis,tamanho_resposta,apresentacao,agendamento_ativo,servicos_agendaveis,duracao_padrao,horarios_disponiveis,antecedencia_min,horarios_atendimento,mensagem_fora_horario,personalidade,foco_atendimento,emoji_intensidade,usar_girias,chamar_por_nome,perguntar_uma_por_vez,pode_brincar,assinar_mensagens,proatividade,velocidade_resposta,evitar_palavras,idioma,id,slug,descricao,ativo,prioridade,is_default,created_at,allowed_tools,source_template_id,channels";
 
 /** Remove credenciais privadas de qualquer payload vindo do cliente. */
 export function stripAgentSecrets<T extends Record<string, any>>(payload: T): T {
-  const { openai_api_key: _o, anthropic_api_key: _a, ...rest } = payload as any;
+  const { openai_api_key: _o, anthropic_api_key: _a, ai_provider: _p, ai_model: _m, ...rest } = payload as any;
   return rest as T;
 }
 
@@ -103,15 +103,5 @@ export async function saveDefaultAgentConfig(
   return { error };
 }
 
-/** Lê as credenciais privadas do provedor — SOMENTE server-side (service_role). */
-export async function fetchAgentProviderKeys(companyId: string, agentId?: string | null) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  let q = (supabaseAdmin as any).from("agent_config").select("openai_api_key, anthropic_api_key").eq("company_id", companyId);
-  if (agentId) q = q.eq("id", agentId);
-  else q = q.order("is_default", { ascending: false });
-  const { data } = await q.limit(1).maybeSingle();
-  return {
-    openaiKey: String(data?.openai_api_key ?? "").trim(),
-    anthropicKey: String(data?.anthropic_api_key ?? "").trim(),
-  };
-}
+// Chaves de IA por empresa foram descontinuadas: a plataforma usa apenas OPENAI_API_KEY no servidor.
+// As colunas antigas (openai_api_key/anthropic_api_key/ai_provider/ai_model) ficam no banco só por compatibilidade.

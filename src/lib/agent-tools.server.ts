@@ -2,6 +2,8 @@
 // Todas as ações são executadas SERVER-SIDE e sempre isoladas por company_id.
 // A IA nunca informa company_id, agent_id, card_id ou stage_id: o servidor resolve.
 
+import { SETORES_DESTINO, normalizeSetor } from "./setores";
+
 export const AGENDA_TOOL_NAMES = [
   "consultar_disponibilidade",
   "criar_agendamento",
@@ -293,6 +295,11 @@ export function buildToolSpecs(ctx: ToolContext, stageNames: string[]): Internal
         properties: {
           resumo_atendimento: { type: "string", description: "Resumo objetivo do que foi coletado até aqui." },
           motivo: { type: "string", description: "Motivo da transferência." },
+          setor_destino: {
+            type: "string",
+            enum: [...SETORES_DESTINO],
+            description: "Setor que deve assumir. Use SOMENTE um destes valores; nunca invente setor ou nome de funcionário.",
+          },
           dados: dadosSchema,
         },
         required: ["resumo_atendimento"],
@@ -600,7 +607,15 @@ export async function executeTool(
         // 1 + 2) persiste resumo e dados relevantes
         const r = await mergeCustomData(admin, ctx, card, args.dados ?? {});
         const current = card.custom_data && typeof card.custom_data === "object" ? card.custom_data : {};
-        const merged = { ...current, ...(resumo ? { resumo_atendimento: resumo } : {}), handoff_em: new Date().toISOString() };
+        const setor = normalizeSetor(args.setor_destino);
+        const motivo = String(args.motivo || "").trim();
+        const merged = {
+          ...current,
+          ...(resumo ? { resumo_atendimento: resumo } : {}),
+          ...(motivo ? { motivo_transferencia: motivo } : {}),
+          setor_destino: setor ?? "Responsável",
+          handoff_em: new Date().toISOString(),
+        };
         await admin
           .from("crm_cards")
           .update({ custom_data: merged, observacao: resumo ? resumo.slice(0, 1000) : null, proxima_acao: "Atendimento humano" })
@@ -627,6 +642,22 @@ export async function executeTool(
             { onConflict: "company_id,numero" },
           );
 
+        // Conversa volta para "aberta" (entra em "Precisa de você" na caixa de entrada).
+        try {
+          const now = new Date().toISOString();
+          const { data: st } = await admin
+            .from("conversation_state")
+            .update({ fila: "aberta", resolvido_em: null, resolvido_por: null, updated_at: now })
+            .eq("company_id", ctx.companyId)
+            .eq("numero", ctx.numero)
+            .select("numero");
+          if (!st?.length) {
+            await admin.from("conversation_state").insert({ company_id: ctx.companyId, numero: ctx.numero, fila: "aberta" });
+          }
+        } catch (e: any) {
+          console.error("[handoff.state]", e?.message);
+        }
+
         // BLOCO 3) atendimento humano: cancela follow-ups pendentes deste contato
         try {
           const { cancelFollowups } = await import("./followup.server");
@@ -640,6 +671,7 @@ export async function executeTool(
         await logEvent(admin, ctx, card.id, "transferencia_humano", `Transferido para humano${args.motivo ? ` — ${args.motivo}` : ""}`, {
           resumo: resumo || null,
           motivo: args.motivo ?? null,
+          setor_destino: merged.setor_destino,
           etapa: humanStage?.nome ?? card.status,
           campos: r.accepted,
           agent_id: ctx.agentId,
@@ -649,6 +681,7 @@ export async function executeTool(
           ok: true,
           tool,
           pausado: true,
+          setor_destino: merged.setor_destino,
           etapa: humanStage?.nome ?? card.status,
           resumo_salvo: !!resumo,
           instrucao:
@@ -956,7 +989,7 @@ export function buildToolsPromptBlock(ctx: ToolContext, dadosAtuais: Record<stri
     linhas.push("• mover_pipeline: quando a conversa avançar para outra etapa existente do pipeline.");
   if (ctx.allowedTools.includes("transferir_humano"))
     linhas.push(
-      "• transferir_humano: quando o cliente pedir uma pessoa ou o caso exigir análise humana. Depois do sucesso, avise o cliente com naturalidade. NUNCA invente telefone, nome de atendente ou prazo de retorno, e nunca repita o número do próprio cliente.",
+      "• transferir_humano: quando o cliente pedir uma pessoa ou o caso exigir análise humana. Depois do sucesso, avise o cliente com naturalidade. Informe setor_destino apenas entre: Recepção, Comercial, Agendamento, Financeiro, Suporte ou Responsável. NUNCA invente setor, telefone, nome de atendente ou prazo de retorno, e nunca repita o número do próprio cliente.",
     );
   if (ctx.allowedTools.includes("finalizar_lead"))
     linhas.push("• finalizar_lead: quando o atendimento chegar a um desfecho (ganho, perda ou finalizado).");
