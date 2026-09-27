@@ -333,6 +333,11 @@ export const testAiReply = createServerFn({ method: "POST" })
     const { parts, stage } = parseAiOutput(raw, stages);
     const { sanitizeAiParts } = await import("./message-pipeline.server");
     const finalParts = sanitizeAiParts(parts);
+    // Teste bem-sucedido: registra no banco apenas para a empresa do usuário logado.
+    if (finalParts.length) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await (supabaseAdmin as any).from("company").update({ agent_tested_at: new Date().toISOString() }).eq("id", companyId);
+    }
     return { reply: finalParts.join("\n\n"), parts: finalParts, stage, system: ctxAgent.system };
   });
 

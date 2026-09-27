@@ -7,8 +7,9 @@ import {
   AlertTriangle, CheckCircle2, Settings,
 } from "lucide-react";
 import { useWhatsappStatus } from "@/hooks/use-whatsapp-status";
+import { isAgentTested } from "@/lib/credit-guard";
 import { CreditsBadge } from "@/components/credits-badge";
-import { buildChecklist, TESTE_FLAG_KEY, type ChecklistItem } from "@/lib/checklist";
+import { buildChecklist, type ChecklistItem } from "@/lib/checklist";
 
 export const Route = createFileRoute("/app/dashboard")({
   head: () => ({
@@ -69,8 +70,8 @@ function Home() {
     ]);
     const ags = (agentes ?? []) as any[];
     const seqAtivas = ((seqs ?? []) as any[]).filter((q) => q.ativo);
-    let testado = false;
-    try { testado = localStorage.getItem(TESTE_FLAG_KEY(cid)) === "1"; } catch {}
+    const { data: comp } = await (supabase as any).from("company").select("agent_tested_at").eq("id", cid).maybeSingle();
+    const testado = isAgentTested(comp);
     setChecklist(buildChecklist({
       whatsappConectado: whatsapp === "connected",
       agenteAtivo: ags.some((a) => a.ativo),
