@@ -291,7 +291,7 @@ function EntrarPage() {
                     className="w-full h-12 bg-gradient-brand text-primary-foreground hover:opacity-95 font-semibold text-[14.5px] shadow-[0_8px_24px_-10px_rgba(22,163,74,.6)]"
                   >
                     {loading && <Loader2 className="size-4 mr-2 animate-spin" />}
-                    {needsPassword ? "Entrar e continuar" : planInfo ? "Continuar para o pagamento" : "Criar conta grátis"}
+                    {needsPassword ? "Entrar e continuar" : planInfo ? "Continuar para o teste Grátis" : "Criar conta grátis"}
                   </Button>
 
                   {!needsPassword && (
