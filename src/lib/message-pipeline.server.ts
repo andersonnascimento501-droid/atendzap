@@ -276,6 +276,20 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   const pushName = pending[pending.length - 1]?.contato_nome ?? undefined;
   const ids = pending.map((m) => m.id);
 
+  // ---- Modo de teste (WhatsApp): antes de IA, crédito, envio, CRM e follow-up.
+  // Vale para webhook, reentrega, retry e recuperação, pois todos passam por aqui.
+  const { data: testRow } = await admin
+    .from("company")
+    .select("agent_test_mode, agent_test_phone")
+    .eq("id", companyId)
+    .maybeSingle();
+  const { testModeAllows } = await import("@/lib/test-mode");
+  if (!testModeAllows(testRow, number, channel)) {
+    await markProcessed(admin, ids);
+    return { status: "skipped", reason: "test-mode-blocked" };
+  }
+  const isRealTest = channel === "whatsapp" && !!testRow?.agent_test_mode;
+
   // ---- agentes / etapas / produtos
   const { fetchActiveAgents, pickDefaultAgent } = await import("@/lib/agents");
   const activeAgents = await fetchActiveAgents(admin, companyId);
@@ -679,6 +693,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
   }
 
   const { sendChannelTyping } = await import("@/lib/channels.server");
+  let allSent = finalParts.length > 0;
   for (let i = 0; i < finalParts.length; i++) {
     const part = finalParts[i];
     if (!part) continue;
@@ -686,7 +701,7 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
     const typingMs = Math.min(3000, 1200 + Math.floor(part.length * 35));
     await sendChannelTyping(target, typingMs);
     await new Promise((r) => setTimeout(r, typingMs));
-    await sendPartOnce(admin, {
+    const sendResult = await sendPartOnce(admin, {
       companyId,
       userId,
       numero: number,
@@ -697,8 +712,18 @@ export async function processConversationJob(admin: any, job: QueueJob): Promise
       texto: part,
       job,
     });
+    if (sendResult !== "sent") allSent = false;
     if (i < finalParts.length - 1)
       await new Promise((r) => setTimeout(r, 700 + Math.floor(Math.random() * 800)));
+  }
+
+  // Teste real concluído: número autorizado + resposta com confirmação do provedor.
+  if (isRealTest && allSent) {
+    const { error: tErr } = await admin
+      .from("company")
+      .update({ agent_tested_at: new Date().toISOString() })
+      .eq("id", companyId);
+    if (tErr) console.error("[test-mode.tested]", tErr.message);
   }
 
   await markProcessed(admin, ids);
