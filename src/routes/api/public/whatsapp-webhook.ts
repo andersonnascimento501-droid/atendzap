@@ -94,6 +94,10 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             // 23505 = unique violation => evento reenviado pela Evolution
             if ((insertErr as any).code === "23505") {
               // Reentrega: a mensagem já está gravada, mas o job pode não ter sido criado da 1ª vez.
+              const { data: tmRow } = await (supabaseAdmin as any)
+                .from("company").select("agent_test_mode, agent_test_phone").eq("id", companyId).maybeSingle();
+              const { testModeAllows } = await import("@/lib/test-mode");
+              if (!testModeAllows(tmRow, number, "whatsapp")) return new Response("duplicate", { status: 200 });
               const { error: reErr } = await (supabaseAdmin as any).rpc("mq_enqueue", {
                 _company_id: companyId,
                 _numero: number,
@@ -192,6 +196,18 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
               .eq("id", inserted?.id);
             if (mErr) throw mErr;
             return new Response("resumed", { status: 200 });
+          }
+
+          // ---- Modo de teste: outro número só fica registrado (sem IA, crédito, fila ou resposta).
+          {
+            const { data: tmRow } = await (supabaseAdmin as any)
+              .from("company").select("agent_test_mode, agent_test_phone").eq("id", companyId).maybeSingle();
+            const { testModeAllows } = await import("@/lib/test-mode");
+            if (!testModeAllows(tmRow, number, "whatsapp")) {
+              await (supabaseAdmin as any).from("mensagens")
+                .update({ ai_processed_at: new Date().toISOString() }).eq("id", inserted?.id);
+              return new Response("test-mode", { status: 200 });
+            }
           }
 
           // ---- Fila: 1 job por conversa. Nova mensagem só empurra a janela de debounce.

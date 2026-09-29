@@ -1001,6 +1001,8 @@ export type Database = {
       }
       company: {
         Row: {
+          agent_test_mode: boolean
+          agent_test_phone: string | null
           agent_tested_at: string | null
           bairro: string | null
           cep: string | null
@@ -1040,6 +1042,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          agent_test_mode?: boolean
+          agent_test_phone?: string | null
           agent_tested_at?: string | null
           bairro?: string | null
           cep?: string | null
@@ -1079,6 +1083,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          agent_test_mode?: boolean
+          agent_test_phone?: string | null
           agent_tested_at?: string | null
           bairro?: string | null
           cep?: string | null

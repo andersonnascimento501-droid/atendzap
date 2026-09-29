@@ -85,6 +85,13 @@
       "when": 1790539608789,
       "tag": "0011_instagram_zernio_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790696530330,
+      "tag": "0012_0012_whatsapp_test_mode",
+      "breakpoints": true
     }
   ]
 }
