@@ -16,6 +16,7 @@ import { brand } from "@/config/brand";
 import { buildSystemPrompt } from "@/lib/ai-prompt";
 import { toReadableText } from "@/lib/structured-text";
 import { testAiReply } from "@/lib/evolution.functions";
+import { WhatsappTestCard } from "@/components/whatsapp-test-card";
 import { generateAgentConfig, analyzeBusinessBrief, type BriefQuestion } from "@/lib/agent-ai.functions";
 import { MANUAL_OVERRIDE_CONFIRM_MESSAGE, requiresManualOverrideConfirm } from "@/lib/agent-generation";
 import { InitialsAvatar } from "@/components/ui/initials-avatar";
@@ -415,6 +416,7 @@ function AgentePage() {
         </div>
 
         <div className="space-y-4 lg:sticky lg:top-4 self-start">
+          <WhatsappTestCard />
           <Section title="Testar resposta" icon={<Sparkles className="size-3.5" />}>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--panel-2)] p-4 space-y-2 min-h-[140px]">
               <div className="flex justify-end">
