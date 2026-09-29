@@ -19,6 +19,7 @@ import {
 import { maskPhone } from "@/lib/masks";
 import { useWhatsappStatus } from "@/hooks/use-whatsapp-status";
 import { testAiReply } from "@/lib/evolution.functions";
+import { WhatsappTestCard } from "@/components/whatsapp-test-card";
 import { analyzeBusinessBrief, generateAgentConfig, type BriefQuestion } from "@/lib/agent-ai.functions";
 
 type Search = { checkout?: string };
@@ -446,6 +447,7 @@ function Onboarding() {
             <p className="text-xs text-muted-foreground">
               Depois de conectar, mande uma mensagem de outro número para ver o atendimento acontecendo.
             </p>
+            <WhatsappTestCard variant="onboarding" />
           </>
         )}
 
