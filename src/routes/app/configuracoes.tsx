@@ -20,6 +20,7 @@ import { trialDaysLeft } from "@/lib/tenant";
 import { TemplatesTab } from "@/components/config/templates-tab";
 import { HorariosTab } from "@/components/config/horarios-tab";
 import { EquipePanel } from "@/components/config/equipe-panel";
+import { IdiomaCard } from "@/components/config/idioma-card";
 import { listAuditLog, exportLgpd } from "@/lib/security.functions";
 import { finStatus, enableFinanceiro } from "@/lib/financeiro.functions";
 import { getMyCredits } from "@/lib/credits.functions";
@@ -130,7 +131,8 @@ function ConfigPage() {
           <TabsTrigger value="avancado" className="flex-1 sm:flex-none"><Settings2 className="size-4 mr-1.5" /> Avançado</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="empresa" className="mt-4">
+        <TabsContent value="empresa" className="mt-4 space-y-4">
+          <IdiomaCard userId={ctx.user.id} />
           <Card className="p-5 space-y-4 max-w-xl">
             <div className="space-y-1.5"><Label>Nome da empresa</Label><Input value={empresa.nome} onChange={(e) => setEmpresa({ ...empresa, nome: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Telefone de contato</Label><Input value={empresa.telefone} onChange={(e) => setEmpresa({ ...empresa, telefone: e.target.value })} /></div>
