@@ -37,6 +37,8 @@ export const esES: Record<keyof typeof ptBR, string> = {
   "idioma.titulo": "Idioma",
   "idioma.descricao": "Idioma del panel para ti. Se guarda en tu cuenta y vale en cualquier dispositivo.",
   "idioma.salvo": "Idioma actualizado",
+  "idioma.empresa": "Idioma predeterminado de la empresa",
+  "idioma.empresaDesc": "Se usa para quien aún no eligió idioma y en los textos iniciales creados por el sistema. Nada de lo que ya escribiste se traduce.",
   "idioma.pt": "Português (Brasil)",
   "idioma.es": "Español (España)",
   "agente.idioma": "Idioma de las respuestas",

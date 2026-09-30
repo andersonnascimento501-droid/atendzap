@@ -132,7 +132,7 @@ function ConfigPage() {
         </TabsList>
 
         <TabsContent value="empresa" className="mt-4 space-y-4">
-          <IdiomaCard userId={ctx.user.id} />
+          <IdiomaCard userId={ctx.user.id} companyId={ctx.company?.id} companyIdioma={(ctx.company as any)?.idioma_padrao} canEditCompany={isOwner} />
           <Card className="p-5 space-y-4 max-w-xl">
             <div className="space-y-1.5"><Label>Nome da empresa</Label><Input value={empresa.nome} onChange={(e) => setEmpresa({ ...empresa, nome: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Telefone de contato</Label><Input value={empresa.telefone} onChange={(e) => setEmpresa({ ...empresa, telefone: e.target.value })} /></div>

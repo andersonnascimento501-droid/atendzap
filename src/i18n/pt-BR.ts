@@ -35,6 +35,8 @@ export const ptBR = {
   "idioma.titulo": "Idioma",
   "idioma.descricao": "Idioma do painel para você. Fica salvo na sua conta e vale em qualquer dispositivo.",
   "idioma.salvo": "Idioma atualizado",
+  "idioma.empresa": "Idioma padrão da empresa",
+  "idioma.empresaDesc": "Usado por quem ainda não escolheu um idioma e nos textos iniciais criados pelo sistema. Nada que você já escreveu é traduzido.",
   "idioma.pt": "Português (Brasil)",
   "idioma.es": "Español (España)",
   "agente.idioma": "Idioma das respostas",
