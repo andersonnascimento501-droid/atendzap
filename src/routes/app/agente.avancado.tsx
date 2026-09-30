@@ -102,6 +102,7 @@ function applyPreset(p: PersonalidadePreset, cfg: any, setCfg: (fn: any) => void
 interface Produto { id: string; nome: string; preco: number; descricao: string | null; ativo: boolean; ordem: number; }
 
 function AgentePage() {
+  const t = useT();
   const ctx = Route.useRouteContext();
   const { id: searchId } = Route.useSearch();
   const companyId = ctx.company?.id;
@@ -437,7 +438,7 @@ function AgentePage() {
                       </SelectContent>
                     </Select>
                     {hasLanguageInstruction(cfg.prompt_custom) && (
-                      <p className="text-[11px] text-amber-600 dark:text-amber-400">{t("agente.idioma.conflito")}</p>
+                      <p className="text-[11px] font-medium text-destructive">{t("agente.idioma.conflito")}</p>
                     )}
                   </div>
                 </div>
