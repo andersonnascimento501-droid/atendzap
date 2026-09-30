@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { toast } from "sonner";
 import type { CompanyRow, Membership } from "@/lib/tenant";
 import { useWhatsappStatus } from "@/hooks/use-whatsapp-status";
+import { useT, type TKey } from "@/i18n";
 
 type NavItem = {
   to: string;
@@ -29,55 +30,55 @@ type NavItem = {
 // Navegação simples: 7 itens principais. Nada foi removido — telas secundárias
 // aparecem como subitens do item principal a que pertencem.
 const mainNav: NavItem[] = [
-  { to: "/app/dashboard", label: "Início", icon: Home },
+  { to: "/app/dashboard", label: "nav.inicio", icon: Home },
   {
     to: "/app/conversas",
-    label: "Conversas",
+    label: "nav.conversas",
     icon: Inbox,
     badge: true,
-    children: [{ to: "/app/tarefas", label: "Tarefas", icon: CheckSquare }],
+    children: [{ to: "/app/tarefas", label: "nav.tarefas", icon: CheckSquare }],
   },
   {
     to: "/app/crm",
-    label: "Clientes",
+    label: "nav.clientes",
     icon: Users,
-    children: [{ to: "/app/contatos", label: "Lista de contatos", icon: Contact }],
+    children: [{ to: "/app/contatos", label: "nav.contatos", icon: Contact }],
   },
-  { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
+  { to: "/app/agenda", label: "nav.agenda", icon: CalendarDays },
   {
     to: "/app/agentes",
-    label: "Atendente IA",
+    label: "nav.atendenteIa",
     icon: Bot,
     adminOnly: true,
     children: [
-      { to: "/app/agente", label: "Criar com a IA", icon: Sparkles },
-      { to: "/app/agente/avancado", label: "Avançado", icon: Settings },
+      { to: "/app/agente", label: "nav.criarComIa", icon: Sparkles },
+      { to: "/app/agente/avancado", label: "nav.avancado", icon: Settings },
     ],
   },
-  { to: "/app/campanhas", label: "Disparos", icon: Megaphone, adminOnly: true },
+  { to: "/app/campanhas", label: "nav.disparos", icon: Megaphone, adminOnly: true },
 
   {
     to: "/app/conexao",
-    label: "Canais",
+    label: "nav.canais",
     icon: Smartphone,
-    children: [{ to: "/app/integracoes", label: "Integrações", icon: Webhook, adminOnly: true }],
+    children: [{ to: "/app/integracoes", label: "nav.integracoes", icon: Webhook, adminOnly: true }],
   },
   {
     to: "/app/relatorios",
-    label: "Resultados",
+    label: "nav.resultados",
     icon: BarChart3,
     adminOnly: true,
-    children: [{ to: "/app/financeiro", label: "Financeiro", icon: Wallet }],
+    children: [{ to: "/app/financeiro", label: "nav.financeiro", icon: Wallet }],
   },
 ];
 
 const footerNav: NavItem[] = [
   {
     to: "/app/configuracoes",
-    label: "Configurações",
+    label: "nav.configuracoes",
     icon: Settings,
     adminOnly: true,
-    children: [{ to: "/app/equipe", label: "Equipe", icon: Users }],
+    children: [{ to: "/app/equipe", label: "nav.equipe", icon: Users }],
   },
 ];
 
@@ -98,30 +99,31 @@ export function AppShell({
   const loc = useLocation();
   const navigate = useNavigate();
   const [moreOpen, setMoreOpen] = useState(false);
+  const t = useT();
 
   async function signOut() {
     await supabase.auth.signOut();
-    toast.success("Sessão encerrada");
+    toast.success(t("nav.sessaoEncerrada"));
     navigate({ to: "/entrar", replace: true });
   }
 
   const primary = company?.primary_color || brand.primary;
   const isAdmin = membership?.role === "owner" || membership?.role === "admin";
   const roleLabel =
-    membership?.role === "owner" ? "Dono"
-    : membership?.role === "admin" ? "Admin"
-    : membership?.role === "atendente" ? "Atendente"
-    : "Membro";
+    t(membership?.role === "owner" ? "role.owner"
+    : membership?.role === "admin" ? "role.admin"
+    : membership?.role === "atendente" ? "role.atendente"
+    : "role.membro");
   const userName = (email || "Você").split("@")[0];
 
   const mobileItems: MobileNavItem[] = [
-    { to: "/app/dashboard", label: "Início", icon: Home },
-    { to: "/app/conversas", label: "Conversas", icon: Inbox },
-    { to: "/app/crm", label: "Clientes", icon: Users },
+    { to: "/app/dashboard", label: "nav.inicio", icon: Home },
+    { to: "/app/conversas", label: "nav.conversas", icon: Inbox },
+    { to: "/app/crm", label: "nav.clientes", icon: Users },
     isAdmin
-      ? { to: "/app/agentes", label: "IA", icon: Bot }
-      : { to: "/app/conexao", label: "Canais", icon: Smartphone },
-    { label: "Mais", icon: Menu, onClick: () => setMoreOpen(true) },
+      ? { to: "/app/agentes", label: "nav.ia", icon: Bot }
+      : { to: "/app/conexao", label: "nav.canais", icon: Smartphone },
+    { label: "nav.mais", icon: Menu, onClick: () => setMoreOpen(true) },
   ];
 
   const moreItems = [...mainNav, ...footerNav]
@@ -203,7 +205,7 @@ export function AppShell({
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
           <SheetHeader className="text-left">
-            <SheetTitle className="font-display">Tudo do seu painel</SheetTitle>
+            <SheetTitle className="font-display">{t("nav.tudo")}</SheetTitle>
           </SheetHeader>
           <div className="grid grid-cols-3 gap-2 mt-3">
             {moreItems.map((it) => {
@@ -216,7 +218,7 @@ export function AppShell({
                   className="flex flex-col items-center gap-1.5 rounded-xl border border-[color:var(--hairline)] bg-[color:var(--panel)] px-2 py-3 text-[12px] font-medium text-center"
                 >
                   <Icon className="size-5" style={{ color: primary }} />
-                  <span className="leading-tight">{it.label}</span>
+                  <span className="leading-tight">{t(it.label as TKey)}</span>
                 </Link>
               );
             })}
@@ -275,7 +277,7 @@ function Sidebar({
                         loc.pathname === c.to ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {c.label}
+                      {t(c.label as TKey)}
                     </Link>
                   ))}
                 </div>
@@ -301,7 +303,7 @@ function Sidebar({
                         loc.pathname === c.to ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {c.label}
+                      {t(c.label as TKey)}
                     </Link>
                   ))}
                 </div>
@@ -372,7 +374,7 @@ function NavLink({ item, active, primary }: { item: NavItem; active: boolean; pr
         />
       )}
       <Icon className="size-[18px] shrink-0" style={active ? { color: primary } : undefined} />
-      <span className="flex-1 truncate">{item.label}</span>
+      <span className="flex-1 truncate">{t(item.label as TKey)}</span>
       {item.tag && (
         <span
           className="text-[10px] font-bold px-1.5 py-0.5 rounded ring-1"
