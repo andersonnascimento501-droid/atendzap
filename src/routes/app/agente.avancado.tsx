@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useT } from "@/i18n";
-import { hasLanguageInstruction } from "@/lib/ai-prompt";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +17,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { toast } from "sonner";
 import { Bot, Loader2, Save, Send, Sparkles, Plus, Trash2, Calendar, CheckCircle2, AlertCircle, LinkIcon } from "lucide-react";
 import { brand } from "@/config/brand";
-import { buildSystemPrompt } from "@/lib/ai-prompt";
+import { buildSystemPrompt, hasLanguageInstruction } from "@/lib/ai-prompt";
 import { MANUAL_OVERRIDE_CONFIRM_MESSAGE, requiresManualOverrideConfirm } from "@/lib/agent-generation";
 import { testAiReply } from "@/lib/evolution.functions";
 import { startGoogleOAuth, disconnectGoogle } from "@/lib/google.functions";
