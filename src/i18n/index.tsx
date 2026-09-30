@@ -9,24 +9,6 @@ export type Dict = typeof ptBR;
 export type TKey = keyof Dict;
 const DICTS: Record<Locale, Dict> = { "pt-BR": ptBR, "es-ES": esES };
 
-export function normalizeLocale(v?: string | null): Locale | null {
-  const s = String(v ?? "").trim().toLowerCase();
-  if (s === "pt-br" || s === "pt") return "pt-BR";
-  if (s === "es-es" || s === "es" || s.startsWith("es-")) return "es-ES";
-  return null;
-}
-
-/** Prioridade: usuário → empresa → navegador → pt-BR. */
-export function resolveLocale(input: { user?: string | null; company?: string | null; browser?: readonly string[] | string | null }): Locale {
-  const browsers = Array.isArray(input.browser) ? input.browser : input.browser ? [input.browser as string] : [];
-  return (
-    normalizeLocale(input.user) ??
-    normalizeLocale(input.company) ??
-    browsers.map((b) => normalizeLocale(b)).find(Boolean) ??
-    DEFAULT_LOCALE
-  );
-}
-
 export function translate(locale: Locale, key: TKey, vars?: Record<string, string | number>): string {
   let s = DICTS[locale]?.[key] ?? ptBR[key] ?? String(key);
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
