@@ -1019,6 +1019,7 @@ export type Database = {
           financeiro_ativo: boolean
           financeiro_dias_vencimento_padrao: number
           id: string
+          idioma_padrao: string
           inscricao_estadual: string | null
           logo_url: string | null
           nome: string
@@ -1060,6 +1061,7 @@ export type Database = {
           financeiro_ativo?: boolean
           financeiro_dias_vencimento_padrao?: number
           id?: string
+          idioma_padrao?: string
           inscricao_estadual?: string | null
           logo_url?: string | null
           nome: string
@@ -1101,6 +1103,7 @@ export type Database = {
           financeiro_ativo?: boolean
           financeiro_dias_vencimento_padrao?: number
           id?: string
+          idioma_padrao?: string
           inscricao_estadual?: string | null
           logo_url?: string | null
           nome?: string
@@ -2701,6 +2704,7 @@ export type Database = {
           cpf: string | null
           created_at: string
           email: string | null
+          idioma: string | null
           nome: string | null
           nome_completo: string | null
           telefone: string | null
@@ -2712,6 +2716,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           email?: string | null
+          idioma?: string | null
           nome?: string | null
           nome_completo?: string | null
           telefone?: string | null
@@ -2723,6 +2728,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           email?: string | null
+          idioma?: string | null
           nome?: string | null
           nome_completo?: string | null
           telefone?: string | null
