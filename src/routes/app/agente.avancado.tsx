@@ -1,4 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useT } from "@/i18n";
+import { hasLanguageInstruction } from "@/lib/ai-prompt";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -424,16 +426,19 @@ function AgentePage() {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Idioma</Label>
+                    <Label>{t("agente.idioma")}</Label>
                     <Select value={cfg.idioma ?? "pt-BR"} onValueChange={(v) => up("idioma", v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pt-BR">Português (BR)</SelectItem>
-                        <SelectItem value="pt-PT">Português (PT)</SelectItem>
-                        <SelectItem value="es">Espanhol</SelectItem>
-                        <SelectItem value="en">Inglês</SelectItem>
+                        <SelectItem value="auto">{t("agente.idioma.auto")}</SelectItem>
+                        <SelectItem value="pt-BR">{t("agente.idioma.pt")}</SelectItem>
+                        <SelectItem value="es-ES">{t("agente.idioma.es")}</SelectItem>
+                        {["pt-PT", "es", "en"].includes(cfg.idioma) && <SelectItem value={cfg.idioma}>{cfg.idioma}</SelectItem>}
                       </SelectContent>
                     </Select>
+                    {hasLanguageInstruction(cfg.prompt_custom) && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400">{t("agente.idioma.conflito")}</p>
+                    )}
                   </div>
                 </div>
               </Section>

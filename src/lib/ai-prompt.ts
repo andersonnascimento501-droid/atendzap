@@ -203,8 +203,19 @@ const IDIOMA_LABEL: Record<string, string> = {
   "pt-br": "Português do Brasil",
   "pt-pt": "Português de Portugal",
   es: "Espanhol",
+  "es-es": "Espanhol da Espanha",
   en: "Inglês",
 };
+
+/** "auto" = responder no idioma da mensagem atual do cliente. */
+export function isAutoIdioma(idioma?: string | null): boolean {
+  return String(idioma || "").trim().toLowerCase() === "auto";
+}
+
+/** Detecta instrução explícita de idioma no prompt manual (só para avisar; nunca altera o texto). */
+export function hasLanguageInstruction(texto?: string | null): boolean {
+  return /\b(responda|escreva|fale|responder|responde|responda sempre)\b[^.\n]{0,40}\b(portugu[eê]s|espanhol|español|ingl[eê]s|english|idioma)\b/i.test(String(texto || ""));
+}
 
 export function describeIdioma(idioma?: string | null): string {
   const key = String(idioma || "pt-BR").trim().toLowerCase();
@@ -379,7 +390,7 @@ export function buildSystemPrompt(
 7. Respeite SEMPRE o que está em "NÃO pode fazer".
 
 ESTILO DE MENSAGEM (WhatsApp humano):
-- Escreva SEMPRE em ${idiomaLabel}, tom próximo, sem ser formal demais e sem ser infantil.
+- ${isAutoIdioma(c.idioma) ? "Responda SEMPRE no mesmo idioma da mensagem atual do cliente (português ou espanhol). Se não der para identificar, use português do Brasil. Não traduza nomes, preços, links ou dados da empresa" : `Escreva SEMPRE em ${idiomaLabel}`}, tom próximo, sem ser formal demais e sem ser infantil.
 - Mensagens CURTAS, frases naturais, como gente digita no WhatsApp. Nada de textão.
 - Sem markdown pesado, sem listas com bullets, sem emojis em excesso.
 - Não repita o nome do cliente em toda mensagem. Não repita o que ele acabou de dizer.
