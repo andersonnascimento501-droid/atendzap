@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useT, type TKey } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { brand } from "@/config/brand";
@@ -33,6 +34,7 @@ function saudacao() {
 }
 
 function Home() {
+  const t = useT();
   const ctx = Route.useRouteContext();
   const companyId = ctx.company?.id;
   const whatsapp = useWhatsappStatus();
@@ -224,7 +226,7 @@ function Home() {
                   ? <CheckCircle2 className="size-4 text-[color:var(--brand)] shrink-0" />
                   : <span className="size-4 rounded-full border-2 border-muted-foreground/50 shrink-0" />}
                 <span className={`flex-1 ${c.ok ? "text-muted-foreground" : ""}`}>
-                  {c.label}{c.opcional && !c.ok ? <span className="text-muted-foreground"> (opcional)</span> : null}
+                  {t(`checklist.${c.id}` as TKey)}{c.opcional && !c.ok ? <span className="text-muted-foreground"> {t("checklist.opcional")}</span> : null}
                 </span>
                 {!c.ok && <ArrowRight className="size-4 text-muted-foreground shrink-0" />}
               </Link>

@@ -92,6 +92,13 @@
       "when": 1790696530330,
       "tag": "0012_0012_whatsapp_test_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790811927347,
+      "tag": "0013_i18n_user_company_language",
+      "breakpoints": true
     }
   ]
 }

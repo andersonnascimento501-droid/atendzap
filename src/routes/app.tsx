@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { Button } from "@/components/ui/button";
 import type { CompanyRow, Membership } from "@/lib/tenant";
+import { I18nProvider, resolveLocale } from "@/i18n";
 
 type Ctx = {
   user: { id: string; email?: string | null };
@@ -11,6 +12,7 @@ type Ctx = {
   membership: Membership | null;
   isSuperAdmin: boolean;
   impersonating: boolean;
+  userIdioma?: string | null;
 };
 
 export const Route = createFileRoute("/app")({
@@ -21,6 +23,8 @@ export const Route = createFileRoute("/app")({
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
     const isSuperAdmin = (roles ?? []).some((r: any) => r.role === "super_admin");
+    const { data: prof } = await supabase.from("profiles").select("idioma").eq("user_id", u.user.id).maybeSingle();
+    const userIdioma = (prof as any)?.idioma ?? null;
 
     // Impersonação (super admin entrando como empresa via /master/empresas)
     let impersonateId: string | null = null;
@@ -37,6 +41,7 @@ export const Route = createFileRoute("/app")({
           membership: { company_id: comp.id, role: "owner", forcar_troca_senha: false },
           isSuperAdmin,
           impersonating: true,
+          userIdioma,
         };
       }
     }
@@ -53,7 +58,7 @@ export const Route = createFileRoute("/app")({
     if (!cu) {
       if (isSuperAdmin) throw redirect({ to: "/master/painel" });
       if (location.pathname !== "/app/checkout") throw redirect({ to: "/app/checkout" });
-      return { user: { id: u.user.id, email: u.user.email }, company: null, membership: null, isSuperAdmin, impersonating: false };
+      return { user: { id: u.user.id, email: u.user.email }, company: null, membership: null, isSuperAdmin, impersonating: false, userIdioma };
     }
 
     if (cu.forcar_troca_senha && location.pathname !== "/trocar-senha") {
@@ -93,12 +98,23 @@ export const Route = createFileRoute("/app")({
       membership: { company_id: cu.company_id, role: cu.role as any, forcar_troca_senha: cu.forcar_troca_senha },
       isSuperAdmin,
       impersonating: false,
+      userIdioma,
     };
   },
   component: AppLayout,
 });
 
 function AppLayout() {
+  const ctx = Route.useRouteContext();
+  const locale = resolveLocale({
+    user: ctx.userIdioma,
+    company: (ctx.company as any)?.idioma_padrao,
+    browser: typeof navigator !== "undefined" ? navigator.languages : null,
+  });
+  return <I18nProvider locale={locale}><AppLayoutInner /></I18nProvider>;
+}
+
+function AppLayoutInner() {
   const ctx = Route.useRouteContext();
   if (ctx.company?.status_cobranca === "suspenso" && !ctx.impersonating) {
     return (

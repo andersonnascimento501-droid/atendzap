@@ -20,6 +20,12 @@ export const askAssistant = createServerFn({ method: "POST" })
 
     const { buildCompanySnapshot, buildAssistantMessages, parseAssistantReply } = await import("./assistant.server");
     const snapshot = await buildCompanySnapshot(supabase, companyId);
+    const [{ data: prof }, { data: comp }] = await Promise.all([
+      supabase.from("profiles").select("idioma").eq("user_id", userId).maybeSingle(),
+      supabase.from("company").select("idioma_padrao").eq("id", companyId).maybeSingle(),
+    ]);
+    const { resolveLocale } = await import("@/i18n/resolve");
+    const locale = resolveLocale({ user: (prof as any)?.idioma, company: (comp as any)?.idioma_padrao });
 
     // Limite de uso: cada pergunta consome 1 crédito da empresa; estornado se a IA falhar.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -45,7 +51,7 @@ export const askAssistant = createServerFn({ method: "POST" })
         return ok === true;
       },
     }, async () => {
-      const raw = await lovableAiChat(buildAssistantMessages(snapshot, data.question));
+      const raw = await lovableAiChat(buildAssistantMessages(snapshot, data.question, locale));
       if (!raw || !raw.trim()) throw new Error("A IA não respondeu agora. Tente novamente.");
       return parseAssistantReply(raw);
     });

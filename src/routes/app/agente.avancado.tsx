@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useT } from "@/i18n";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +17,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { toast } from "sonner";
 import { Bot, Loader2, Save, Send, Sparkles, Plus, Trash2, Calendar, CheckCircle2, AlertCircle, LinkIcon } from "lucide-react";
 import { brand } from "@/config/brand";
-import { buildSystemPrompt } from "@/lib/ai-prompt";
+import { buildSystemPrompt, hasLanguageInstruction } from "@/lib/ai-prompt";
 import { MANUAL_OVERRIDE_CONFIRM_MESSAGE, requiresManualOverrideConfirm } from "@/lib/agent-generation";
 import { testAiReply } from "@/lib/evolution.functions";
 import { startGoogleOAuth, disconnectGoogle } from "@/lib/google.functions";
@@ -100,6 +101,7 @@ function applyPreset(p: PersonalidadePreset, cfg: any, setCfg: (fn: any) => void
 interface Produto { id: string; nome: string; preco: number; descricao: string | null; ativo: boolean; ordem: number; }
 
 function AgentePage() {
+  const t = useT();
   const ctx = Route.useRouteContext();
   const { id: searchId } = Route.useSearch();
   const companyId = ctx.company?.id;
@@ -424,16 +426,19 @@ function AgentePage() {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Idioma</Label>
+                    <Label>{t("agente.idioma")}</Label>
                     <Select value={cfg.idioma ?? "pt-BR"} onValueChange={(v) => up("idioma", v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pt-BR">Português (BR)</SelectItem>
-                        <SelectItem value="pt-PT">Português (PT)</SelectItem>
-                        <SelectItem value="es">Espanhol</SelectItem>
-                        <SelectItem value="en">Inglês</SelectItem>
+                        <SelectItem value="auto">{t("agente.idioma.auto")}</SelectItem>
+                        <SelectItem value="pt-BR">{t("agente.idioma.pt")}</SelectItem>
+                        <SelectItem value="es-ES">{t("agente.idioma.es")}</SelectItem>
+                        {["pt-PT", "es", "en"].includes(cfg.idioma) && <SelectItem value={cfg.idioma}>{cfg.idioma}</SelectItem>}
                       </SelectContent>
                     </Select>
+                    {hasLanguageInstruction(cfg.prompt_custom) && (
+                      <p className="text-[11px] font-medium text-destructive">{t("agente.idioma.conflito")}</p>
+                    )}
                   </div>
                 </div>
               </Section>
