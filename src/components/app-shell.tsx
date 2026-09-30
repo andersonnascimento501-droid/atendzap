@@ -117,13 +117,13 @@ export function AppShell({
   const userName = (email || "Você").split("@")[0];
 
   const mobileItems: MobileNavItem[] = [
-    { to: "/app/dashboard", label: "nav.inicio", icon: Home },
-    { to: "/app/conversas", label: "nav.conversas", icon: Inbox },
-    { to: "/app/crm", label: "nav.clientes", icon: Users },
+    { to: "/app/dashboard", label: t("nav.inicio"), icon: Home },
+    { to: "/app/conversas", label: t("nav.conversas"), icon: Inbox },
+    { to: "/app/crm", label: t("nav.clientes"), icon: Users },
     isAdmin
-      ? { to: "/app/agentes", label: "nav.ia", icon: Bot }
-      : { to: "/app/conexao", label: "nav.canais", icon: Smartphone },
-    { label: "nav.mais", icon: Menu, onClick: () => setMoreOpen(true) },
+      ? { to: "/app/agentes", label: t("nav.ia"), icon: Bot }
+      : { to: "/app/conexao", label: t("nav.canais"), icon: Smartphone },
+    { label: t("nav.mais"), icon: Menu, onClick: () => setMoreOpen(true) },
   ];
 
   const moreItems = [...mainNav, ...footerNav]
@@ -242,6 +242,7 @@ export function AppShell({
 function Sidebar({
   loc, company, isSuperAdmin, isAdmin, primary, userName, email, roleLabel, signOut,
 }: any) {
+  const t = useT();
   return (
     <aside className="hidden md:flex w-[260px] min-h-screen border-r border-[color:var(--hairline)] bg-[color:var(--sidebar-bg)] flex-col">
       <div className="px-5 py-5 flex items-center gap-3 border-b border-[color:var(--hairline)]">
@@ -349,6 +350,7 @@ function Sidebar({
 }
 
 function NavLink({ item, active, primary }: { item: NavItem; active: boolean; primary: string }) {
+  const t = useT();
   const Icon = item.icon;
   return (
     <Link
