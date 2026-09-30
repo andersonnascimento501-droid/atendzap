@@ -20,7 +20,7 @@ export function RoutePendingComponent() {
   );
 }
 
-export function RouteErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+export function RouteErrorComponent({ error, reset }: import("@tanstack/react-router").ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
