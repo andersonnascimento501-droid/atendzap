@@ -1,2 +1,3 @@
 
 - Instagram via Zernio: segredos por empresa ficam em `instagram_zernio` (somente service_role), criptografados com AES-256-GCM (`secret-box.server.ts`, chave INTEGRATIONS_ENCRYPTION_KEY); o provedor ativo é `instagram_integration.instagram_provider` e `channels.server.ts` é o único ponto que escolhe Meta ou Zernio — por quê: o navegador nunca lê o segredo e todo o pipeline continua igual.
+- i18n: textos do sistema ficam em `src/i18n/{pt-BR,es-ES}.ts` via `useT()`; idioma resolvido por usuário (profiles.idioma) → empresa (company.idioma_padrao) → navegador → pt-BR em `src/i18n/resolve.ts` — por quê: um só app/páginas, sem checagens de idioma espalhadas.
