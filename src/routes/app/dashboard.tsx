@@ -34,6 +34,7 @@ function saudacao() {
 }
 
 function Home() {
+  const t = useT();
   const ctx = Route.useRouteContext();
   const companyId = ctx.company?.id;
   const whatsapp = useWhatsappStatus();
