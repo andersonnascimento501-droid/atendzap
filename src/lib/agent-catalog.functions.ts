@@ -233,7 +233,12 @@ export const installTemplate = createServerFn({ method: "POST" })
           .trim();
       const have = new Set((existing ?? []).map((s: any) => norm(s.nome)));
       let ordem = Math.max(-1, ...(existing ?? []).map((s: any) => Number(s.ordem) || 0)) + 1;
+      const { data: compLang } = await supabase.from("company").select("idioma_padrao").eq("id", cid).maybeSingle();
+      const { seedName, normalizeLocale } = await import("@/i18n/resolve");
+      const lang = normalizeLocale((compLang as any)?.idioma_padrao) ?? "pt-BR";
+      // Tradução só na criação; etapas existentes/renomeadas nunca são tocadas.
       const toCreate = tpl.recommended_stages
+        .map((s) => ({ ...s, nome: s?.nome ? seedName(lang, s.nome) : s?.nome }))
         .filter((s) => s?.nome && !have.has(norm(s.nome)))
         .map((s) => ({
           company_id: cid,

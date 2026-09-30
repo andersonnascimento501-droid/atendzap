@@ -2,9 +2,8 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { ptBR } from "./pt-BR";
 import { esES } from "./es-ES";
 
-export type Locale = "pt-BR" | "es-ES";
-export const LOCALES: Locale[] = ["pt-BR", "es-ES"];
-export const DEFAULT_LOCALE: Locale = "pt-BR";
+export * from "./resolve";
+import { DEFAULT_LOCALE, type Locale } from "./resolve";
 
 export type Dict = typeof ptBR;
 export type TKey = keyof Dict;
@@ -32,18 +31,6 @@ export function translate(locale: Locale, key: TKey, vars?: Record<string, strin
   let s = DICTS[locale]?.[key] ?? ptBR[key] ?? String(key);
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
   return s;
-}
-
-/** Nomes iniciais sugeridos pelo sistema (etapas/setores). Só usado na criação. */
-const SEED_ES: Record<string, string> = {
-  novo: "Nuevo", "em atendimento": "En atención", qualificado: "Cualificado", agendado: "Cita programada",
-  perdido: "Perdido", ganho: "Ganado", proposta: "Propuesta", recepcao: "Recepción", agendamento: "Citas",
-  financeiro: "Administración", suporte: "Soporte", responsavel: "Responsable", vendas: "Ventas",
-};
-export function seedName(locale: Locale, nome: string): string {
-  if (locale !== "es-ES") return nome;
-  const k = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  return SEED_ES[k] ?? nome;
 }
 
 const Ctx = createContext<Locale>(DEFAULT_LOCALE);

@@ -51,7 +51,7 @@ export const askAssistant = createServerFn({ method: "POST" })
         return ok === true;
       },
     }, async () => {
-      const raw = await lovableAiChat(buildAssistantMessages(snapshot, data.question));
+      const raw = await lovableAiChat(buildAssistantMessages(snapshot, data.question, locale));
       if (!raw || !raw.trim()) throw new Error("A IA não respondeu agora. Tente novamente.");
       return parseAssistantReply(raw);
     });
