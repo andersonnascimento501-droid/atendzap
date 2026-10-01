@@ -20,13 +20,15 @@ import {
 } from "lucide-react";
 import { brand } from "@/config/brand";
 import { bootstrapSuperAdmin } from "@/lib/security.functions";
+import { translate, type TKey } from "@/i18n";
+import { getPublicLocale } from "@/i18n/public";
 
 
 type Search = { modo?: "login" | "signup"; plano?: string };
 
 export const Route = createFileRoute("/entrar")({
   ssr: false,
-  head: () => ({ meta: [{ title: `${brand.name} — Começar` }] }),
+  head: () => ({ meta: [{ title: `${brand.name} — Começar / Empezar` }, { name: "description", content: "Crie sua conta AtendAi. / Crea tu cuenta AtendAi." }] }),
   validateSearch: (s: Record<string, unknown>): Search => ({
     modo: s.modo === "login" ? "login" : "signup",
     plano: typeof s.plano === "string" ? s.plano : undefined,
@@ -42,7 +44,6 @@ export const Route = createFileRoute("/entrar")({
 });
 
 
-const emailSchema = z.string().email("E-mail inválido");
 
 function genStrongPassword() {
   const arr = new Uint8Array(24);
@@ -52,6 +53,9 @@ function genStrongPassword() {
 
 function EntrarPage() {
   const navigate = useNavigate();
+  const [locale] = useState(getPublicLocale);
+  const t = (k: TKey) => translate(locale, k);
+  const emailSchema = z.string().email(t("auth.emailInvalido"));
   const search = useSearch({ from: "/entrar" }) as Search;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,13 +65,17 @@ function EntrarPage() {
   const [periodos, setPeriodos] = useState<AtendaiPeriodo[]>([]);
   useEffect(() => { if (search.plano) fetchAtendaiPeriodos().then(setPeriodos).catch(() => {}); }, [search.plano]);
   const pSel = periodos.find((p) => p.slug === search.plano);
-  const planInfo = search.plano ? (pSel ? { nome: `Plano AtendAi — ${pSel.nome}`, preco: `${formatBRL(pSel.preco_cents)} · ${periodoResumo(pSel)}` } : { nome: "Plano AtendAi", preco: "3 dias grátis, sem cartão" }) : null;
+  const planInfo = search.plano ? (pSel ? { nome: `${t("auth.plano")} — ${pSel.nome}`, preco: `${formatBRL(pSel.preco_cents)} · ${periodoResumo(pSel)}` } : { nome: t("auth.plano"), preco: t("auth.trialSemCartao") }) : null;
 
   async function routeAfterAuth() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
     // Promoção do primeiro usuário do sistema (decidida no servidor/banco)
     try { await bootstrapSuperAdmin(); } catch {}
+    // Idioma escolhido na página pública vira preferência da conta, só se ainda não houver escolha.
+    if (locale !== "pt-BR") {
+      try { await supabase.from("profiles").update({ idioma: locale } as any).eq("user_id", u.user.id).is("idioma", null); } catch {}
+    }
     if (search.plano) {
       navigate({ to: "/app/checkout", search: { plano: search.plano } as any, replace: true });
       return;
@@ -91,8 +99,8 @@ function EntrarPage() {
     if (needsPassword) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
-      if (error) return toast.error("Senha incorreta. Tente novamente ou recupere sua senha.");
-      toast.success("Bem-vindo de volta!");
+      if (error) return toast.error(t("auth.senhaIncorreta"));
+      toast.success(t("auth.bemVindoToast"));
       return routeAfterAuth();
     }
 
@@ -108,13 +116,13 @@ function EntrarPage() {
       if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
         setNeedsPassword(true);
         setLoading(false);
-        toast.message("Já existe uma conta com esse e-mail.", { description: "Digite sua senha para continuar." });
+        toast.message(t("auth.jaExiste"), { description: t("auth.digiteSenha") });
         return;
       }
       if (msg.includes("signups not allowed") || msg.includes("signup_disabled") || msg.includes("signup is disabled")) {
         setNeedsPassword(true);
         setLoading(false);
-        toast.message("Cadastros novos estão desativados.", { description: "Se você já tem conta, digite sua senha para entrar." });
+        toast.message(t("auth.cadastrosOff"), { description: t("auth.cadastrosOffDesc") });
         return;
       }
       setLoading(false);
@@ -123,17 +131,17 @@ function EntrarPage() {
 
     if (signUpData.session) {
       setLoading(false);
-      toast.success("Conta criada! Vamos para o pagamento.");
+      toast.success(t("auth.contaCriadaPag"));
       return routeAfterAuth();
     }
 
     const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password: generated });
     setLoading(false);
     if (signInErr) {
-      toast.success("Enviamos um link de confirmação para o seu e-mail.");
+      toast.success(t("auth.linkConfirmacao"));
       return;
     }
-    toast.success("Conta criada!");
+    toast.success(t("auth.contaCriada"));
     routeAfterAuth();
   }
 
@@ -159,9 +167,9 @@ function EntrarPage() {
         {/* LEFT — brand pane (hidden on mobile) */}
         <aside className="hidden lg:flex flex-col justify-between p-10 xl:p-14 border-r border-[color:var(--hairline)] bg-[linear-gradient(160deg,rgba(22,163,74,.10),rgba(34,211,238,.04)_55%,transparent)]">
           <div className="flex items-center gap-3">
-            <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link to={locale === "es-ES" ? "/es" : "/"} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="size-4" />
-              voltar ao site
+              {t("auth.voltarSite")}
             </Link>
           </div>
 
@@ -177,30 +185,30 @@ function EntrarPage() {
             </div>
 
             <h1 className="font-display text-4xl xl:text-5xl font-extrabold leading-[1.05] tracking-tight">
-              Sua IA atende o<br />
-              <span className="text-gradient-brand">WhatsApp 24h</span> e<br />
-              organiza o CRM sozinha.
+              {t("auth.heroA")}<br />
+              <span className="text-gradient-brand">{t("auth.heroB")}</span> {t("auth.heroAnd")}<br />
+              {t("auth.heroC")}
             </h1>
 
             <p className="text-[15px] text-muted-foreground leading-relaxed">
-              Conecte seu número em 2 minutos. A gente cuida do resto — respostas, qualificação e movimentação dos leads no funil, no automático.
+              {t("auth.heroP")}
             </p>
 
             <div className="grid gap-3">
-              <Feature icon={<Bot className="size-4" />} title="IA treinada no seu negócio" desc="Responde no seu tom, sem parecer robô." />
-              <Feature icon={<KanbanSquare className="size-4" />} title="CRM Kanban inteligente" desc="Cada lead se move sozinho pelo funil." />
-              <Feature icon={<Zap className="size-4" />} title="Pronto em 2 minutos" desc="Escaneou o QR, já está atendendo." />
+              <Feature icon={<Bot className="size-4" />} title={t("auth.f1t")} desc={t("auth.f1d")} />
+              <Feature icon={<KanbanSquare className="size-4" />} title={t("auth.f2t")} desc={t("auth.f2d")} />
+              <Feature icon={<Zap className="size-4" />} title={t("auth.f3t")} desc={t("auth.f3d")} />
             </div>
 
             <div className="flex items-center gap-4 pt-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-[color:var(--brand)]" /> LGPD-friendly</span>
-              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-3.5 text-[color:var(--brand)]" /> Sem cartão p/ testar</span>
-              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-3.5 text-[color:var(--brand)]" /> Cancele quando quiser</span>
+              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-3.5 text-[color:var(--brand)]" /> {t("auth.semCartao")}</span>
+              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-3.5 text-[color:var(--brand)]" /> {t("auth.cancele")}</span>
             </div>
           </div>
 
           <div className="text-[12px] text-muted-foreground">
-            © {new Date().getFullYear()} {brand.name}. Todos os direitos reservados.
+            © {new Date().getFullYear()} {brand.name}. {t("auth.direitos")}
           </div>
         </aside>
 
@@ -208,8 +216,8 @@ function EntrarPage() {
         <main className="flex flex-col items-center justify-center px-5 py-10 sm:px-10">
           {/* Mobile brand header */}
           <div className="lg:hidden w-full max-w-md mb-6 flex items-center justify-between">
-            <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="size-4" /> voltar
+            <Link to={locale === "es-ES" ? "/es" : "/"} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="size-4" /> {t("auth.voltar")}
             </Link>
             <div className="flex items-center gap-2">
               <div className="size-9 rounded-xl grid place-items-center bg-gradient-brand text-primary-foreground shadow-md">
@@ -232,33 +240,33 @@ function EntrarPage() {
                 {planInfo && (
                   <div className="mb-5 rounded-xl border border-[color:var(--brand)]/30 bg-[color:var(--brand-soft)] p-4">
                     <div className="flex items-center gap-2 text-[11px] uppercase font-bold tracking-[0.14em] text-[color:var(--brand-text)]">
-                      <Sparkles className="size-3.5" /> Plano escolhido
+                      <Sparkles className="size-3.5" /> {t("auth.planoEscolhido")}
                     </div>
                     <div className="mt-1 flex items-baseline justify-between">
                       <div className="font-display text-lg font-bold">{planInfo.nome}</div>
                       <div className="text-sm font-semibold">{planInfo.preco}</div>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">3 dias grátis • cancele antes e não paga nada</div>
+                    <div className="text-xs text-muted-foreground mt-1">{t("auth.trialCancele")}</div>
                   </div>
                 )}
 
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[color:var(--brand-soft)] border border-[color:var(--brand)]/20 text-[11px] font-semibold text-[color:var(--brand-text)] mb-3">
                   <span className="size-1.5 rounded-full bg-[color:var(--brand)] dot-pulse" />
-                  {needsPassword ? "Acesso à conta" : "Cadastro em 1 clique"}
+                  {needsPassword ? t("auth.acesso") : t("auth.cadastro1")}
                 </div>
 
                 <h1 className="font-display text-[26px] sm:text-[28px] font-extrabold leading-tight tracking-tight">
-                  {needsPassword ? "Bem-vindo de volta" : "Comece em 1 clique"}
+                  {needsPassword ? t("auth.bemVindo") : t("auth.comece")}
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1.5 mb-6">
                   {needsPassword
-                    ? "Você já tem conta — informe sua senha pra continuar."
-                    : "Só precisamos do seu e-mail. Criamos a conta na hora e te levamos pro próximo passo."}
+                    ? t("auth.temConta")
+                    : t("auth.soEmail")}
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="email">E-mail</Label>
+                    <Label htmlFor="email">{t("auth.email")}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -266,7 +274,7 @@ function EntrarPage() {
                       onChange={(e) => { setEmail(e.target.value); if (needsPassword) setNeedsPassword(false); }}
                       required
                       autoFocus
-                      placeholder="voce@empresa.com"
+                      placeholder={t("auth.emailPh")}
                       className="h-11"
                     />
                   </div>
@@ -274,9 +282,9 @@ function EntrarPage() {
                   {needsPassword && (
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="pwd">Senha</Label>
+                        <Label htmlFor="pwd">{t("auth.senha")}</Label>
                         <Link to="/esqueci-senha" className="text-[11.5px] font-medium text-muted-foreground hover:text-[color:var(--brand-text)] transition-colors">
-                          Esqueci minha senha
+                          {t("auth.esqueci")}
                         </Link>
                       </div>
                       <Input id="pwd" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus required className="h-11" />
@@ -290,12 +298,12 @@ function EntrarPage() {
                     className="w-full h-12 bg-gradient-brand text-primary-foreground hover:opacity-95 font-semibold text-[14.5px] shadow-[0_8px_24px_-10px_rgba(22,163,74,.6)]"
                   >
                     {loading && <Loader2 className="size-4 mr-2 animate-spin" />}
-                    {needsPassword ? "Entrar e continuar" : planInfo ? "Continuar para o teste Grátis" : "Criar conta grátis"}
+                    {needsPassword ? t("auth.entrarContinuar") : planInfo ? t("auth.continuarTeste") : t("auth.criarConta")}
                   </Button>
 
                   {!needsPassword && (
                     <p className="text-[11.5px] text-muted-foreground text-center pt-1 leading-relaxed">
-                      Sem cartão para começar os <span className="font-semibold text-foreground">3 dias grátis</span>. Cancele quando quiser.
+                      {t("auth.semCartaoA")} <span className="font-semibold text-foreground">{t("auth.tresDias")}</span>. {t("auth.canceleQuando")}
                     </p>
                   )}
                 </form>
@@ -303,10 +311,10 @@ function EntrarPage() {
             </div>
 
             <p className="text-[11.5px] text-muted-foreground text-center mt-5">
-              Ao continuar, você concorda com nossos{" "}
-              <Link to="/termos" className="underline underline-offset-2 hover:text-foreground">Termos</Link>{" "}
-              e{" "}
-              <Link to="/privacidade" className="underline underline-offset-2 hover:text-foreground">Política de privacidade</Link>.
+              {t("auth.concorda")}{" "}
+              <Link to="/termos" className="underline underline-offset-2 hover:text-foreground">{t("auth.termos")}</Link>{" "}
+              {t("auth.e")}{" "}
+              <Link to="/privacidade" className="underline underline-offset-2 hover:text-foreground">{t("auth.privacidade")}</Link>.
             </p>
           </div>
         </main>

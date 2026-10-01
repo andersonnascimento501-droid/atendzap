@@ -7,10 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { brand } from "@/config/brand";
+import { translate, type TKey } from "@/i18n";
+import { getPublicLocale } from "@/i18n/public";
+
+const t = (k: TKey) => translate(getPublicLocale(), k);
 
 export const Route = createFileRoute("/esqueci-senha")({
   ssr: false,
-  head: () => ({ meta: [{ title: `${brand.name} — Recuperar senha` }] }),
+  head: () => ({ meta: [{ title: `${brand.name} — Recuperar senha / Recuperar contraseña` }] }),
   component: Page,
 });
 
@@ -26,23 +30,23 @@ function Page() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
-    toast.success("Se este e-mail existir, enviamos um link de recuperação.");
+    toast.success(t("senha.linkEnviado"));
   }
 
   return (
     <div className="min-h-screen grid place-items-center p-4 bg-gradient-to-br from-primary/10 via-background to-background">
       <Card className="w-full max-w-md p-6">
-        <h1 className="text-xl font-bold mb-1">Recuperar senha</h1>
-        <p className="text-sm text-muted-foreground mb-4">Informe seu e-mail e enviaremos um link.</p>
+        <h1 className="text-xl font-bold mb-1">{t("senha.recuperarTitulo")}</h1>
+        <p className="text-sm text-muted-foreground mb-4">{t("senha.recuperarDesc")}</p>
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label>E-mail</Label>
+            <Label>{t("auth.email")}</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
-          <Button type="submit" disabled={loading} className="w-full">{loading ? "Enviando…" : "Enviar link"}</Button>
+          <Button type="submit" disabled={loading} className="w-full">{loading ? t("senha.enviando") : t("senha.enviarLink")}</Button>
         </form>
         <div className="mt-4 text-center text-sm">
-          <Link to="/entrar" className="text-muted-foreground hover:underline">Voltar para o login</Link>
+          <Link to="/entrar" className="text-muted-foreground hover:underline">{t("senha.voltarLogin")}</Link>
         </div>
       </Card>
     </div>
