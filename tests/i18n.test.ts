@@ -73,3 +73,17 @@ describe("i18n — Assistente", () => {
     expect(fn).toMatch(/withChargedCredit\(ref/);
   });
 });
+
+describe("i18n — etapa 2 (páginas públicas)", () => {
+  test("página de vendas tem as mesmas seções nos dois idiomas", async () => {
+    const { LANDING } = await import("../src/i18n/landing");
+    const pt = LANDING["pt-BR"], es = LANDING["es-ES"];
+    expect(Object.keys(es).sort()).toEqual(Object.keys(pt).sort());
+    for (const k of ["steps", "features", "faq", "testimonials", "bubbles", "stats"] as const) expect(es[k].length).toBe(pt[k].length);
+    expect(es.ctaTrial).toBe("Empezar 3 días gratis");
+  });
+  test("entrar/senha/demo têm tradução", () => {
+    for (const k of Object.keys(ptBR).filter((k) => /^(auth|senha|demo)\./.test(k))) expect((esES as any)[k]).toBeTruthy();
+    expect(esES["auth.criarConta"]).toBe("Crear cuenta gratis");
+  });
+});

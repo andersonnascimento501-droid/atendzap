@@ -16,6 +16,7 @@ import { Route as ReembolsoRouteImport } from './routes/reembolso'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as MasterRouteImport } from './routes/master'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
+import { Route as EsRouteImport } from './routes/es'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as AppRouteImport } from './routes/app'
@@ -105,6 +106,11 @@ const MasterRoute = MasterRouteImport.update({
 const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
   id: '/esqueci-senha',
   path: '/esqueci-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EsRoute = EsRouteImport.update({
+  id: '/es',
+  path: '/es',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EntrarRoute = EntrarRouteImport.update({
@@ -394,6 +400,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/demo': typeof DemoRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/es': typeof EsRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/master': typeof MasterRouteWithChildren
   '/privacidade': typeof PrivacidadeRoute
@@ -457,6 +464,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/es': typeof EsRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/privacidade': typeof PrivacidadeRoute
   '/reembolso': typeof ReembolsoRoute
@@ -521,6 +529,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/demo': typeof DemoRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/es': typeof EsRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/master': typeof MasterRouteWithChildren
   '/privacidade': typeof PrivacidadeRoute
@@ -587,6 +596,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/demo'
     | '/entrar'
+    | '/es'
     | '/esqueci-senha'
     | '/master'
     | '/privacidade'
@@ -650,6 +660,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/entrar'
+    | '/es'
     | '/esqueci-senha'
     | '/privacidade'
     | '/reembolso'
@@ -713,6 +724,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/demo'
     | '/entrar'
+    | '/es'
     | '/esqueci-senha'
     | '/master'
     | '/privacidade'
@@ -778,6 +790,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   DemoRoute: typeof DemoRouteWithChildren
   EntrarRoute: typeof EntrarRoute
+  EsRoute: typeof EsRoute
   EsqueciSenhaRoute: typeof EsqueciSenhaRoute
   MasterRoute: typeof MasterRouteWithChildren
   PrivacidadeRoute: typeof PrivacidadeRoute
@@ -846,6 +859,13 @@ declare module '@tanstack/react-router' {
       path: '/esqueci-senha'
       fullPath: '/esqueci-senha'
       preLoaderRoute: typeof EsqueciSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/es': {
+      id: '/es'
+      path: '/es'
+      fullPath: '/es'
+      preLoaderRoute: typeof EsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/entrar': {
@@ -1358,6 +1378,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   DemoRoute: DemoRouteWithChildren,
   EntrarRoute: EntrarRoute,
+  EsRoute: EsRoute,
   EsqueciSenhaRoute: EsqueciSenhaRoute,
   MasterRoute: MasterRouteWithChildren,
   PrivacidadeRoute: PrivacidadeRoute,
