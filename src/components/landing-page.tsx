@@ -1,4 +1,11 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createContext, useContext } from "react";
+import { LANDING, type LandingCopy } from "@/i18n/landing";
+import { setPublicLocale } from "@/i18n/public";
+import type { Locale } from "@/i18n/resolve";
+
+const LCtx = createContext<{ c: LandingCopy; locale: Locale }>({ c: LANDING["pt-BR"], locale: "pt-BR" });
+const useL = () => useContext(LCtx);
+const fmt = (s: string, n: string | number) => s.replace("{n}", String(n));
 import { brand, supportWhatsappUrl } from "@/config/brand";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -23,27 +30,8 @@ import {
 } from "lucide-react";
 
 
-export const Route = createFileRoute("/")({
-  ssr: false,
-  head: () => ({
-    meta: [
-      { title: `${brand.name} — IA atende seu WhatsApp 24h e organiza o CRM sozinha` },
-      {
-        name: "description",
-        content:
-          "Conecte seu número de WhatsApp em 2 minutos. A IA do AtendAi responde, qualifica e move cada lead no funil automaticamente. 3 dias grátis, sem cartão.",
-      },
-      { property: "og:title", content: `${brand.name} — WhatsApp + IA + CRM no automático` },
-      {
-        property: "og:description",
-        content: "Sua IA atende o WhatsApp 24h e organiza o CRM sozinha.",
-      },
-    ],
-  }),
-  component: Landing,
-});
-
-function Landing() {
+export function LandingPage({ locale }: { locale: Locale }) {
+  useEffect(() => { setPublicLocale(locale); document.documentElement.lang = locale; }, [locale]);
   async function cta(path: "/entrar" | "/demo/dashboard" | "#planos", plano: string = "atendai-semestral") {
     if (path === "#planos") {
       const el = document.getElementById("planos");
@@ -88,6 +76,7 @@ function Landing() {
         />
       </div>
 
+      <LCtx.Provider value={{ c: LANDING[locale], locale }}>
       <div className="relative z-10">
         <Header onCta={cta} isDark={isDark} onToggleTheme={toggle} />
         <Hero onCta={cta} />
@@ -101,6 +90,7 @@ function Landing() {
         <FinalCta onCta={cta} />
         <Footer />
       </div>
+      </LCtx.Provider>
 
       <style>{`
         html { scroll-behavior: smooth; }
@@ -283,10 +273,11 @@ function Header({
   isDark: boolean;
   onToggleTheme: () => void;
 }) {
+  const { c, locale } = useL();
   return (
     <header className="lp-header sticky top-0 z-50 backdrop-blur-xl">
       <div className="mx-auto max-w-7xl px-4 sm:px-5 md:px-8 h-[4.5rem] md:h-20 flex items-center justify-between gap-3">
-        <a href="/" className="flex items-center gap-2.5">
+        <a href={locale === "es-ES" ? "/es" : "/"} className="flex items-center gap-2.5">
           <span className="grid h-10 w-10 md:h-11 md:w-11 place-items-center rounded-2xl btn-glow" style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}>
             <Zap className="size-5 text-black" strokeWidth={2.6} />
           </span>
@@ -295,30 +286,38 @@ function Header({
           </span>
         </a>
         <nav className="hidden md:flex items-center gap-8 text-[15px] font-semibold text-white/70">
-          <a href="#como" className="hover:text-white transition">Como funciona</a>
-          <a href="#recursos" className="hover:text-white transition">Recursos</a>
-          <a href="#planos" className="hover:text-white transition">Planos</a>
-          <a href="#faq" className="hover:text-white transition">Dúvidas</a>
+          <a href="#como" className="hover:text-white transition">{c.nav.como}</a>
+          <a href="#recursos" className="hover:text-white transition">{c.nav.recursos}</a>
+          <a href="#planos" className="hover:text-white transition">{c.nav.planos}</a>
+          <a href="#faq" className="hover:text-white transition">{c.nav.faq}</a>
         </nav>
         <div className="flex items-center gap-2">
+          <div role="group" aria-label={c.langLabel} className="flex rounded-xl glass p-0.5 text-[12px] font-bold">
+            {(["pt-BR", "es-ES"] as const).map((l) => (
+              <a key={l} href={l === "es-ES" ? "/es" : "/"} onClick={() => setPublicLocale(l)} aria-current={l === locale ? "true" : undefined}
+                className={`px-2 py-1.5 rounded-lg transition ${l === locale ? "bg-white/10 text-white" : "text-white/55 hover:text-white"}`}>
+                {l === "es-ES" ? "ES" : "PT"}
+              </a>
+            ))}
+          </div>
           <button
             type="button"
             onClick={onToggleTheme}
-            aria-label="Alternar tema"
-            title={isDark ? "Tema claro" : "Tema escuro"}
+            aria-label={c.themeToggle}
+            title={isDark ? c.themeLight : c.themeDark}
             className="size-10 grid place-items-center rounded-xl glass text-white/80 hover:text-white transition"
           >
             {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </button>
           <button onClick={() => onCta("/entrar")} className="hidden sm:inline text-[15px] font-semibold px-4 py-2.5 rounded-xl text-white/80 hover:text-white">
-            Entrar
+            {c.entrar}
           </button>
           <button
             onClick={() => onCta("#planos")}
             className="text-[15px] font-bold px-5 py-3 rounded-xl text-black btn-glow"
             style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}
           >
-            Ver planos
+            {c.verPlanos}
           </button>
         </div>
       </div>
@@ -329,6 +328,7 @@ function Header({
 
 /* ===================== HERO ===================== */
 function Hero({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#planos", plano?: string) => void }) {
+  const { c } = useL();
   return (
     <section className="relative px-4 sm:px-6 md:px-8 pt-12 md:pt-28 pb-16 md:pb-24">
       <div className="absolute inset-0 grid-bg [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)] opacity-40 pointer-events-none" />
@@ -336,16 +336,15 @@ function Hero({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#planos",
         <div className="text-center lg:text-left">
           <div className="inline-flex items-center gap-2 text-[13px] px-3.5 py-1.5 rounded-full glass">
             <span className="relative inline-block size-2 rounded-full bg-[#25D366] dot-pulse" />
-            <span className="text-white/80 font-semibold">WhatsApp + IA + CRM no automático</span>
+            <span className="text-white/80 font-semibold">{c.heroBadge}</span>
           </div>
 
           <h1 className="font-display text-[clamp(3rem,10vw,7rem)] leading-[0.92] mt-6 tracking-tight font-black">
-            Sua IA atende o WhatsApp <span className="text-grad">24h</span> e organiza o CRM <span className="text-grad">sozinha</span>.
+            {c.heroA}<span className="text-grad">{c.heroHl1}</span>{c.heroB}<span className="text-grad">{c.heroHl2}</span>.
           </h1>
 
           <p className="mt-6 text-[17px] sm:text-xl text-white/70 max-w-xl mx-auto lg:mx-0 leading-relaxed">
-            Conecte seu número, treine o agente em uma tela e veja cada lead ser respondido na hora,
-            qualificado e movido no funil — sem você levantar o dedo.
+            {c.heroP}
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3 justify-center lg:justify-start">
@@ -354,21 +353,19 @@ function Hero({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#planos",
               className="group inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl text-black font-bold text-[16px] btn-glow"
               style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}
             >
-              Começar 3 dias grátis
+              {c.ctaTrial}
               <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
             </button>
             <button
               onClick={() => onCta("/demo/dashboard")}
               className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl glass-strong text-white/90 hover:bg-white/10 transition text-[16px] font-semibold cursor-pointer"
             >
-              <Play className="size-4" /> Ver demonstração
+              <Play className="size-4" /> {c.ctaDemo}
             </button>
           </div>
 
           <ul className="mt-7 flex flex-wrap justify-center lg:justify-start gap-x-5 gap-y-2 text-sm text-white/65 font-medium">
-            <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> 3 dias grátis, sem cartão</li>
-            <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> Conecta em 2 minutos</li>
-            <li className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> Cancele quando quiser</li>
+            {c.heroChecks.map((x) => <li key={x} className="flex items-center gap-1.5"><Check className="size-4 text-[#25D366]" /> {x}</li>)}
           </ul>
         </div>
 
@@ -381,6 +378,7 @@ function Hero({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#planos",
 }
 
 function PhoneMock() {
+  const { c } = useL();
   return (
     <div className="relative animate-float">
       {/* glow */}
@@ -410,27 +408,22 @@ function PhoneMock() {
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate">AtendAi • IA</div>
               <div className="text-[10px] text-[#25D366] flex items-center gap-1.5">
-                <span className="size-1.5 rounded-full bg-[#25D366]" /> online agora
+                <span className="size-1.5 rounded-full bg-[#25D366]" /> {c.phoneOnline}
               </div>
             </div>
           </div>
           {/* messages */}
           <div className="flex-1 px-3 py-4 space-y-3 overflow-hidden">
-            <Bubble side="left" delay="0s">Oi! Vi o anúncio do site. Vocês ainda têm vaga pra essa semana?</Bubble>
-            <Bubble side="right" delay=".4s">Oi Marina, tudo bem? 👋 Temos sim! Pra qual serviço você tá pensando?</Bubble>
-            <Bubble side="left" delay=".8s">Quero fazer design de sobrancelha + cílios</Bubble>
-            <Bubble side="right" delay="1.2s">
-              Perfeito 🤌 Tenho quinta 15h ou sexta 10h. Qual prefere?
-            </Bubble>
+            {c.bubbles.map((b, i) => <Bubble key={i} side={i % 2 ? "right" : "left"} delay={`${i * 0.4}s`}>{b}</Bubble>)}
             <div className="flex items-center gap-2 text-[10px] text-white/50 pl-2 reveal" style={{ animationDelay: "1.6s" }}>
               <Sparkles className="size-3 text-[#25D366]" />
-              respondido pela IA em 3s
+              {c.repliedIn}
             </div>
           </div>
           {/* input */}
           <div className="px-3 py-3 flex items-center gap-2" style={{ background: "var(--lp-chat-header-bg)" }}>
             <div className="flex-1 h-9 rounded-full px-4 text-xs text-white/40 grid place-items-start content-center" style={{ background: "var(--lp-input-pill)" }}>
-              Mensagem
+              {c.inputPh}
             </div>
             <div className="size-9 rounded-full grid place-items-center" style={{ background: "#25D366" }}>
               <ArrowRight className="size-4 text-black" />
@@ -444,13 +437,13 @@ function PhoneMock() {
       <div className="hidden sm:block absolute -left-10 sm:-left-16 bottom-20 glass-strong rounded-2xl p-3.5 w-[220px] shadow-2xl animate-float" style={{ animationDelay: "1.5s" }}>
         <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-white/50 font-semibold">
           <KanbanSquare className="size-3 text-[#25D366]" />
-          CRM atualizado
+          {c.crmUpdated}
         </div>
         <div className="mt-2 flex items-center gap-2.5">
           <div className="size-9 rounded-full grid place-items-center font-bold text-black" style={{ background: "#a3e635" }}>M</div>
           <div className="min-w-0">
             <div className="text-sm font-semibold truncate">Marina</div>
-            <div className="text-[11px] text-white/55 truncate">8 pessoas → Negociando</div>
+            <div className="text-[11px] text-white/55 truncate">{c.crmMove}</div>
           </div>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-white/10 overflow-hidden">
@@ -461,7 +454,7 @@ function PhoneMock() {
       {/* floating badge top */}
       <div className="hidden sm:flex absolute -right-6 sm:-right-10 top-12 glass-strong rounded-xl px-3 py-2 items-center gap-2 shadow-2xl animate-float" style={{ animationDelay: "3s" }}>
         <span className="size-2 rounded-full bg-[#25D366] dot-pulse relative" />
-        <span className="text-xs font-medium">Lead respondido</span>
+        <span className="text-xs font-medium">{c.leadReplied}</span>
       </div>
     </div>
   );
@@ -492,12 +485,8 @@ function Bubble({ children, side, delay }: { children: React.ReactNode; side: "l
 
 /* ===================== STATS ===================== */
 function Stats() {
-  const items = [
-    { n: "3s", l: "tempo de resposta" },
-    { n: "24/7", l: "no ar" },
-    { n: "+38%", l: "conversão" },
-    { n: "0", l: "lead esquecido" },
-  ];
+  const { c } = useL();
+  const items = c.stats.map(([n, l]) => ({ n, l }));
   return (
     <section className="px-5 md:px-8 py-12 md:py-16">
       <div className="mx-auto max-w-6xl glass rounded-3xl grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/10 reveal" data-reveal>
@@ -514,17 +503,14 @@ function Stats() {
 
 /* ===================== PAIN ===================== */
 function Pain() {
+  const { c } = useL();
   return (
     <section className="px-5 md:px-8 py-24 md:py-28">
       <div className="mx-auto max-w-3xl text-center reveal" data-reveal>
         <h2 className="font-display text-4xl md:text-6xl leading-[1.02] tracking-tight">
-          Lead que espera, lead que <span className="text-grad">compra do concorrente</span>.
+          {c.painA}<span className="text-grad">{c.painHl}</span>.
         </h2>
-        <p className="mt-6 text-lg md:text-xl text-white/65 leading-relaxed">
-          A primeira empresa a responder vende. Sempre. Enquanto você está dirigindo, atendendo na loja
-          ou dormindo, os leads do anúncio que você pagou estão sumindo na fila. O AtendAi responde
-          em segundos, qualifica e já te entrega o lead pronto pra fechar.
-        </p>
+        <p className="mt-6 text-lg md:text-xl text-white/65 leading-relaxed">{c.painP}</p>
       </div>
     </section>
   );
@@ -532,18 +518,14 @@ function Pain() {
 
 /* ===================== HOW IT WORKS ===================== */
 function HowItWorks() {
-  const steps = [
-    { n: "01", t: "Informe os dados da empresa", d: "Cadastre as informações, serviços, horários e regras do negócio.", icon: <Users className="size-5" /> },
-    { n: "02", t: "Configure o atendente", d: "Defina como a IA deve atender, qualificar, vender e quando transferir para uma pessoa.", icon: <Bot className="size-5" /> },
-    { n: "03", t: "Teste o atendimento", d: "Converse com o atendente antes de colocá-lo em funcionamento.", icon: <Play className="size-5" /> },
-    { n: "04", t: "Conecte o WhatsApp", d: "Faça a conexão seguindo as instruções exibidas na plataforma.", icon: <MessageSquareText className="size-5" /> },
-    { n: "05", t: "Comece a atender", d: "O AtendAi começa a atender, organizar os contatos e atualizar o CRM.", icon: <KanbanSquare className="size-5" /> },
-  ];
+  const { c } = useL();
+  const icons = [<Users className="size-5" />, <Bot className="size-5" />, <Play className="size-5" />, <MessageSquareText className="size-5" />, <KanbanSquare className="size-5" />];
+  const steps = c.steps.map(([t, d], i) => ({ n: `0${i + 1}`, t, d, icon: icons[i] }));
   return (
     <section id="como" className="px-5 md:px-8 py-24 md:py-28">
       <div className="mx-auto max-w-6xl">
-        <SectionTitle eyebrow="Como funciona" title={<>Em 5 passos, <span className="text-grad">você mesmo configura</span>.</>} />
-        <p className="text-center text-white/55 max-w-2xl mx-auto mt-4 text-[15px]">Configure o AtendAi seguindo o passo a passo da própria plataforma. Se preferir, você também pode contratar nossa equipe para realizar a implementação — serviço opcional, cobrado à parte e não incluído na assinatura.</p>
+        <SectionTitle eyebrow={c.howEyebrow} title={<>{c.howA}<span className="text-grad">{c.howHl}</span>.</>} />
+        <p className="text-center text-white/55 max-w-2xl mx-auto mt-4 text-[15px]">{c.howP}</p>
         <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {steps.map((s) => (
             <div key={s.n} className="glass border-sheen rounded-2xl p-7 relative reveal" data-reveal>
@@ -563,18 +545,13 @@ function HowItWorks() {
 
 /* ===================== FEATURES ===================== */
 function Features() {
-  const items = [
-    { t: "IA incluída que atende e vende", d: "Atendimento inicial, qualificação de contatos, apoio em vendas e apresentação de produtos e serviços.", icon: <Bot className="size-5" /> },
-    { t: "Multiagentes", d: "Vários atendentes de IA, cada um com seu papel, dentro da mesma empresa.", icon: <Sparkles className="size-5" /> },
-    { t: "Agenda completa", d: "Agendamento, reagendamento, cancelamento e lembretes automáticos.", icon: <LineChart className="size-5" /> },
-    { t: "Follow-up e campanhas", d: "Retome contatos que pararam de responder e envie campanhas para quem autorizou.", icon: <PauseCircle className="size-5" /> },
-    { t: "CRM com funil", d: "A IA move os cards no funil conforme o atendimento avança.", icon: <KanbanSquare className="size-5" /> },
-    { t: "Caixa de entrada da equipe", d: "Transferência para setor ou atendente humano, com resumo da conversa.", icon: <MessageSquareText className="size-5" /> },
-  ];
+  const { c } = useL();
+  const icons = [<Bot className="size-5" />, <Sparkles className="size-5" />, <LineChart className="size-5" />, <PauseCircle className="size-5" />, <KanbanSquare className="size-5" />, <MessageSquareText className="size-5" />];
+  const items = c.features.map(([t, d], i) => ({ t, d, icon: icons[i] }));
   return (
     <section id="recursos" className="px-5 md:px-8 py-24 md:py-28">
       <div className="mx-auto max-w-6xl">
-        <SectionTitle eyebrow="Recursos" title={<>Tudo que você precisa pra <span className="text-grad">parar de perder venda</span>.</>} />
+        <SectionTitle eyebrow={c.featEyebrow} title={<>{c.featA}<span className="text-grad">{c.featHl}</span>.</>} />
         <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.map((it) => (
             <div key={it.t} className="glass border-sheen rounded-2xl p-6 hover:-translate-y-1 transition-transform reveal" data-reveal>
@@ -597,31 +574,30 @@ function Pricing({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plano
   const [sel, setSel] = useState<string>(DEFAULT_PERIODO_SLUG);
   useEffect(() => { fetchAtendaiPeriodos().then(setPeriodos).catch(() => setPeriodos([])); }, []);
   const atual = periodos.find((p) => p.slug === sel) ?? periodos[0];
+  const { c, locale } = useL();
+  const nf = (n: number) => n.toLocaleString(locale);
   const inclui = [
-    "IA incluída",
-    "Multiagentes",
-    atual ? `${atual.limite_mensagens.toLocaleString("pt-BR")} mensagens enviadas por mês` : "Mensagens enviadas por mês",
-    atual ? `${atual.limite_usuarios} usuários no painel` : "Usuários no painel",
-    atual ? `${atual.limite_contatos.toLocaleString("pt-BR")} contatos` : "Contatos",
-    "Agendamento, reagendamento, cancelamento e lembretes",
-    "Follow-up e campanhas",
-    "CRM com funil e caixa de entrada da equipe",
-    "Transferência para setor ou atendente humano",
+    c.incIa,
+    c.incMulti,
+    atual ? fmt(c.incMsgs, nf(atual.limite_mensagens)) : c.incMsgs0,
+    atual ? fmt(c.incUsers, atual.limite_usuarios) : c.incUsers0,
+    atual ? fmt(c.incContacts, nf(atual.limite_contatos)) : c.incContacts0,
+    ...c.incRest,
   ];
   return (
     <section id="planos" className="px-5 md:px-8 py-24 md:py-28">
       <div className="mx-auto max-w-4xl">
-        <SectionTitle eyebrow="Plano AtendAi" title={<>Um plano. <span className="text-grad">Tudo incluído</span>.</>} />
-        <p className="text-center text-white/55 max-w-2xl mx-auto mt-4 text-[15px]">Todas as funcionalidades estão incluídas. O que muda é somente o período contratado.</p>
+        <SectionTitle eyebrow={c.priceEyebrow} title={<>{c.priceA}<span className="text-grad">{c.priceHl}</span>.</>} />
+        <p className="text-center text-white/55 max-w-2xl mx-auto mt-4 text-[15px]">{c.priceP}</p>
         <div className="mt-10 rounded-2xl p-7 glass-strong reveal" data-reveal style={{ boxShadow: "0 20px 60px -20px rgba(37,211,102,0.5), 0 0 0 1px rgba(37,211,102,0.4) inset" }}>
-          <div className="text-center text-[11px] uppercase tracking-wider text-white/50 font-semibold">Preço promocional</div>
+          <div className="text-center text-[11px] uppercase tracking-wider text-white/50 font-semibold">{c.promo}</div>
           <div className="mt-4 grid sm:grid-cols-3 gap-3">
             {periodos.map((p) => {
               const on = p.slug === atual?.slug;
               return (
                 <button key={p.id} onClick={() => setSel(p.slug)} className={`relative rounded-xl p-4 text-left transition ${on ? "glass-strong" : "glass hover:bg-white/5"}`} style={on ? { boxShadow: "0 0 0 2px #25D366 inset" } : undefined}>
                   {p.destaque && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full text-black whitespace-nowrap" style={{ background: "linear-gradient(135deg,#25D366,#a3e635)" }}>Melhor condição</div>
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full text-black whitespace-nowrap" style={{ background: "linear-gradient(135deg,#25D366,#a3e635)" }}>{c.best}</div>
                   )}
                   <div className="text-sm text-white/60 font-semibold uppercase tracking-wider">{p.nome}</div>
                   <div className="font-display text-3xl mt-1">{formatBRL(p.preco_cents)}</div>
@@ -641,27 +617,27 @@ function Pricing({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plano
             ))}
           </ul>
           <button onClick={() => onCta("/entrar", atual?.slug ?? DEFAULT_PERIODO_SLUG)} className="mt-7 w-full px-4 py-3 rounded-xl font-semibold transition text-black btn-glow" style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}>
-            Começar 3 dias grátis
+            {c.ctaTrial}
           </button>
-          <p className="mt-2 text-center text-xs text-white/55">3 dias grátis, sem cartão.</p>
+          <p className="mt-2 text-center text-xs text-white/55">{c.noCard}</p>
         </div>
-        <p className="mt-5 text-center text-xs text-white/40">Limite de mensagens renovado todo mês em qualquer período. Implementação pela nossa equipe é opcional e cobrada à parte.</p>
+        <p className="mt-5 text-center text-xs text-white/40">{c.priceNote}</p>
         <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-7 flex flex-col md:flex-row md:items-center gap-5 md:gap-8">
           <div className="flex-1 min-w-0">
-            <h3 className="font-display text-xl md:text-2xl font-bold">Sua operação precisa de algo mais completo?</h3>
-            <p className="mt-2 text-sm text-white/70">Se sua empresa possui mais de um número de WhatsApp, filiais, equipes maiores, diferentes setores ou processos específicos, podemos montar uma solução personalizada para sua operação.</p>
-            <p className="mt-2 text-sm text-white/60">Nossa equipe analisa seu atendimento, estrutura os fluxos, configura os agentes e realiza a implementação completa.</p>
+            <h3 className="font-display text-xl md:text-2xl font-bold">{c.bigTitle}</h3>
+            <p className="mt-2 text-sm text-white/70">{c.bigP1}</p>
+            <p className="mt-2 text-sm text-white/60">{c.bigP2}</p>
           </div>
           <div className="w-full md:w-auto md:shrink-0 text-center">
             <a
-              href={`${supportWhatsappUrl}?text=${encodeURIComponent("Olá! Minha empresa possui uma operação maior e quero conhecer a solução personalizada.")}`}
+              href={`${supportWhatsappUrl}?text=${encodeURIComponent(c.bigWa)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full md:w-auto px-5 py-3 rounded-xl font-semibold transition border border-[#25D366]/50 text-[#25D366] hover:bg-[#25D366]/10"
             >
-              Quero uma solução personalizada
+              {c.bigCta}
             </a>
-            <p className="mt-2 text-xs text-white/55">Fale com um especialista para analisar sua operação.</p>
+            <p className="mt-2 text-xs text-white/55">{c.bigSub}</p>
           </div>
         </div>
       </div>
@@ -671,24 +647,12 @@ function Pricing({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plano
 
 /* ===================== TESTIMONIALS ===================== */
 function Testimonials() {
-  const items = [
-    {
-      n: "Camila — Studio de Estética",
-      t: "Eu atendia entre clientes e perdia muita agenda. Agora a IA marca sozinha. Faturei 32% a mais no segundo mês.",
-    },
-    {
-      n: "Rafael — Loja de Suplementos",
-      t: "A galera me chamava no WhatsApp 1h da manhã. Hoje todo mundo é respondido na hora. CRM organizado sem eu tocar.",
-    },
-    {
-      n: "Marina — Agência de Marketing",
-      t: "Tirei o lead frio do operacional do time. A IA filtra e só passa quem é quente. Salvou minha sanidade.",
-    },
-  ];
+  const { c } = useL();
+  const items = c.testimonials.map(([n, t]) => ({ n, t }));
   return (
     <section className="px-5 md:px-8 py-24 md:py-28">
       <div className="mx-auto max-w-6xl">
-        <SectionTitle eyebrow="Quem usa" title={<>Times que pararam de perder venda <span className="text-grad">no 'oi, sumiu'</span>.</>} />
+        <SectionTitle eyebrow={c.testEyebrow} title={<>{c.testA}<span className="text-grad">{c.testHl}</span>.</>} />
         <div className="mt-12 grid md:grid-cols-3 gap-5">
           {items.map((it) => (
             <div key={it.n} className="glass border-sheen rounded-2xl p-6 reveal" data-reveal>
@@ -707,29 +671,13 @@ function Testimonials() {
 
 /* ===================== FAQ ===================== */
 function Faq() {
-  const items = [
-    {
-      q: "Preciso saber programar?",
-      a: "Não. Você conecta o WhatsApp por QR Code, preenche uma tela contando sobre sua empresa, e a IA já tá atendendo. Quem sabe usar WhatsApp consegue.",
-    },
-    {
-      q: "Funciona com vários atendentes?",
-      a: "Funciona. Você convida sua equipe, cada um com seu acesso. A IA atende o que dá pra atender; o que precisa de humano, o time assume.",
-    },
-    {
-      q: "A IA responde igual um robô?",
-      a: "Não. Ela é treinada pra falar como gente — mensagens curtas, uma pergunta por vez, no tom da sua empresa. Em testes cegos, cliente nem percebe.",
-    },
-    {
-      q: "Meu número fica seguro?",
-      a: "Sim. Cada empresa tem ambiente isolado, dados criptografados e você é dono da conversa. Você pode desconectar a qualquer momento.",
-    },
-  ];
+  const { c } = useL();
+  const items = c.faq.map(([q, a]) => ({ q, a }));
   const [open, setOpen] = useState<number | null>(0);
   return (
     <section id="faq" className="px-5 md:px-8 py-24 md:py-28">
       <div className="mx-auto max-w-3xl">
-        <SectionTitle eyebrow="Dúvidas" title={<>Antes de você perguntar.</>} />
+        <SectionTitle eyebrow={c.faqEyebrow} title={<>{c.faqTitle}</>} />
         <div className="mt-10 space-y-3">
           {items.map((it, i) => {
             const isOpen = open === i;
@@ -753,6 +701,7 @@ function Faq() {
 
 /* ===================== FINAL CTA ===================== */
 function FinalCta({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#planos", plano?: string) => void }) {
+  const { c } = useL();
   return (
     <section className="px-4 sm:px-5 md:px-8 py-20 md:py-28">
       <div
@@ -768,21 +717,19 @@ function FinalCta({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plan
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 size-[500px] rounded-full opacity-40 blur-3xl" style={{ background: "radial-gradient(circle,#25D366,transparent 60%)" }} />
         <div className="relative">
           <h2 className="font-display text-4xl sm:text-5xl md:text-7xl leading-[0.98] tracking-tight">
-            Pare de perder venda no <span className="text-grad">"oi, sumiu"</span>.
+            {c.finalA}<span className="text-grad">{c.finalHl}</span>.
           </h2>
-          <p className="mt-6 text-white/70 max-w-xl mx-auto text-lg sm:text-xl">
-            3 dias grátis pra ver a IA atendendo seu WhatsApp e fechando lead sozinha. Sem cartão.
-          </p>
+          <p className="mt-6 text-white/70 max-w-xl mx-auto text-lg sm:text-xl">{c.finalP}</p>
           <div className="mt-10 flex flex-col sm:flex-row flex-wrap justify-center gap-3">
             <button
               onClick={() => onCta("/entrar")}
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-black font-bold text-base sm:text-lg btn-glow"
               style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}
             >
-              Começar 3 dias grátis <ArrowRight className="size-5" />
+              {c.ctaTrial} <ArrowRight className="size-5" />
             </button>
             <button onClick={() => onCta("/demo/dashboard")} className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl glass-strong text-white hover:bg-white/10 text-base sm:text-lg font-medium">
-              <Play className="size-4" /> Ver demonstração
+              <Play className="size-4" /> {c.ctaDemo}
             </button>
           </div>
         </div>
@@ -793,6 +740,7 @@ function FinalCta({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plan
 
 /* ===================== FOOTER ===================== */
 function Footer() {
+  const { c } = useL();
   return (
     <footer className="px-5 md:px-8 pt-16 md:pt-20 pb-10 border-t border-white/5">
       <div className="mx-auto max-w-6xl">
@@ -804,39 +752,37 @@ function Footer() {
               </span>
               <span className="font-brand text-[1.4rem] leading-none">Atend<span className="text-grad">AI</span></span>
             </div>
-            <p className="mt-4 text-sm text-white/55 leading-relaxed max-w-xs">
-              IA que atende seu WhatsApp 24h, qualifica e organiza o CRM sozinha. Você só fecha.
-            </p>
+            <p className="mt-4 text-sm text-white/55 leading-relaxed max-w-xs">{c.footP}</p>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-white/45 font-bold">Produto</div>
+            <div className="text-xs uppercase tracking-[0.2em] text-white/45 font-bold">{c.footProduto}</div>
             <ul className="mt-4 space-y-2.5 text-sm text-white/65">
-              <li><a href="#recursos" className="hover:text-white">Recursos</a></li>
-              <li><a href="#como" className="hover:text-white">Como funciona</a></li>
-              <li><a href="#planos" className="hover:text-white">Planos</a></li>
-              <li><a href="/demo/dashboard" className="hover:text-white">Demonstração</a></li>
+              <li><a href="#recursos" className="hover:text-white">{c.nav.recursos}</a></li>
+              <li><a href="#como" className="hover:text-white">{c.nav.como}</a></li>
+              <li><a href="#planos" className="hover:text-white">{c.nav.planos}</a></li>
+              <li><a href="/demo/dashboard" className="hover:text-white">{c.footDemo}</a></li>
             </ul>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-white/45 font-bold">Empresa</div>
+            <div className="text-xs uppercase tracking-[0.2em] text-white/45 font-bold">{c.footEmpresa}</div>
             <ul className="mt-4 space-y-2.5 text-sm text-white/65">
-              <li><a href="#faq" className="hover:text-white">Dúvidas</a></li>
-              <li><a href="#" className="hover:text-white">Contato</a></li>
-              <li><a href="#" className="hover:text-white">Suporte</a></li>
+              <li><a href="#faq" className="hover:text-white">{c.nav.faq}</a></li>
+              <li><a href="#" className="hover:text-white">{c.footContato}</a></li>
+              <li><a href="#" className="hover:text-white">{c.footSuporte}</a></li>
             </ul>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-white/45 font-bold">Legal</div>
+            <div className="text-xs uppercase tracking-[0.2em] text-white/45 font-bold">{c.footLegal}</div>
             <ul className="mt-4 space-y-2.5 text-sm text-white/65">
-              <li><a href="/termos" className="hover:text-white">Termos</a></li>
-              <li><a href="/privacidade" className="hover:text-white">Privacidade</a></li>
-              <li><a href="/reembolso" className="hover:text-white">Reembolso</a></li>
+              <li><a href="/termos" className="hover:text-white">{c.footTermos}</a></li>
+              <li><a href="/privacidade" className="hover:text-white">{c.footPriv}</a></li>
+              <li><a href="/reembolso" className="hover:text-white">{c.footReemb}</a></li>
             </ul>
           </div>
         </div>
         <div className="mt-12 pt-6 border-t border-white/10 flex flex-col md:flex-row gap-3 items-center justify-between text-xs text-white/40">
-          <span>© {new Date().getFullYear()} {brand.name}. Todos os direitos reservados.</span>
-          <span>Feito no Brasil com ☕ e WhatsApp.</span>
+          <span>© {new Date().getFullYear()} {brand.name}. {c.rights}</span>
+          <span>{c.madeIn}</span>
         </div>
       </div>
     </footer>
@@ -903,5 +849,4 @@ function useTheme() {
   return { isDark, toggle };
 }
 
-export const _unused = redirect;
 
