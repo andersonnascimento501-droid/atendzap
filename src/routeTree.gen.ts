@@ -19,7 +19,6 @@ import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as AppRouteImport } from './routes/app'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as MasterIndexRouteImport } from './routes/master/index'
 import { Route as DemoIndexRouteImport } from './routes/demo/index'
 import { Route as MasterTemplatesRouteImport } from './routes/master/templates'
@@ -120,11 +119,6 @@ const DemoRoute = DemoRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MasterIndexRoute = MasterIndexRouteImport.update({
@@ -390,7 +384,6 @@ const ApiPublicBillingWebhookRoute = ApiPublicBillingWebhookRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/demo': typeof DemoRouteWithChildren
   '/entrar': typeof EntrarRoute
@@ -454,7 +447,6 @@ export interface FileRoutesByFullPath {
   '/api/public/zernio-webhook/$token': typeof ApiPublicZernioWebhookTokenRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/entrar': typeof EntrarRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
@@ -517,7 +509,6 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/demo': typeof DemoRouteWithChildren
   '/entrar': typeof EntrarRoute
@@ -583,7 +574,6 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/app'
     | '/demo'
     | '/entrar'
@@ -647,7 +637,6 @@ export interface FileRouteTypes {
     | '/api/public/zernio-webhook/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/app'
     | '/entrar'
     | '/esqueci-senha'
@@ -709,7 +698,6 @@ export interface FileRouteTypes {
     | '/api/public/zernio-webhook/$token'
   id:
     | '__root__'
-    | '/'
     | '/app'
     | '/demo'
     | '/entrar'
@@ -774,7 +762,6 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   DemoRoute: typeof DemoRouteWithChildren
   EntrarRoute: typeof EntrarRoute
@@ -867,13 +854,6 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/master/': {
@@ -1354,7 +1334,6 @@ const MasterRouteWithChildren =
   MasterRoute._addFileChildren(MasterRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   DemoRoute: DemoRouteWithChildren,
   EntrarRoute: EntrarRoute,
