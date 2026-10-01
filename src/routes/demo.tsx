@@ -6,70 +6,76 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileBottomNav, type MobileNavItem } from "@/components/mobile-bottom-nav";
+import { translate, type TKey } from "@/i18n";
+import { usePublicLocale } from "@/i18n/public";
 
 export const Route = createFileRoute("/demo")({
   component: DemoLayout,
 });
 
-const sections: { label: string; items: { to: string; label: string; icon: any; tag?: string }[] }[] = [
+const sectionsDef: { label: TKey; items: { to: string; label: TKey; icon: any; tag?: string }[] }[] = [
   {
-    label: "Atendimento",
+    label: "demo.atendimento",
     items: [
-      { to: "/demo/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/demo/conversas", label: "Conversas", icon: Inbox },
-      { to: "/demo/crm", label: "CRM Kanban", icon: KanbanSquare },
-      { to: "/demo/agenda", label: "Agenda", icon: CalendarDays },
-      { to: "/demo/agente", label: "Agente IA", icon: Bot },
+      { to: "/demo/dashboard", label: "demo.dashboard", icon: LayoutDashboard },
+      { to: "/demo/conversas", label: "demo.conversas", icon: Inbox },
+      { to: "/demo/crm", label: "demo.crmKanban", icon: KanbanSquare },
+      { to: "/demo/agenda", label: "demo.agenda", icon: CalendarDays },
+      { to: "/demo/agente", label: "demo.agente", icon: Bot },
     ],
   },
   {
-    label: "Crescimento",
+    label: "demo.crescimento",
     items: [
-      { to: "/demo/campanhas", label: "Campanhas", icon: Megaphone },
-      { to: "/demo/relatorios", label: "Relatórios", icon: BarChart3 },
-      { to: "/demo/integracoes", label: "Integrações", icon: Plug },
+      { to: "/demo/campanhas", label: "demo.campanhas", icon: Megaphone },
+      { to: "/demo/relatorios", label: "demo.relatorios", icon: BarChart3 },
+      { to: "/demo/integracoes", label: "demo.integracoes", icon: Plug },
     ],
   },
   {
-    label: "Gestão",
+    label: "demo.gestao",
     items: [
-      { to: "/demo/contatos", label: "Contatos", icon: Contact },
-      { to: "/demo/financeiro", label: "Financeiro", icon: Wallet },
-      { to: "/demo/conexao", label: "Conexão", icon: Smartphone },
-      { to: "/demo/equipe", label: "Equipe", icon: Users },
-      { to: "/demo/configuracoes", label: "Configurações", icon: Settings },
+      { to: "/demo/contatos", label: "demo.contatos", icon: Contact },
+      { to: "/demo/financeiro", label: "demo.financeiro", icon: Wallet },
+      { to: "/demo/conexao", label: "demo.conexao", icon: Smartphone },
+      { to: "/demo/equipe", label: "demo.equipe", icon: Users },
+      { to: "/demo/configuracoes", label: "demo.configuracoes", icon: Settings },
     ],
   },
 ];
 
 const PRIMARY = "var(--brand)";
 
-const mobileItems: MobileNavItem[] = [
-  { to: "/demo/dashboard", label: "Início", icon: LayoutDashboard },
-  { to: "/demo/conversas", label: "Conversas", icon: Inbox },
-  { to: "/demo/crm", label: "CRM", icon: KanbanSquare },
-  { to: "/demo/campanhas", label: "Campanhas", icon: Megaphone },
-  { to: "/demo/agente", label: "Agente", icon: Bot },
+const mobileDef: { to: string; label: TKey; icon: any }[] = [
+  { to: "/demo/dashboard", label: "demo.inicio", icon: LayoutDashboard },
+  { to: "/demo/conversas", label: "demo.conversas", icon: Inbox },
+  { to: "/demo/crm", label: "demo.crmKanban", icon: KanbanSquare },
+  { to: "/demo/campanhas", label: "demo.campanhas", icon: Megaphone },
+  { to: "/demo/agente", label: "demo.agenteCurto", icon: Bot },
 ];
 
 function DemoLayout() {
   const loc = useLocation();
+  const locale = usePublicLocale();
+  const t = (k: TKey) => translate(locale, k);
+  const sections = sectionsDef.map((sec) => ({ label: t(sec.label), items: sec.items.map((i) => ({ ...i, label: t(i.label) })) }));
+  const mobileItems: MobileNavItem[] = mobileDef.map((i) => ({ ...i, label: i.label === "demo.crmKanban" ? "CRM" : t(i.label) }));
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <header className="border-b border-[color:var(--hairline)] bg-[color:var(--panel)]/85 backdrop-blur-xl px-4 py-2.5 text-[12.5px] md:text-[13.5px] flex items-center justify-between gap-3 sticky top-0 z-20">
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles className="size-4 text-[color:var(--brand)] shrink-0" />
           <span className="truncate">
-            <b className="text-gradient-brand font-display font-bold">Modo demo</b>
-            <span className="hidden sm:inline"> — dados de exemplo, somente leitura.</span>
+            <b className="text-gradient-brand font-display font-bold">{t("demo.modo")}</b>
+            <span className="hidden sm:inline">{t("demo.aviso")}</span>
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
           <Link to="/entrar" className="text-[12.5px] md:text-sm font-semibold px-3 py-1.5 rounded-md bg-gradient-brand text-primary-foreground hover:opacity-90 whitespace-nowrap">
-            Começar 3 dias grátis
+            {t("demo.comecar")}
           </Link>
-          <span className="hidden sm:inline text-[11.5px] text-muted-foreground">Sem cartão</span>
+          <span className="hidden sm:inline text-[11.5px] text-muted-foreground">{t("demo.semCartao")}</span>
         </div>
       </header>
 
@@ -83,7 +89,7 @@ function DemoLayout() {
         </div>
         <div className="min-w-0">
           <div className="font-display font-bold tracking-tight text-[14.5px] leading-none truncate">{brand.name}</div>
-          <div className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground truncate mt-0.5">Demo · Clínica de Estética</div>
+          <div className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground truncate mt-0.5">Demo · {t("demo.clinica")}</div>
         </div>
       </div>
 
@@ -158,8 +164,8 @@ function DemoLayout() {
                 V
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[13.5px] font-semibold truncate">Visitante</div>
-                <div className="text-[11px] text-muted-foreground truncate">Modo demo</div>
+                <div className="text-[13.5px] font-semibold truncate">{t("demo.visitante")}</div>
+                <div className="text-[11px] text-muted-foreground truncate">{t("demo.modo")}</div>
               </div>
               <Link to="/entrar" title="Entrar" className="size-8 grid place-items-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-[color:var(--panel)]">
                 <LogIn className="size-4" />
