@@ -172,7 +172,7 @@ export const createCompanyWithOwner = createServerFn({ method: "POST" })
     return {
       nome, ownerEmail,
       planId: d.planId || null,
-      trialDays: Math.max(0, Math.min(90, Math.floor(d.trialDays ?? 3))),
+      trialDays: Math.max(0, Math.min(90, Math.floor(d.trialDays ?? 7))),
       password,
     };
   })

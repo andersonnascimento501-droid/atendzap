@@ -25,7 +25,7 @@ export const createCheckoutCompany = createServerFn({ method: "POST" })
     if (existing?.company_id) return { companyId: existing.company_id as string };
 
     // Trial days: do plano escolhido (ou starter como fallback).
-    let trialDays = 3;
+    let trialDays = 7;
     let planSlug = data.plano_slug;
     if (planSlug) {
       const { data: plan } = await supabaseAdmin
@@ -33,14 +33,14 @@ export const createCheckoutCompany = createServerFn({ method: "POST" })
         .select("trial_days, slug")
         .eq("slug", planSlug)
         .maybeSingle();
-      if (plan?.trial_days != null) trialDays = Number(plan.trial_days) || trialDays;
+      if (plan?.trial_days != null) { const n = Number(plan.trial_days); if (Number.isFinite(n) && n >= 0) trialDays = n; }
     } else {
       const { data: starter } = await supabaseAdmin
         .from("plan")
         .select("trial_days, slug")
         .eq("slug", "atendai-mensal")
         .maybeSingle();
-      if (starter?.trial_days != null) trialDays = Number(starter.trial_days) || trialDays;
+      if (starter?.trial_days != null) { const n = Number(starter.trial_days); if (Number.isFinite(n) && n >= 0) trialDays = n; }
       planSlug = starter?.slug ?? null;
     }
 

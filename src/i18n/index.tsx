@@ -12,6 +12,7 @@ const DICTS: Record<Locale, Dict> = { "pt-BR": ptBR, "es-ES": esES };
 export function translate(locale: Locale, key: TKey, vars?: Record<string, string | number>): string {
   let s = DICTS[locale]?.[key] ?? ptBR[key] ?? String(key);
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
+  if (vars && Number(vars.dias) === 1) s = s.replace(/\b1 dias\b/g, "1 dia").replace(/\b1 días\b/g, "1 día");
   return s;
 }
 

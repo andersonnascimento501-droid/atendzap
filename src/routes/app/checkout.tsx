@@ -171,13 +171,13 @@ function CheckoutPage() {
 
   const headerBadge = paywallMode
     ? { icon: <Lock className="size-3.5 mr-1.5" />, text: "Seu período de teste terminou" }
-    : { icon: <Sparkles className="size-3.5 mr-1.5" />, text: `${plans[0]?.trial_days ?? 3} dias grátis sem cartão` };
+    : { icon: <Sparkles className="size-3.5 mr-1.5" />, text: `${plans[0]?.trial_days ?? DEFAULT_TRIAL_DAYS} dias grátis sem cartão` };
   const headerTitle = paywallMode
     ? "Ative seu plano para continuar"
     : "Comece grátis em segundos";
   const headerSubtitle = paywallMode
     ? "Seus dados ficam aqui esperando. Assim que o pagamento for confirmado, seu acesso é liberado automaticamente."
-    : "Todas as funcionalidades estão incluídas. O que muda é somente o período contratado. 3 dias grátis, sem cartão. Nada é cobrado durante o teste.";
+    : "Todas as funcionalidades estão incluídas. O que muda é somente o período contratado. ${plano?.trial_days ?? plans[0]?.trial_days ?? DEFAULT_TRIAL_DAYS} dias grátis, sem cartão. Nada é cobrado durante o teste.";
 
   return (
     <div className="min-h-screen bg-background">
@@ -332,7 +332,7 @@ function CheckoutPage() {
                     </div>
                     <p className="text-sm text-muted-foreground mb-5">
                       Plano escolhido: <span className="font-semibold text-foreground">{plano?.nome}</span>.
-                      Você ganha <b>{plano?.trial_days ?? 3} dias grátis</b> pra explorar tudo, sem precisar de cartão.
+                      Você ganha <b>{plano?.trial_days ?? DEFAULT_TRIAL_DAYS} dias grátis</b> pra explorar tudo, sem precisar de cartão.
                       Cobramos só se você decidir continuar.
                     </p>
                     <Button
@@ -342,7 +342,7 @@ function CheckoutPage() {
                       className="w-full md:w-auto min-w-[280px] bg-gradient-brand text-primary-foreground hover:opacity-90 font-semibold"
                     >
                       {creating ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Sparkles className="size-4 mr-2" />}
-                      Começar {plano?.trial_days ?? 3} dias grátis
+                      Começar {plano?.trial_days ?? DEFAULT_TRIAL_DAYS} dias grátis
                     </Button>
                   </>
                 )}
