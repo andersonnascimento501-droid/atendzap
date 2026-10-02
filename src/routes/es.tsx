@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LandingPage } from "@/components/landing-page";
 import { LANDING } from "@/i18n/landing";
+import { fillDays, DEFAULT_TRIAL_DAYS } from "@/lib/atendai-plan";
 
-const c = LANDING["es-ES"];
+const c = fillDays(LANDING["es-ES"], DEFAULT_TRIAL_DAYS);
 
 export const Route = createFileRoute("/es")({
   ssr: false,

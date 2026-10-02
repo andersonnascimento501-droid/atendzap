@@ -46,7 +46,7 @@ const empty: Partial<Plan> = {
   preco_cents: 9700,
   moeda: "BRL",
   intervalo: "month",
-  trial_days: 3,
+  trial_days: 7,
   limite_mensagens: 2000,
   limite_instancias: 1,
   limite_usuarios: 2,

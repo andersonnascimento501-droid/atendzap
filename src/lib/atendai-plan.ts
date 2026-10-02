@@ -43,3 +43,23 @@ export async function fetchAtendaiPeriodos(): Promise<AtendaiPeriodo[]> {
   if (error) throw error;
   return (data ?? []) as AtendaiPeriodo[];
 }
+
+/** Fallback só para exibição enquanto os planos carregam; o prazo real vem de plan.trial_days no servidor. */
+export const DEFAULT_TRIAL_DAYS = 7;
+
+/** Prazo de teste do plano padrão (ou do primeiro ativo), lido do banco. */
+export function trialDaysOf(periodos: Pick<AtendaiPeriodo, "slug" | "trial_days">[], slug?: string | null): number {
+  const p = periodos.find((x) => x.slug === (slug || DEFAULT_PERIODO_SLUG)) ?? periodos[0];
+  return p?.trial_days ?? DEFAULT_TRIAL_DAYS;
+}
+
+/** Substitui {dias} em toda a estrutura de textos (com singular para 1). */
+export function fillDays<T>(obj: T, dias: number): T {
+  const f = (s: string) => {
+    let r = s.replaceAll("{dias}", String(dias));
+    if (dias === 1) r = r.replace(/\b1 dias\b/g, "1 dia").replace(/\b1 días\b/g, "1 día");
+    return r;
+  };
+  const walk = (v: any): any => typeof v === "string" ? f(v) : Array.isArray(v) ? v.map(walk) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)])) : v;
+  return walk(obj);
+}

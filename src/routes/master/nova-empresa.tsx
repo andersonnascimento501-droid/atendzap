@@ -30,7 +30,7 @@ function NovaEmpresa() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [password, setPassword] = useState("");
   const [planId, setPlanId] = useState<string>("");
-  const [trialDays, setTrialDays] = useState<number>(3);
+  const [trialDays, setTrialDays] = useState<number>(7);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ email: string; password: string | null } | null>(null);
 
