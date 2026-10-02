@@ -1,5 +1,7 @@
 import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
 import { brand } from "@/config/brand";
+import { useEffect, useState } from "react";
+import { fetchAtendaiPeriodos, trialDaysOf, type AtendaiPeriodo } from "@/lib/atendai-plan";
 import {
   Sparkles, LayoutDashboard, Inbox, KanbanSquare, Bot, Zap, LogIn,
   Contact, BarChart3, Smartphone, Users, Settings, Megaphone, Plug, Wallet, CalendarDays,
@@ -57,7 +59,9 @@ const mobileDef: { to: string; label: TKey; icon: any }[] = [
 function DemoLayout() {
   const loc = useLocation();
   const locale = usePublicLocale();
-  const t = (k: TKey) => translate(locale, k);
+  const [periodos, setPeriodos] = useState<AtendaiPeriodo[]>([]);
+  useEffect(() => { fetchAtendaiPeriodos().then(setPeriodos).catch(() => {}); }, []);
+  const t = (k: TKey) => translate(locale, k, { dias: trialDaysOf(periodos) });
   const sections = sectionsDef.map((sec) => ({ label: t(sec.label), items: sec.items.map((i) => ({ ...i, label: t(i.label) })) }));
   const mobileItems: MobileNavItem[] = mobileDef.map((i) => ({ ...i, label: i.label === "demo.crmKanban" ? "CRM" : t(i.label) }));
   return (

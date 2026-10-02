@@ -9,7 +9,7 @@ const fmt = (s: string, n: string | number) => s.replace("{n}", String(n));
 import { brand, supportWhatsappUrl } from "@/config/brand";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { fetchAtendaiPeriodos, formatBRL, periodoResumo, DEFAULT_PERIODO_SLUG, type AtendaiPeriodo } from "@/lib/atendai-plan";
+import { fetchAtendaiPeriodos, formatBRL, periodoResumo, DEFAULT_PERIODO_SLUG, fillDays, trialDaysOf, type AtendaiPeriodo } from "@/lib/atendai-plan";
 import {
   Zap,
   Play,
@@ -32,6 +32,9 @@ import {
 
 export function LandingPage({ locale }: { locale: Locale }) {
   useEffect(() => { setPublicLocale(locale); document.documentElement.lang = locale; }, [locale]);
+  const [periodosLp, setPeriodosLp] = useState<AtendaiPeriodo[]>([]);
+  useEffect(() => { fetchAtendaiPeriodos().then(setPeriodosLp).catch(() => {}); }, []);
+  const copy = fillDays(LANDING[locale], trialDaysOf(periodosLp));
   async function cta(path: "/entrar" | "/demo/dashboard" | "#planos", plano: string = "atendai-semestral") {
     if (path === "#planos") {
       const el = document.getElementById("planos");
@@ -76,7 +79,7 @@ export function LandingPage({ locale }: { locale: Locale }) {
         />
       </div>
 
-      <LCtx.Provider value={{ c: LANDING[locale], locale }}>
+      <LCtx.Provider value={{ c: copy, locale }}>
       <div className="relative z-10">
         <Header onCta={cta} isDark={isDark} onToggleTheme={toggle} />
         <Hero onCta={cta} />

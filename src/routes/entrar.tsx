@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate, Link, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { fetchAtendaiPeriodos, formatBRL, periodoResumo, type AtendaiPeriodo } from "@/lib/atendai-plan";
+import { fetchAtendaiPeriodos, formatBRL, periodoResumo, trialDaysOf, type AtendaiPeriodo } from "@/lib/atendai-plan";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,7 @@ function genStrongPassword() {
 function EntrarPage() {
   const navigate = useNavigate();
   const [locale] = useState(getPublicLocale);
-  const t = (k: TKey) => translate(locale, k);
+  const t = (k: TKey) => translate(locale, k, { dias: trialDaysOf(periodos, search.plano) });
   const emailSchema = z.string().email(t("auth.emailInvalido"));
   const search = useSearch({ from: "/entrar" }) as Search;
   const [email, setEmail] = useState("");
@@ -63,7 +63,7 @@ function EntrarPage() {
   const [loading, setLoading] = useState(false);
 
   const [periodos, setPeriodos] = useState<AtendaiPeriodo[]>([]);
-  useEffect(() => { if (search.plano) fetchAtendaiPeriodos().then(setPeriodos).catch(() => {}); }, [search.plano]);
+  useEffect(() => { fetchAtendaiPeriodos().then(setPeriodos).catch(() => {}); }, []);
   const pSel = periodos.find((p) => p.slug === search.plano);
   const planInfo = search.plano ? (pSel ? { nome: `${t("auth.plano")} — ${pSel.nome}`, preco: `${formatBRL(pSel.preco_cents)} · ${periodoResumo(pSel)}` } : { nome: t("auth.plano"), preco: t("auth.trialSemCartao") }) : null;
 
