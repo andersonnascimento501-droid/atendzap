@@ -99,6 +99,13 @@
       "when": 1790811927347,
       "tag": "0013_i18n_user_company_language",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790980075111,
+      "tag": "0014_trial_7_days",
+      "breakpoints": true
     }
   ]
 }
