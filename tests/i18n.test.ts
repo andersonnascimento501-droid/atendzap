@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { translate } from "../src/i18n";
+import { fillDays } from "../src/lib/atendai-plan";
 import { readFileSync } from "node:fs";
 import { resolveLocale, seedName, normalizeLocale } from "../src/i18n/resolve";
 import { ptBR } from "../src/i18n/pt-BR";
@@ -80,7 +82,13 @@ describe("i18n — etapa 2 (páginas públicas)", () => {
     const pt = LANDING["pt-BR"], es = LANDING["es-ES"];
     expect(Object.keys(es).sort()).toEqual(Object.keys(pt).sort());
     for (const k of ["steps", "features", "faq", "testimonials", "bubbles", "stats"] as const) expect(es[k].length).toBe(pt[k].length);
-    expect(es.ctaTrial).toBe("Empezar 3 días gratis");
+    expect(fillDays(es, 7).ctaTrial).toBe("Empezar 7 días gratis");
+    expect(fillDays(pt, 7).ctaTrial).toBe("Começar 7 dias grátis");
+    expect(fillDays(pt, 7).noCard).toBe("7 dias grátis, sem cartão.");
+    expect(fillDays(es, 1).ctaTrial).toBe("Empezar 1 día gratis");
+    expect(translate("pt-BR", "trial.ativo" as any, { dias: 1 })).toContain("termina em 1 dia.");
+    expect(translate("es-ES", "trial.ativo" as any, { dias: 7 })).toContain("termina en 7 días.");
+    expect(JSON.stringify(pt) + JSON.stringify(es)).not.toMatch(/cancel[ea] antes/);
   });
   test("entrar/senha/demo têm tradução", () => {
     for (const k of Object.keys(ptBR).filter((k) => /^(auth|senha|demo)\./.test(k))) expect((esES as any)[k]).toBeTruthy();
