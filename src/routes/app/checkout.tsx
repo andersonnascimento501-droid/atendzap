@@ -13,7 +13,7 @@ import {
 import { createCheckoutCompany } from "@/lib/checkout.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { trialDaysLeft } from "@/lib/tenant";
-import { fetchAtendaiPeriodos, formatBRL, periodoResumo, type AtendaiPeriodo } from "@/lib/atendai-plan";
+import { fetchAtendaiPeriodos, formatBRL, periodoResumo, DEFAULT_TRIAL_DAYS, type AtendaiPeriodo } from "@/lib/atendai-plan";
 
 type Search = { plano?: string };
 
@@ -177,7 +177,7 @@ function CheckoutPage() {
     : "Comece grátis em segundos";
   const headerSubtitle = paywallMode
     ? "Seus dados ficam aqui esperando. Assim que o pagamento for confirmado, seu acesso é liberado automaticamente."
-    : "Todas as funcionalidades estão incluídas. O que muda é somente o período contratado. ${plano?.trial_days ?? plans[0]?.trial_days ?? DEFAULT_TRIAL_DAYS} dias grátis, sem cartão. Nada é cobrado durante o teste.";
+    : `Todas as funcionalidades estão incluídas. O que muda é somente o período contratado. ${plano?.trial_days ?? plans[0]?.trial_days ?? DEFAULT_TRIAL_DAYS} dias grátis, sem cartão. Nada é cobrado durante o teste.`;
 
   return (
     <div className="min-h-screen bg-background">
