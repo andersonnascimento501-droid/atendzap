@@ -27,6 +27,16 @@ import {
   Sparkles,
   Sun,
   Moon,
+  Instagram,
+  MessageCircle,
+  Inbox,
+  CalendarCheck,
+  Building2,
+  HeartPulse,
+  Store,
+  Home,
+  Dumbbell,
+  BriefcaseBusiness,
 } from "lucide-react";
 
 
@@ -86,9 +96,12 @@ export function LandingPage({ locale }: { locale: Locale }) {
         <Stats />
         <Pain />
         <HowItWorks />
+        <Channels />
         <Features />
+        <OperationalFlow />
+        <DemoInvite onCta={cta} />
         <Pricing onCta={cta} />
-        <Testimonials />
+        <UseCases />
         <Faq />
         <FinalCta onCta={cta} />
         <Footer />
@@ -409,7 +422,7 @@ function PhoneMock() {
               A
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate">AtendAi • IA</div>
+              <div className="text-sm font-semibold truncate">{c.phoneInbox}</div>
               <div className="text-[10px] text-[#25D366] flex items-center gap-1.5">
                 <span className="size-1.5 rounded-full bg-[#25D366]" /> {c.phoneOnline}
               </div>
@@ -417,7 +430,11 @@ function PhoneMock() {
           </div>
           {/* messages */}
           <div className="flex-1 px-3 py-4 space-y-3 overflow-hidden">
-            {c.bubbles.map((b, i) => <Bubble key={i} side={i % 2 ? "right" : "left"} delay={`${i * 0.4}s`}>{b}</Bubble>)}
+            {c.bubbles.map((b, i) => (
+              <Bubble key={i} side={i % 2 ? "right" : "left"} delay={`${i * 0.4}s`} channel={c.bubbleChannels[i]}>
+                {b}
+              </Bubble>
+            ))}
             <div className="flex items-center gap-2 text-[10px] text-white/50 pl-2 reveal" style={{ animationDelay: "1.6s" }}>
               <Sparkles className="size-3 text-[#25D366]" />
               {c.repliedIn}
@@ -463,7 +480,7 @@ function PhoneMock() {
   );
 }
 
-function Bubble({ children, side, delay }: { children: React.ReactNode; side: "left" | "right"; delay: string }) {
+function Bubble({ children, side, delay, channel }: { children: React.ReactNode; side: "left" | "right"; delay: string; channel?: string }) {
   const isRight = side === "right";
   return (
     <div
@@ -479,7 +496,12 @@ function Bubble({ children, side, delay }: { children: React.ReactNode; side: "l
             : { background: "var(--lp-bubble-left-bg)", border: "1px solid var(--lp-bubble-left-bd)", color: "var(--lp-bubble-left-fg)" }
         }
       >
-
+        {channel && (
+          <span className="mb-1 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider opacity-70">
+            {channel === "WhatsApp" ? <MessageCircle className="size-2.5" /> : <Instagram className="size-2.5" />}
+            {channel}
+          </span>
+        )}
         {children}
       </div>
     </div>
@@ -495,8 +517,8 @@ function Stats() {
       <div className="mx-auto max-w-6xl glass rounded-3xl grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/10 reveal" data-reveal>
         {items.map((it) => (
           <div key={it.l} className="px-6 py-8 text-center">
-            <div className="font-display text-4xl md:text-5xl text-grad">{it.n}</div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-white/55 mt-2 font-semibold">{it.l}</div>
+            <div className="font-display text-xl md:text-2xl text-grad">{it.n}</div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-white/55 mt-2 font-semibold">{it.l}</div>
           </div>
         ))}
       </div>
@@ -546,26 +568,101 @@ function HowItWorks() {
   );
 }
 
+/* ===================== CHANNELS ===================== */
+function Channels() {
+  const { c } = useL();
+  const channels = [
+    { title: c.whatsappTitle, items: c.whatsappItems, icon: <MessageCircle className="size-6" />, tone: "brand" },
+    { title: c.instagramTitle, items: c.instagramItems, icon: <Instagram className="size-6" />, tone: "instagram" },
+  ];
+  return (
+    <section className="px-5 md:px-8 py-24 md:py-28">
+      <div className="mx-auto max-w-6xl">
+        <SectionTitle eyebrow={c.channelsEyebrow} title={<>{c.channelsA}<span className="text-grad">{c.channelsHl}</span>.</>} />
+        <p className="mx-auto mt-4 max-w-2xl text-center text-[15px] text-white/55">{c.channelsP}</p>
+        <div className="mt-12 grid gap-5 md:grid-cols-2">
+          {channels.map((channel) => (
+            <article key={channel.title} className="glass-strong rounded-2xl p-7 md:p-8 reveal" data-reveal>
+              <div className="flex items-center gap-3">
+                <div className={`grid size-12 place-items-center rounded-xl ${channel.tone === "brand" ? "channel-brand" : "channel-instagram"}`}>{channel.icon}</div>
+                <h3 className="font-display text-2xl">{channel.title}</h3>
+              </div>
+              <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+                {channel.items.map((item) => <li key={item} className="flex gap-2.5 text-sm text-white/70"><Check className="mt-0.5 size-4 shrink-0 text-[#25D366]" />{item}</li>)}
+              </ul>
+            </article>
+          ))}
+        </div>
+        <p className="mt-4 text-center text-xs text-white/45">{c.instagramNote}</p>
+      </div>
+    </section>
+  );
+}
+
 /* ===================== FEATURES ===================== */
 function Features() {
   const { c } = useL();
-  const icons = [<Bot className="size-5" />, <Sparkles className="size-5" />, <LineChart className="size-5" />, <PauseCircle className="size-5" />, <KanbanSquare className="size-5" />, <MessageSquareText className="size-5" />];
-  const items = c.features.map(([t, d], i) => ({ t, d, icon: icons[i] }));
+  const icons = [<Bot className="size-5" />, <KanbanSquare className="size-5" />, <CalendarCheck className="size-5" />];
   return (
     <section id="recursos" className="px-5 md:px-8 py-24 md:py-28">
       <div className="mx-auto max-w-6xl">
         <SectionTitle eyebrow={c.featEyebrow} title={<>{c.featA}<span className="text-grad">{c.featHl}</span>.</>} />
-        <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {items.map((it) => (
-            <div key={it.t} className="glass border-sheen rounded-2xl p-6 hover:-translate-y-1 transition-transform reveal" data-reveal>
+        <div className="mt-12 grid lg:grid-cols-3 gap-5">
+          {c.features.map(([title, ...items], index) => (
+            <div key={title} className="glass border-sheen rounded-2xl p-6 reveal" data-reveal>
               <div className="size-11 rounded-xl grid place-items-center" style={{ background: "rgba(37,211,102,0.15)", color: "#25D366" }}>
-                {it.icon}
+                {icons[index]}
               </div>
-              <h3 className="font-display text-lg mt-4">{it.t}</h3>
-              <p className="text-white/65 text-sm mt-2 leading-relaxed">{it.d}</p>
+              <h3 className="font-display text-xl mt-4">{title}</h3>
+              <ul className="mt-4 space-y-3">
+                {items.map((item) => <li key={item} className="flex gap-2.5 text-sm text-white/65"><Check className="mt-0.5 size-4 shrink-0 text-[#25D366]" />{item}</li>)}
+              </ul>
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/* ===================== OPERATIONAL FLOW ===================== */
+function OperationalFlow() {
+  const { c } = useL();
+  const icons = [<Inbox className="size-5" />, <Bot className="size-5" />, <Users className="size-5" />, <KanbanSquare className="size-5" />, <CalendarCheck className="size-5" />];
+  return (
+    <section className="px-5 md:px-8 py-20 md:py-24">
+      <div className="mx-auto max-w-6xl rounded-3xl glass-strong p-7 md:p-10 reveal" data-reveal>
+        <div className="text-center">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-[#25D366] font-bold">{c.flowEyebrow}</div>
+          <h2 className="font-display mt-3 text-3xl md:text-5xl">{c.flowTitle}</h2>
+        </div>
+        <ol className="mt-9 grid gap-3 md:grid-cols-5">
+          {c.flowSteps.map((step, index) => (
+            <li key={step} className="relative flex md:flex-col items-center gap-3 rounded-xl bg-white/5 px-4 py-4 text-sm font-semibold text-white/80">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg text-[#25D366] bg-white/5">{icons[index]}</span>
+              <span className="md:text-center">{step}</span>
+              {index < c.flowSteps.length - 1 && <ArrowRight className="absolute -right-5 top-1/2 z-10 hidden size-4 -translate-y-1/2 text-[#25D366] md:block" />}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function DemoInvite({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#planos", plano?: string) => void }) {
+  const { c } = useL();
+  return (
+    <section className="px-5 md:px-8 py-20 md:py-24">
+      <div className="mx-auto max-w-6xl grid gap-7 md:grid-cols-[1fr_auto] md:items-end reveal" data-reveal>
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.24em] text-[#25D366] font-bold">{c.demoEyebrow}</div>
+          <h2 className="font-display mt-3 max-w-3xl text-4xl md:text-6xl leading-[1.02]">{c.demoTitle}</h2>
+          <p className="mt-4 max-w-2xl text-white/60">{c.demoP}</p>
+        </div>
+        <button onClick={() => onCta("/demo/dashboard")} className="inline-flex items-center justify-center gap-2 rounded-2xl glass-strong px-6 py-4 font-semibold text-white/90">
+          <Play className="size-4" /> {c.demoCta}
+        </button>
       </div>
     </section>
   );
@@ -648,24 +745,19 @@ function Pricing({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plano
   );
 }
 
-/* ===================== TESTIMONIALS ===================== */
-function Testimonials() {
+/* ===================== USE CASES ===================== */
+function UseCases() {
   const { c } = useL();
-  const items = c.testimonials.map(([n, t]) => ({ n, t }));
+  const icons = [HeartPulse, Sparkles, Store, BriefcaseBusiness, Home, Dumbbell, Users];
   return (
     <section className="px-5 md:px-8 py-24 md:py-28">
       <div className="mx-auto max-w-6xl">
-        <SectionTitle eyebrow={c.testEyebrow} title={<>{c.testA}<span className="text-grad">{c.testHl}</span>.</>} />
-        <div className="mt-12 grid md:grid-cols-3 gap-5">
-          {items.map((it) => (
-            <div key={it.n} className="glass border-sheen rounded-2xl p-6 reveal" data-reveal>
-              <div className="flex gap-1 text-[#facc15]">
-                {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="size-4 fill-current" />)}
-              </div>
-              <p className="text-white/85 mt-4 leading-relaxed text-[15px]">"{it.t}"</p>
-              <div className="mt-5 text-sm text-white/55">{it.n}</div>
-            </div>
-          ))}
+        <SectionTitle eyebrow={c.useEyebrow} title={<>{c.useA}<span className="text-grad">{c.useHl}</span>.</>} />
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
+          {c.segments.map((segment, index) => {
+            const Icon = icons[index] ?? Building2;
+            return <div key={segment} className="glass flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold text-white/75 reveal" data-reveal><Icon className="size-4 text-[#25D366]" />{segment}</div>;
+          })}
         </div>
       </div>
     </section>
@@ -735,6 +827,7 @@ function FinalCta({ onCta }: { onCta: (p: "/entrar" | "/demo/dashboard" | "#plan
               <Play className="size-4" /> {c.ctaDemo}
             </button>
           </div>
+          <p className="mt-4 text-sm text-white/55">{c.finalSupport}</p>
         </div>
       </div>
     </section>
