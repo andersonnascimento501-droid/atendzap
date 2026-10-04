@@ -15,9 +15,13 @@ export const Route = createFileRoute("/es")({
       { property: "og:description", content: c.ogDesc },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "es_ES" },
+      { property: "og:url", content: "https://app.atendai.tech/es" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
-    links: [{ rel: "alternate", hrefLang: "pt-BR", href: "/" }],
+    links: [
+      { rel: "canonical", href: "https://app.atendai.tech/es" },
+      { rel: "alternate", hrefLang: "pt-BR", href: "https://app.atendai.tech/" },
+    ],
   }),
   component: () => <LandingPage locale="es-ES" />,
 });
