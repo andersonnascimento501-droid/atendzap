@@ -54,8 +54,6 @@ function genStrongPassword() {
 function EntrarPage() {
   const navigate = useNavigate();
   const [locale] = useState(getPublicLocale);
-  const t = (k: TKey) => translate(locale, k, { dias: trialDaysOf(periodos, search.plano) });
-  const emailSchema = z.string().email(t("auth.emailInvalido"));
   const search = useSearch({ from: "/entrar" }) as Search;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -64,6 +62,8 @@ function EntrarPage() {
 
   const [periodos, setPeriodos] = useState<AtendaiPeriodo[]>([]);
   useEffect(() => { fetchAtendaiPeriodos().then(setPeriodos).catch(() => {}); }, []);
+  const t = (k: TKey) => translate(locale, k, { dias: trialDaysOf(periodos, search.plano) });
+  const emailSchema = z.string().email(t("auth.emailInvalido"));
   const pSel = periodos.find((p) => p.slug === search.plano);
   const planInfo = search.plano ? (pSel ? { nome: `${t("auth.plano")} — ${pSel.nome}`, preco: `${formatBRL(pSel.preco_cents)} · ${periodoResumo(pSel)}` } : { nome: t("auth.plano"), preco: t("auth.trialSemCartao") }) : null;
 
