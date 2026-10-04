@@ -18,9 +18,6 @@ import {
   Bot,
   KanbanSquare,
   Users,
-  PauseCircle,
-  LineChart,
-  Star,
   ArrowRight,
   Plus,
   Minus,
@@ -221,6 +218,8 @@ export function LandingPage({ locale }: { locale: Locale }) {
         .lp-root.is-dark .lp-glow-a { opacity: .40; }
         .lp-root.is-dark .lp-glow-b { opacity: .25; }
         .lp-root.is-dark .lp-glow-c { opacity: .30; }
+        .channel-brand { background: rgba(37,211,102,.14); color: #25D366; }
+        .channel-instagram { background: rgba(225,48,108,.10); color: #E1306C; }
 
         /* clickable safety — make sure CTA buttons aren't blocked by glow overlays */
         .lp-root button, .lp-root a { position: relative; z-index: 1; cursor: pointer; }
