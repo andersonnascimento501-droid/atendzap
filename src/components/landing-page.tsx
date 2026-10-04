@@ -296,7 +296,7 @@ function Header({
           <span className="grid h-10 w-10 md:h-11 md:w-11 place-items-center rounded-2xl btn-glow" style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}>
             <Zap className="size-5 text-black" strokeWidth={2.6} />
           </span>
-          <span className="font-brand text-[1.5rem] md:text-[1.7rem] leading-none">
+          <span className="font-brand text-[1.3rem] sm:text-[1.5rem] md:text-[1.7rem] leading-none">
             Atend<span className="text-grad">AI</span>
           </span>
         </a>
@@ -329,7 +329,7 @@ function Header({
           </button>
           <button
             onClick={() => onCta("#planos")}
-            className="text-[15px] font-bold px-5 py-3 rounded-xl text-black btn-glow"
+            className="text-[14px] sm:text-[15px] font-bold px-3.5 sm:px-5 py-3 rounded-xl text-black btn-glow"
             style={{ background: "linear-gradient(135deg,#25D366,#16a34a)" }}
           >
             {c.verPlanos}
