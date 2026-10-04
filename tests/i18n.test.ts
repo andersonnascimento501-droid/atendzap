@@ -81,7 +81,9 @@ describe("i18n — etapa 2 (páginas públicas)", () => {
     const { LANDING } = await import("../src/i18n/landing");
     const pt = LANDING["pt-BR"], es = LANDING["es-ES"];
     expect(Object.keys(es).sort()).toEqual(Object.keys(pt).sort());
-    for (const k of ["steps", "features", "faq", "testimonials", "bubbles", "stats"] as const) expect(es[k].length).toBe(pt[k].length);
+    for (const k of ["steps", "features", "faq", "segments", "bubbles", "bubbleChannels", "stats", "flowSteps"] as const) expect(es[k].length).toBe(pt[k].length);
+    expect(pt.bubbles).toHaveLength(4);
+    expect(pt.bubbleChannels).toEqual(["WhatsApp", "", "Instagram Direct", ""]);
     expect(fillDays(es, 7).ctaTrial).toBe("Empezar 7 días gratis");
     expect(fillDays(pt, 7).ctaTrial).toBe("Começar 7 dias grátis");
     expect(fillDays(pt, 7).noCard).toBe("7 dias grátis, sem cartão.");
